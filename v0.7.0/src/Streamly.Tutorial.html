@@ -1,0 +1,1743 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# OPTIONS_GHC -fno-warn-unused-imports #-}</span><span>
+</span><a name="line-2"></a><span class="hs-comment">-- |</span><span>
+</span><a name="line-3"></a><span class="hs-comment">-- Module      : Streamly.Tutorial</span><span>
+</span><a name="line-4"></a><span class="hs-comment">-- Copyright   : (c) 2017 Harendra Kumar</span><span>
+</span><a name="line-5"></a><span class="hs-comment">--</span><span>
+</span><a name="line-6"></a><span class="hs-comment">-- License     : BSD3</span><span>
+</span><a name="line-7"></a><span class="hs-comment">-- Maintainer  : streamly@composewell.com</span><span>
+</span><a name="line-8"></a><span class="hs-comment">--</span><span>
+</span><a name="line-9"></a><span class="hs-comment">-- Streamly is a general computing framework based on concurrent data flow</span><span>
+</span><a name="line-10"></a><span class="hs-comment">-- programming. The IO monad and pure lists are a special case of streamly. On</span><span>
+</span><a name="line-11"></a><span class="hs-comment">-- one hand, streamly extends the lists of pure values to lists of monadic</span><span>
+</span><a name="line-12"></a><span class="hs-comment">-- actions, on the other hand it extends the IO monad with concurrent</span><span>
+</span><a name="line-13"></a><span class="hs-comment">-- non-determinism. In simple imperative terms we can say that streamly extends</span><span>
+</span><a name="line-14"></a><span class="hs-comment">-- the IO monad with @for@ loops and nested @for@ loops with concurrency</span><span>
+</span><a name="line-15"></a><span class="hs-comment">-- support. Hopefully, this analogy becomes clearer once you go through this</span><span>
+</span><a name="line-16"></a><span class="hs-comment">-- tutorial.</span><span>
+</span><a name="line-17"></a><span class="hs-comment">--</span><span>
+</span><a name="line-18"></a><span class="hs-comment">-- Streaming in general enables writing modular, composable and scalable</span><span>
+</span><a name="line-19"></a><span class="hs-comment">-- applications with ease, and concurrency allows you to make them scale and</span><span>
+</span><a name="line-20"></a><span class="hs-comment">-- perform well.  Streamly enables writing scalable concurrent applications</span><span>
+</span><a name="line-21"></a><span class="hs-comment">-- without being aware of threads or synchronization. No explicit thread</span><span>
+</span><a name="line-22"></a><span class="hs-comment">-- control is needed. Where applicable, concurrency rate is automatically</span><span>
+</span><a name="line-23"></a><span class="hs-comment">-- controlled based on the demand by the consumer. However, combinators can be</span><span>
+</span><a name="line-24"></a><span class="hs-comment">-- used to fine tune the concurrency control.</span><span>
+</span><a name="line-25"></a><span class="hs-comment">--</span><span>
+</span><a name="line-26"></a><span class="hs-comment">-- Streaming and concurrency together enable expressing reactive applications</span><span>
+</span><a name="line-27"></a><span class="hs-comment">-- conveniently. See the @CirclingSquare@ example in the examples directory for</span><span>
+</span><a name="line-28"></a><span class="hs-comment">-- a simple SDL based FRP example. To summarize, streamly provides a unified</span><span>
+</span><a name="line-29"></a><span class="hs-comment">-- computing framework for streaming, non-determinism and functional reactive</span><span>
+</span><a name="line-30"></a><span class="hs-comment">-- programming in an elegant and simple API that is a natural extension of pure</span><span>
+</span><a name="line-31"></a><span class="hs-comment">-- lists to monadic streams.</span><span>
+</span><a name="line-32"></a><span class="hs-comment">--</span><span>
+</span><a name="line-33"></a><span class="hs-comment">-- In this tutorial we will go over the basic concepts and how to use the</span><span>
+</span><a name="line-34"></a><span class="hs-comment">-- library.  Before you go through this tutorial we recommend that you take a</span><span>
+</span><a name="line-35"></a><span class="hs-comment">-- look at:</span><span>
+</span><a name="line-36"></a><span class="hs-comment">--</span><span>
+</span><a name="line-37"></a><span class="hs-comment">--  * The quick overview in the package &lt;README.md README file&gt;.</span><span>
+</span><a name="line-38"></a><span class="hs-comment">--  * The overview of streams and folds in the &quot;Streamly&quot; module.</span><span>
+</span><a name="line-39"></a><span class="hs-comment">--</span><span>
+</span><a name="line-40"></a><span class="hs-comment">-- Once you finish this tutorial, see the last section for further reading</span><span>
+</span><a name="line-41"></a><span class="hs-comment">-- resources.</span><span>
+</span><a name="line-42"></a><span>
+</span><a name="line-43"></a><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Streamly.Tutorial</span><span>
+</span><a name="line-44"></a><span>    </span><span class="hs-special">(</span><span>
+</span><a name="line-45"></a><span>    </span><span class="hs-comment">-- * Stream Types</span><span>
+</span><a name="line-46"></a><span>    </span><span class="hs-comment">-- $streams</span><span>
+</span><a name="line-47"></a><span>
+</span><a name="line-48"></a><span>    </span><span class="hs-comment">-- * Concurrent Streams</span><span>
+</span><a name="line-49"></a><span>    </span><span class="hs-comment">-- $concurrentStreams</span><span>
+</span><a name="line-50"></a><span>
+</span><a name="line-51"></a><span>    </span><span class="hs-comment">-- * Combining Streams</span><span>
+</span><a name="line-52"></a><span>    </span><span class="hs-comment">-- $flavors</span><span>
+</span><a name="line-53"></a><span>
+</span><a name="line-54"></a><span>    </span><span class="hs-comment">-- * Imports and Supporting Code</span><span>
+</span><a name="line-55"></a><span>    </span><span class="hs-comment">-- $imports</span><span>
+</span><a name="line-56"></a><span>
+</span><a name="line-57"></a><span>    </span><span class="hs-comment">-- * Generating Streams</span><span>
+</span><a name="line-58"></a><span>    </span><span class="hs-comment">-- $generating</span><span>
+</span><a name="line-59"></a><span>
+</span><a name="line-60"></a><span>    </span><span class="hs-comment">-- * Generating Streams Concurrently</span><span>
+</span><a name="line-61"></a><span>    </span><span class="hs-comment">-- $generatingConcurrently</span><span>
+</span><a name="line-62"></a><span>
+</span><a name="line-63"></a><span>    </span><span class="hs-comment">-- * Eliminating Streams</span><span>
+</span><a name="line-64"></a><span>    </span><span class="hs-comment">-- $eliminating</span><span>
+</span><a name="line-65"></a><span>
+</span><a name="line-66"></a><span>    </span><span class="hs-comment">-- * Concurrent Pipeline Stages</span><span>
+</span><a name="line-67"></a><span>    </span><span class="hs-comment">-- $concurrentApplication</span><span>
+</span><a name="line-68"></a><span>
+</span><a name="line-69"></a><span>    </span><span class="hs-comment">-- * Transforming Streams</span><span>
+</span><a name="line-70"></a><span>    </span><span class="hs-comment">-- $transformation</span><span>
+</span><a name="line-71"></a><span>
+</span><a name="line-72"></a><span>    </span><span class="hs-comment">-- * Mapping Concurrently</span><span>
+</span><a name="line-73"></a><span>    </span><span class="hs-comment">-- $concurrentTransformation</span><span>
+</span><a name="line-74"></a><span>
+</span><a name="line-75"></a><span>    </span><span class="hs-comment">-- * Merging Streams</span><span>
+</span><a name="line-76"></a><span>
+</span><a name="line-77"></a><span>    </span><span class="hs-comment">-- ** Semigroup Style</span><span>
+</span><a name="line-78"></a><span>    </span><span class="hs-comment">-- $semigroup</span><span>
+</span><a name="line-79"></a><span>
+</span><a name="line-80"></a><span>    </span><span class="hs-comment">-- *** Deep Serial Composition ('Serial')</span><span>
+</span><a name="line-81"></a><span>    </span><span class="hs-comment">-- $serial</span><span>
+</span><a name="line-82"></a><span>
+</span><a name="line-83"></a><span>    </span><span class="hs-comment">-- *** Wide Serial Composition ('WSerial')</span><span>
+</span><a name="line-84"></a><span>    </span><span class="hs-comment">-- $interleaved</span><span>
+</span><a name="line-85"></a><span>
+</span><a name="line-86"></a><span>    </span><span class="hs-comment">-- *** Deep Speculative Composition ('Ahead')</span><span>
+</span><a name="line-87"></a><span>    </span><span class="hs-comment">-- $ahead</span><span>
+</span><a name="line-88"></a><span>
+</span><a name="line-89"></a><span>    </span><span class="hs-comment">-- *** Deep Asynchronous Composition ('Async')</span><span>
+</span><a name="line-90"></a><span>    </span><span class="hs-comment">-- $async</span><span>
+</span><a name="line-91"></a><span>
+</span><a name="line-92"></a><span>    </span><span class="hs-comment">-- *** Wide Asynchronous Composition ('WAsync')</span><span>
+</span><a name="line-93"></a><span>    </span><span class="hs-comment">-- $wasync</span><span>
+</span><a name="line-94"></a><span>
+</span><a name="line-95"></a><span>    </span><span class="hs-comment">-- *** Parallel Asynchronous Composition ('Parallel')</span><span>
+</span><a name="line-96"></a><span>    </span><span class="hs-comment">-- $parallel</span><span>
+</span><a name="line-97"></a><span>
+</span><a name="line-98"></a><span>    </span><span class="hs-comment">-- XXX we should deprecate and remove the mkAsync API</span><span>
+</span><a name="line-99"></a><span>    </span><span class="hs-comment">-- Custom composition</span><span>
+</span><a name="line-100"></a><span>    </span><span class="hs-comment">-- custom</span><span>
+</span><a name="line-101"></a><span>
+</span><a name="line-102"></a><span>    </span><span class="hs-comment">-- ** Monoid Style</span><span>
+</span><a name="line-103"></a><span>    </span><span class="hs-comment">-- $monoid</span><span>
+</span><a name="line-104"></a><span>
+</span><a name="line-105"></a><span>    </span><span class="hs-comment">-- * Nesting Streams</span><span>
+</span><a name="line-106"></a><span>    </span><span class="hs-comment">-- $nesting</span><span>
+</span><a name="line-107"></a><span>
+</span><a name="line-108"></a><span>    </span><span class="hs-comment">-- ** Monad</span><span>
+</span><a name="line-109"></a><span>    </span><span class="hs-comment">-- $monad</span><span>
+</span><a name="line-110"></a><span>
+</span><a name="line-111"></a><span>    </span><span class="hs-comment">-- *** Deep Serial Nesting ('Serial')</span><span>
+</span><a name="line-112"></a><span>    </span><span class="hs-comment">-- $regularSerial</span><span>
+</span><a name="line-113"></a><span>
+</span><a name="line-114"></a><span>    </span><span class="hs-comment">-- *** Wide Serial Nesting ('WSerial')</span><span>
+</span><a name="line-115"></a><span>    </span><span class="hs-comment">-- $interleavedNesting</span><span>
+</span><a name="line-116"></a><span>
+</span><a name="line-117"></a><span>    </span><span class="hs-comment">-- *** Deep Speculative Nesting ('Ahead')</span><span>
+</span><a name="line-118"></a><span>    </span><span class="hs-comment">-- $aheadNesting</span><span>
+</span><a name="line-119"></a><span>
+</span><a name="line-120"></a><span>    </span><span class="hs-comment">-- *** Deep Asynchronous Nesting ('Async')</span><span>
+</span><a name="line-121"></a><span>    </span><span class="hs-comment">-- $concurrentNesting</span><span>
+</span><a name="line-122"></a><span>
+</span><a name="line-123"></a><span>    </span><span class="hs-comment">-- *** Wide Asynchronous Nesting ('WAsync')</span><span>
+</span><a name="line-124"></a><span>    </span><span class="hs-comment">-- $wasyncNesting</span><span>
+</span><a name="line-125"></a><span>
+</span><a name="line-126"></a><span>    </span><span class="hs-comment">-- *** Parallel Asynchronous Nesting ('Parallel')</span><span>
+</span><a name="line-127"></a><span>    </span><span class="hs-comment">-- $parallelNesting</span><span>
+</span><a name="line-128"></a><span>
+</span><a name="line-129"></a><span>    </span><span class="hs-comment">-- *** Exercise</span><span>
+</span><a name="line-130"></a><span>    </span><span class="hs-comment">-- $monadExercise</span><span>
+</span><a name="line-131"></a><span>
+</span><a name="line-132"></a><span>    </span><span class="hs-comment">-- ** Applicative</span><span>
+</span><a name="line-133"></a><span>    </span><span class="hs-comment">-- $applicative</span><span>
+</span><a name="line-134"></a><span>
+</span><a name="line-135"></a><span>    </span><span class="hs-comment">-- ** Functor</span><span>
+</span><a name="line-136"></a><span>    </span><span class="hs-comment">-- $functor</span><span>
+</span><a name="line-137"></a><span>
+</span><a name="line-138"></a><span>    </span><span class="hs-comment">-- * Zipping Streams</span><span>
+</span><a name="line-139"></a><span>    </span><span class="hs-comment">-- $zipping</span><span>
+</span><a name="line-140"></a><span>
+</span><a name="line-141"></a><span>    </span><span class="hs-comment">-- ** Serial Zipping</span><span>
+</span><a name="line-142"></a><span>    </span><span class="hs-comment">-- $serialzip</span><span>
+</span><a name="line-143"></a><span>
+</span><a name="line-144"></a><span>    </span><span class="hs-comment">-- ** Parallel Zipping</span><span>
+</span><a name="line-145"></a><span>    </span><span class="hs-comment">-- $parallelzip</span><span>
+</span><a name="line-146"></a><span>
+</span><a name="line-147"></a><span>    </span><span class="hs-comment">-- * Monad transformers</span><span>
+</span><a name="line-148"></a><span>    </span><span class="hs-comment">-- $monadtransformers</span><span>
+</span><a name="line-149"></a><span>
+</span><a name="line-150"></a><span>    </span><span class="hs-comment">-- * Concurrent Programming</span><span>
+</span><a name="line-151"></a><span>    </span><span class="hs-comment">-- $concurrent</span><span>
+</span><a name="line-152"></a><span>
+</span><a name="line-153"></a><span>    </span><span class="hs-comment">-- * Reactive Programming</span><span>
+</span><a name="line-154"></a><span>    </span><span class="hs-comment">-- $reactive</span><span>
+</span><a name="line-155"></a><span>
+</span><a name="line-156"></a><span>    </span><span class="hs-comment">-- * Writing Concurrent Programs</span><span>
+</span><a name="line-157"></a><span>    </span><span class="hs-comment">-- $programs</span><span>
+</span><a name="line-158"></a><span>
+</span><a name="line-159"></a><span>    </span><span class="hs-comment">-- * Performance</span><span>
+</span><a name="line-160"></a><span>    </span><span class="hs-comment">-- $performance</span><span>
+</span><a name="line-161"></a><span>
+</span><a name="line-162"></a><span>    </span><span class="hs-comment">-- * Interoperation with Streaming Libraries</span><span>
+</span><a name="line-163"></a><span>    </span><span class="hs-comment">-- $interop</span><span>
+</span><a name="line-164"></a><span>
+</span><a name="line-165"></a><span>    </span><span class="hs-comment">-- * Comparison with Existing Packages</span><span>
+</span><a name="line-166"></a><span>    </span><span class="hs-comment">-- $comparison</span><span>
+</span><a name="line-167"></a><span>
+</span><a name="line-168"></a><span>    </span><span class="hs-comment">-- * Where to go next?</span><span>
+</span><a name="line-169"></a><span>    </span><span class="hs-comment">-- $furtherReading</span><span>
+</span><a name="line-170"></a><span>    </span><span class="hs-special">)</span><span>
+</span><a name="line-171"></a><span class="hs-keyword">where</span><span>
+</span><a name="line-172"></a><span>
+</span><a name="line-173"></a><span class="hs-keyword">import</span><span> </span><a href="Streamly.html"><span class="hs-identifier">Streamly</span></a><span> </span><span class="hs-keyword">hiding</span><span> </span><span class="hs-special">(</span><a href="Streamly.Streams.Prelude.html#foldWith"><span class="hs-identifier hs-var">foldWith</span></a><span class="hs-special">,</span><span> </span><a href="Streamly.Streams.Prelude.html#foldMapWith"><span class="hs-identifier hs-var">foldMapWith</span></a><span class="hs-special">,</span><span> </span><a href="Streamly.Streams.Prelude.html#forEachWith"><span class="hs-identifier hs-var">forEachWith</span></a><span class="hs-special">)</span><span>
+</span><a name="line-174"></a><span class="hs-keyword">import</span><span> </span><a href="Streamly.Prelude.html"><span class="hs-identifier">Streamly.Prelude</span></a><span>
+</span><a name="line-175"></a><span class="hs-keyword">import</span><span> </span><span class="hs-identifier">Data.Semigroup</span><span>
+</span><a name="line-176"></a><span class="hs-keyword">import</span><span> </span><span class="hs-identifier">Control.Applicative</span><span>
+</span><a name="line-177"></a><span class="hs-keyword">import</span><span> </span><span class="hs-identifier">Control.Monad</span><span>
+</span><a name="line-178"></a><span class="hs-keyword">import</span><span> </span><span class="hs-identifier">Control.Monad.IO.Class</span><span>      </span><span class="hs-special">(</span><span class="hs-identifier hs-type">MonadIO</span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><a name="line-179"></a><span class="hs-keyword">import</span><span> </span><span class="hs-identifier">Control.Monad.Trans.Class</span><span>   </span><span class="hs-special">(</span><span class="hs-identifier hs-type">MonadTrans</span><span> </span><span class="hs-special">(</span><span class="hs-identifier hs-var">lift</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><a name="line-180"></a><span>
+</span><a name="line-181"></a><span class="hs-comment">-- $streams</span><span>
+</span><a name="line-182"></a><span class="hs-comment">--</span><span>
+</span><a name="line-183"></a><span class="hs-comment">-- The monadic stream API offered by Streamly is very close to the Haskell</span><span>
+</span><a name="line-184"></a><span class="hs-comment">-- &quot;Prelude&quot; pure lists' API, it can be considered as a natural extension of</span><span>
+</span><a name="line-185"></a><span class="hs-comment">-- lists to monadic actions. Streamly streams provide concurrent composition</span><span>
+</span><a name="line-186"></a><span class="hs-comment">-- and merging of streams. It can be considered as a concurrent list</span><span>
+</span><a name="line-187"></a><span class="hs-comment">-- transformer.</span><span>
+</span><a name="line-188"></a><span class="hs-comment">--</span><span>
+</span><a name="line-189"></a><span class="hs-comment">-- The basic stream type is 'Serial', it represents a sequence of IO actions,</span><span>
+</span><a name="line-190"></a><span class="hs-comment">-- and is a 'Monad'.  The 'Serial' monad is almost a drop in replacement for</span><span>
+</span><a name="line-191"></a><span class="hs-comment">-- the 'IO' monad, IO monad is a special case of the 'Serial' monad; IO monad</span><span>
+</span><a name="line-192"></a><span class="hs-comment">-- represents a single IO action whereas the 'Serial' monad represents a series</span><span>
+</span><a name="line-193"></a><span class="hs-comment">-- of IO actions.  The only change you need to make to go from 'IO' to 'Serial'</span><span>
+</span><a name="line-194"></a><span class="hs-comment">-- is to use 'drain' to run the monad and to prefix the IO actions with</span><span>
+</span><a name="line-195"></a><span class="hs-comment">-- either 'yieldM' or 'liftIO'.  If you use liftIO you can switch from 'Serial'</span><span>
+</span><a name="line-196"></a><span class="hs-comment">-- to IO monad by simply removing the 'drain' function; no other changes</span><span>
+</span><a name="line-197"></a><span class="hs-comment">-- are needed unless you have used some stream specific composition or</span><span>
+</span><a name="line-198"></a><span class="hs-comment">-- combinators.</span><span>
+</span><a name="line-199"></a><span class="hs-comment">--</span><span>
+</span><a name="line-200"></a><span class="hs-comment">-- Similarly, the 'Serial' type is almost a drop in replacement for pure lists,</span><span>
+</span><a name="line-201"></a><span class="hs-comment">-- pure lists are a special case of monadic streams. If you use 'nil' in place</span><span>
+</span><a name="line-202"></a><span class="hs-comment">-- of '[]' and '|:' in place ':' you can replace a list with a 'Serial' stream.</span><span>
+</span><a name="line-203"></a><span class="hs-comment">-- The only difference is that the elements must be monadic type and to operate</span><span>
+</span><a name="line-204"></a><span class="hs-comment">-- on the streams we must use the corresponding functions from</span><span>
+</span><a name="line-205"></a><span class="hs-comment">-- &quot;Streamly.Prelude&quot; instead of using the base &quot;Prelude&quot;.</span><span>
+</span><a name="line-206"></a><span>
+</span><a name="line-207"></a><span class="hs-comment">-- $concurrentStreams</span><span>
+</span><a name="line-208"></a><span class="hs-comment">--</span><span>
+</span><a name="line-209"></a><span class="hs-comment">-- Many stream operations can be done concurrently:</span><span>
+</span><a name="line-210"></a><span class="hs-comment">--</span><span>
+</span><a name="line-211"></a><span class="hs-comment">-- * Streams can be generated concurrently.</span><span>
+</span><a name="line-212"></a><span class="hs-comment">--</span><span>
+</span><a name="line-213"></a><span class="hs-comment">-- * Streams can be merged concurrently.</span><span>
+</span><a name="line-214"></a><span class="hs-comment">--</span><span>
+</span><a name="line-215"></a><span class="hs-comment">-- * Multiple stages in a streaming pipeline can run concurrently.</span><span>
+</span><a name="line-216"></a><span class="hs-comment">--</span><span>
+</span><a name="line-217"></a><span class="hs-comment">-- * Streams can be mapped and zipped concurrently.</span><span>
+</span><a name="line-218"></a><span class="hs-comment">--</span><span>
+</span><a name="line-219"></a><span class="hs-comment">-- * In monadic composition they combine like a list transformer,</span><span>
+</span><a name="line-220"></a><span class="hs-comment">--   providing concurrent non-determinism.</span><span>
+</span><a name="line-221"></a><span class="hs-comment">--</span><span>
+</span><a name="line-222"></a><span class="hs-comment">-- There are three basic concurrent stream styles, 'Ahead', 'Async', and</span><span>
+</span><a name="line-223"></a><span class="hs-comment">-- 'Parallel'. The 'Ahead' style streams are similar to 'Serial' except that</span><span>
+</span><a name="line-224"></a><span class="hs-comment">-- they can speculatively execute multiple stream actions concurrently in</span><span>
+</span><a name="line-225"></a><span class="hs-comment">-- advance. 'Ahead' would return exactly the same stream as 'Serial' except</span><span>
+</span><a name="line-226"></a><span class="hs-comment">-- that it may execute the actions concurrently. The 'Async' style streams,</span><span>
+</span><a name="line-227"></a><span class="hs-comment">-- like 'Ahead', speculatively execute multiple stream actions in advance but</span><span>
+</span><a name="line-228"></a><span class="hs-comment">-- return the results in their finishing order rather than in the stream</span><span>
+</span><a name="line-229"></a><span class="hs-comment">-- traversal order.  'Parallel' is like 'Async' except that it provides</span><span>
+</span><a name="line-230"></a><span class="hs-comment">-- unbounded parallelism instead of controlled parallelism.</span><span>
+</span><a name="line-231"></a><span class="hs-comment">--</span><span>
+</span><a name="line-232"></a><span class="hs-comment">-- For easy reference, we can classify the stream types based on /execution order/,</span><span>
+</span><a name="line-233"></a><span class="hs-comment">-- /consumption order/, and /bounded or unbounded/ concurrency.</span><span>
+</span><a name="line-234"></a><span class="hs-comment">-- Execution could be serial (i.e. synchronous) or asynchronous. In serial</span><span>
+</span><a name="line-235"></a><span class="hs-comment">-- execution we execute the next action in the stream only after the previous</span><span>
+</span><a name="line-236"></a><span class="hs-comment">-- one has finished executing. In asynchronous execution multiple actions in</span><span>
+</span><a name="line-237"></a><span class="hs-comment">-- the stream can be executed asynchronously i.e. the next action can start</span><span>
+</span><a name="line-238"></a><span class="hs-comment">-- executing even before the first one has finished. Consumption order</span><span>
+</span><a name="line-239"></a><span class="hs-comment">-- determines the order in which the outputs generated by the composition are</span><span>
+</span><a name="line-240"></a><span class="hs-comment">-- consumed.  Consumption could be serial or asynchronous. In serial</span><span>
+</span><a name="line-241"></a><span class="hs-comment">-- consumption, the outputs are consumed in the traversal order, in</span><span>
+</span><a name="line-242"></a><span class="hs-comment">-- asynchronous consumption the outputs are consumed as they arrive i.e. first</span><span>
+</span><a name="line-243"></a><span class="hs-comment">-- come first serve order.</span><span>
+</span><a name="line-244"></a><span class="hs-comment">--</span><span>
+</span><a name="line-245"></a><span class="hs-comment">-- +------------+--------------+--------------+--------------+</span><span>
+</span><a name="line-246"></a><span class="hs-comment">-- | Type       | Execution    | Consumption  | Concurrency  |</span><span>
+</span><a name="line-247"></a><span class="hs-comment">-- +============+==============+==============+==============+</span><span>
+</span><a name="line-248"></a><span class="hs-comment">-- | 'Serial'   | Serial       | Serial       | None         |</span><span>
+</span><a name="line-249"></a><span class="hs-comment">-- +------------+--------------+--------------+--------------+</span><span>
+</span><a name="line-250"></a><span class="hs-comment">-- | 'Ahead'    | Asynchronous | Serial       | bounded      |</span><span>
+</span><a name="line-251"></a><span class="hs-comment">-- +------------+--------------+--------------+--------------+</span><span>
+</span><a name="line-252"></a><span class="hs-comment">-- | 'Async'    | Asynchronous | Asynchronous | bounded      |</span><span>
+</span><a name="line-253"></a><span class="hs-comment">-- +------------+--------------+--------------+--------------+</span><span>
+</span><a name="line-254"></a><span class="hs-comment">-- | 'Parallel' | Asynchronous | Asynchronous | unbounded    |</span><span>
+</span><a name="line-255"></a><span class="hs-comment">-- +------------+--------------+--------------+--------------+</span><span>
+</span><a name="line-256"></a><span class="hs-comment">--</span><span>
+</span><a name="line-257"></a><span class="hs-comment">-- All these types can be freely inter-converted using type conversion</span><span>
+</span><a name="line-258"></a><span class="hs-comment">-- combinators or type annotations, without any cost, to achieve the desired</span><span>
+</span><a name="line-259"></a><span class="hs-comment">-- composition style.  To force a particular type of composition, we coerce the</span><span>
+</span><a name="line-260"></a><span class="hs-comment">-- stream type using the corresponding type adapting combinator from</span><span>
+</span><a name="line-261"></a><span class="hs-comment">-- 'serially', 'aheadly', 'asyncly', or 'parallely'.  The default stream type</span><span>
+</span><a name="line-262"></a><span class="hs-comment">-- is inferred as 'Serial' unless you change it by using one of the combinators</span><span>
+</span><a name="line-263"></a><span class="hs-comment">-- or by using a type annotation.</span><span>
+</span><a name="line-264"></a><span>
+</span><a name="line-265"></a><span class="hs-comment">-- $flavors</span><span>
+</span><a name="line-266"></a><span class="hs-comment">--</span><span>
+</span><a name="line-267"></a><span class="hs-comment">-- Streams can be combined using '&lt;&gt;' or 'mappend' to form a</span><span>
+</span><a name="line-268"></a><span class="hs-comment">-- composite. Composite streams can be interpreted in a depth first or</span><span>
+</span><a name="line-269"></a><span class="hs-comment">-- breadth first manner using an appropriate type conversion before</span><span>
+</span><a name="line-270"></a><span class="hs-comment">-- consumption. Deep (e.g. 'Serial') stream type variants traverse a</span><span>
+</span><a name="line-271"></a><span class="hs-comment">-- composite stream in a depth first manner, such that each stream is</span><span>
+</span><a name="line-272"></a><span class="hs-comment">-- traversed fully before traversing the next stream. Wide</span><span>
+</span><a name="line-273"></a><span class="hs-comment">-- (e.g. 'WSerial') stream types traverse it in a breadth first</span><span>
+</span><a name="line-274"></a><span class="hs-comment">-- manner, such that one element from each stream is traversed before</span><span>
+</span><a name="line-275"></a><span class="hs-comment">-- coming back to the first stream again.</span><span>
+</span><a name="line-276"></a><span class="hs-comment">--</span><span>
+</span><a name="line-277"></a><span class="hs-comment">-- Each stream type has a wide traversal variant prefixed by 'W'. The wide</span><span>
+</span><a name="line-278"></a><span class="hs-comment">-- variant differs only in the Semigroup\/Monoid, Applicative\/Monad</span><span>
+</span><a name="line-279"></a><span class="hs-comment">-- compositions of the streams.</span><span>
+</span><a name="line-280"></a><span class="hs-comment">-- The following table summarizes the basic types and the corresponding wide</span><span>
+</span><a name="line-281"></a><span class="hs-comment">-- variants:</span><span>
+</span><a name="line-282"></a><span class="hs-comment">--</span><span>
+</span><a name="line-283"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-284"></a><span class="hs-comment">-- +------------+-----------+</span><span>
+</span><a name="line-285"></a><span class="hs-comment">-- | Deep       | Wide      |</span><span>
+</span><a name="line-286"></a><span class="hs-comment">-- +============+===========+</span><span>
+</span><a name="line-287"></a><span class="hs-comment">-- | 'Serial'     | 'WSerial'   |</span><span>
+</span><a name="line-288"></a><span class="hs-comment">-- +------------+-----------+</span><span>
+</span><a name="line-289"></a><span class="hs-comment">-- | 'Ahead'      | 'WAhead'    |</span><span>
+</span><a name="line-290"></a><span class="hs-comment">-- +------------+-----------+</span><span>
+</span><a name="line-291"></a><span class="hs-comment">-- | 'Async'      | 'WAsync'    |</span><span>
+</span><a name="line-292"></a><span class="hs-comment">-- +------------+-----------+</span><span>
+</span><a name="line-293"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-294"></a><span class="hs-comment">--</span><span>
+</span><a name="line-295"></a><span class="hs-comment">-- Other than these types there are also 'ZipSerial' and 'ZipAsync' types that</span><span>
+</span><a name="line-296"></a><span class="hs-comment">-- zip streams serially or concurrently using 'Applicative' operation. These</span><span>
+</span><a name="line-297"></a><span class="hs-comment">-- types are not monads they are only applicatives and they do not differ in</span><span>
+</span><a name="line-298"></a><span class="hs-comment">-- 'Semigroup' composition.</span><span>
+</span><a name="line-299"></a><span class="hs-comment">--</span><span>
+</span><a name="line-300"></a><span>
+</span><a name="line-301"></a><span class="hs-comment">-- $programs</span><span>
+</span><a name="line-302"></a><span class="hs-comment">--</span><span>
+</span><a name="line-303"></a><span class="hs-comment">-- When writing concurrent programs it is advised to not use the concurrent</span><span>
+</span><a name="line-304"></a><span class="hs-comment">-- style stream combinators blindly at the top level. That might create too</span><span>
+</span><a name="line-305"></a><span class="hs-comment">-- much concurrency where it is not even required, and can even degrade</span><span>
+</span><a name="line-306"></a><span class="hs-comment">-- performance in some cases. In some cases it can also lead to surprising</span><span>
+</span><a name="line-307"></a><span class="hs-comment">-- behavior because of some code that is supposed to be serial becoming</span><span>
+</span><a name="line-308"></a><span class="hs-comment">-- concurrent. Please be aware that all concurrency capable APIs that you may</span><span>
+</span><a name="line-309"></a><span class="hs-comment">-- have used under the scope of a concurrent stream combinator will become</span><span>
+</span><a name="line-310"></a><span class="hs-comment">-- concurrent. For example if you have a 'repeatM' somewhere in your program</span><span>
+</span><a name="line-311"></a><span class="hs-comment">-- and you use 'parallely' on top, the 'repeatM' becomes fully parallel,</span><span>
+</span><a name="line-312"></a><span class="hs-comment">-- resulting into an infinite parallel execution . Instead, use the</span><span>
+</span><a name="line-313"></a><span class="hs-comment">-- /Keep It Serial and Stupid/ principle, start with the default serial</span><span>
+</span><a name="line-314"></a><span class="hs-comment">-- composition and enable concurrent combinators only when and where necessary.</span><span>
+</span><a name="line-315"></a><span class="hs-comment">-- When you use a concurrent combinator you can use an explicit 'serially'</span><span>
+</span><a name="line-316"></a><span class="hs-comment">-- combinator to suppress any unnecessary concurrency under the scope of that</span><span>
+</span><a name="line-317"></a><span class="hs-comment">-- combinator.</span><span>
+</span><a name="line-318"></a><span>
+</span><a name="line-319"></a><span class="hs-comment">-- $monadtransformers</span><span>
+</span><a name="line-320"></a><span class="hs-comment">--</span><span>
+</span><a name="line-321"></a><span class="hs-comment">-- To represent streams in an arbitrary monad use the more general monad</span><span>
+</span><a name="line-322"></a><span class="hs-comment">-- transformer types for example the monad transformer type corresponding to</span><span>
+</span><a name="line-323"></a><span class="hs-comment">-- the 'Serial' type is 'SerialT'.  @SerialT m a@ represents a stream of values</span><span>
+</span><a name="line-324"></a><span class="hs-comment">-- of type 'a' in some underlying monad 'm'. For example, @SerialT IO Int@ is a</span><span>
+</span><a name="line-325"></a><span class="hs-comment">-- stream of 'Int' in 'IO' monad.  In fact, the type 'Serial' is a synonym for</span><span>
+</span><a name="line-326"></a><span class="hs-comment">-- @SerialT IO@.</span><span>
+</span><a name="line-327"></a><span class="hs-comment">--</span><span>
+</span><a name="line-328"></a><span class="hs-comment">-- Similarly we have monad transformer types for other stream types as well viz.</span><span>
+</span><a name="line-329"></a><span class="hs-comment">-- 'WSerialT', 'AsyncT', 'WAsyncT' and 'ParallelT'.</span><span>
+</span><a name="line-330"></a><span class="hs-comment">--</span><span>
+</span><a name="line-331"></a><span class="hs-comment">-- To lift a value from an underlying monad in a monad transformer stack into a</span><span>
+</span><a name="line-332"></a><span class="hs-comment">-- singleton stream use 'lift' and to lift from an IO action use 'liftIO'.</span><span>
+</span><a name="line-333"></a><span class="hs-comment">--</span><span>
+</span><a name="line-334"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-335"></a><span class="hs-comment">-- &gt; S.'drain' $ liftIO $ putStrLn &quot;Hello world!&quot;</span><span>
+</span><a name="line-336"></a><span class="hs-comment">-- Hello world!</span><span>
+</span><a name="line-337"></a><span class="hs-comment">-- &gt; S.'drain' $ lift $ putStrLn &quot;Hello world!&quot;</span><span>
+</span><a name="line-338"></a><span class="hs-comment">-- Hello world!</span><span>
+</span><a name="line-339"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-340"></a><span class="hs-comment">--</span><span>
+</span><a name="line-341"></a><span>
+</span><a name="line-342"></a><span class="hs-comment">-- $generating</span><span>
+</span><a name="line-343"></a><span class="hs-comment">--</span><span>
+</span><a name="line-344"></a><span class="hs-comment">-- We will assume the following imports in this tutorial. Go ahead, fire up a</span><span>
+</span><a name="line-345"></a><span class="hs-comment">-- GHCi session and import these lines to start playing.</span><span>
+</span><a name="line-346"></a><span class="hs-comment">--</span><span>
+</span><a name="line-347"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-348"></a><span class="hs-comment">-- &gt; import &quot;Streamly&quot;</span><span>
+</span><a name="line-349"></a><span class="hs-comment">-- &gt; import &quot;Streamly.Prelude&quot; ((|:))</span><span>
+</span><a name="line-350"></a><span class="hs-comment">-- &gt; import qualified &quot;Streamly.Prelude&quot; as S</span><span>
+</span><a name="line-351"></a><span class="hs-comment">--</span><span>
+</span><a name="line-352"></a><span class="hs-comment">-- &gt; import Control.Concurrent</span><span>
+</span><a name="line-353"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-354"></a><span class="hs-comment">--</span><span>
+</span><a name="line-355"></a><span class="hs-comment">-- 'nil' represents an empty stream and 'consM' or its operator form '|:' adds</span><span>
+</span><a name="line-356"></a><span class="hs-comment">-- a monadic action at the head of the stream.</span><span>
+</span><a name="line-357"></a><span class="hs-comment">--</span><span>
+</span><a name="line-358"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-359"></a><span class="hs-comment">-- &gt; S.'toList' S.'nil'</span><span>
+</span><a name="line-360"></a><span class="hs-comment">-- []</span><span>
+</span><a name="line-361"></a><span class="hs-comment">-- &gt; S.'toList' $ 'getLine' |: 'getLine' |: S.'nil'</span><span>
+</span><a name="line-362"></a><span class="hs-comment">-- hello</span><span>
+</span><a name="line-363"></a><span class="hs-comment">-- world</span><span>
+</span><a name="line-364"></a><span class="hs-comment">-- [&quot;hello&quot;,&quot;world&quot;]</span><span>
+</span><a name="line-365"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-366"></a><span class="hs-comment">--</span><span>
+</span><a name="line-367"></a><span class="hs-comment">-- To create a singleton stream from a pure value use 'yield' or 'pure' and to</span><span>
+</span><a name="line-368"></a><span class="hs-comment">-- create a singleton stream from a monadic action use 'yieldM'. Note that in</span><span>
+</span><a name="line-369"></a><span class="hs-comment">-- case of Zip applicative streams &quot;pure&quot; repeats the value to generate an</span><span>
+</span><a name="line-370"></a><span class="hs-comment">-- infinite stream.</span><span>
+</span><a name="line-371"></a><span class="hs-comment">--</span><span>
+</span><a name="line-372"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-373"></a><span class="hs-comment">-- &gt; S.'toList' $ 'pure' 1</span><span>
+</span><a name="line-374"></a><span class="hs-comment">-- [1]</span><span>
+</span><a name="line-375"></a><span class="hs-comment">-- &gt; S.'toList' $ S.'yield' 1</span><span>
+</span><a name="line-376"></a><span class="hs-comment">-- [1]</span><span>
+</span><a name="line-377"></a><span class="hs-comment">-- &gt; S.'toList' $ S.'yieldM' 'getLine'</span><span>
+</span><a name="line-378"></a><span class="hs-comment">-- hello</span><span>
+</span><a name="line-379"></a><span class="hs-comment">-- [&quot;hello&quot;]</span><span>
+</span><a name="line-380"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-381"></a><span class="hs-comment">--</span><span>
+</span><a name="line-382"></a><span class="hs-comment">-- To create a stream from pure values in a 'Foldable' container use</span><span>
+</span><a name="line-383"></a><span class="hs-comment">-- 'fromFoldable' which is equivalent to a fold using 'cons' and 'nil':</span><span>
+</span><a name="line-384"></a><span class="hs-comment">--</span><span>
+</span><a name="line-385"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-386"></a><span class="hs-comment">-- &gt; S.'toList' $ S.'fromFoldable' [1..3]</span><span>
+</span><a name="line-387"></a><span class="hs-comment">-- [1,2,3]</span><span>
+</span><a name="line-388"></a><span class="hs-comment">-- &gt; S.'toList' $ 'Prelude.foldr' S.'cons' S.'nil' [1..3]</span><span>
+</span><a name="line-389"></a><span class="hs-comment">-- [1,2,3]</span><span>
+</span><a name="line-390"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-391"></a><span class="hs-comment">--</span><span>
+</span><a name="line-392"></a><span class="hs-comment">-- To create a stream from monadic actions in a 'Foldable' container just use a</span><span>
+</span><a name="line-393"></a><span class="hs-comment">-- right fold using 'consM' and 'nil':</span><span>
+</span><a name="line-394"></a><span class="hs-comment">--</span><span>
+</span><a name="line-395"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-396"></a><span class="hs-comment">-- &gt; S.'drain' $ 'Prelude.foldr' ('|:') S.'nil' ['putStr' &quot;Hello &quot;, 'putStrLn' &quot;world!&quot;]</span><span>
+</span><a name="line-397"></a><span class="hs-comment">-- Hello world!</span><span>
+</span><a name="line-398"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-399"></a><span class="hs-comment">--</span><span>
+</span><a name="line-400"></a><span class="hs-comment">-- For more ways to construct a stream see the module &quot;Streamly.Prelude&quot;.</span><span>
+</span><a name="line-401"></a><span>
+</span><a name="line-402"></a><span class="hs-comment">-- $generatingConcurrently</span><span>
+</span><a name="line-403"></a><span class="hs-comment">--</span><span>
+</span><a name="line-404"></a><span class="hs-comment">-- Monadic construction and generation functions like 'consM', 'unfoldrM',</span><span>
+</span><a name="line-405"></a><span class="hs-comment">-- 'replicateM', 'repeatM', 'iterateM' and 'fromFoldableM' work concurrently</span><span>
+</span><a name="line-406"></a><span class="hs-comment">-- when used with appropriate stream type combinator. The pure versions of</span><span>
+</span><a name="line-407"></a><span class="hs-comment">-- these APIs are not concurrent, however you can use the monadic versions even</span><span>
+</span><a name="line-408"></a><span class="hs-comment">-- for pure computations by wrapping the pure value in a monad to get the</span><span>
+</span><a name="line-409"></a><span class="hs-comment">-- concurrent generation capability where required.</span><span>
+</span><a name="line-410"></a><span class="hs-comment">--</span><span>
+</span><a name="line-411"></a><span class="hs-comment">-- The following code finishes in 3 seconds (6 seconds when serial):</span><span>
+</span><a name="line-412"></a><span class="hs-comment">--</span><span>
+</span><a name="line-413"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-414"></a><span class="hs-comment">-- &gt; let p n = threadDelay (n * 1000000) &gt;&gt; return n</span><span>
+</span><a name="line-415"></a><span class="hs-comment">-- &gt; S.'toList' $ 'parallely' $ p 3 |: p 2 |: p 1 |: S.'nil'</span><span>
+</span><a name="line-416"></a><span class="hs-comment">-- [1,2,3]</span><span>
+</span><a name="line-417"></a><span class="hs-comment">-- &gt; S.'toList' $ 'aheadly' $ p 3 |: p 2 |: p 1 |: S.'nil'</span><span>
+</span><a name="line-418"></a><span class="hs-comment">-- [3,2,1]</span><span>
+</span><a name="line-419"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-420"></a><span class="hs-comment">-- The following finishes in 10 seconds (100 seconds when serial):</span><span>
+</span><a name="line-421"></a><span class="hs-comment">--</span><span>
+</span><a name="line-422"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-423"></a><span class="hs-comment">-- &gt; S.drain $ 'asyncly' $ S.'replicateM' 10 $ p 10</span><span>
+</span><a name="line-424"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-425"></a><span class="hs-comment">--</span><span>
+</span><a name="line-426"></a><span>
+</span><a name="line-427"></a><span class="hs-comment">-- $eliminating</span><span>
+</span><a name="line-428"></a><span class="hs-comment">--</span><span>
+</span><a name="line-429"></a><span class="hs-comment">-- We have already seen 'drain' and 'toList' to eliminate a stream in the</span><span>
+</span><a name="line-430"></a><span class="hs-comment">-- examples above.  'drain' runs a stream discarding the results i.e. only</span><span>
+</span><a name="line-431"></a><span class="hs-comment">-- for effects.  'toList' runs the stream and collects the results in a list.</span><span>
+</span><a name="line-432"></a><span class="hs-comment">--</span><span>
+</span><a name="line-433"></a><span class="hs-comment">-- For other ways to eliminate a stream see the @Folding@ section in</span><span>
+</span><a name="line-434"></a><span class="hs-comment">-- &quot;Streamly.Prelude&quot; module.</span><span>
+</span><a name="line-435"></a><span>
+</span><a name="line-436"></a><span class="hs-comment">-- $transformation</span><span>
+</span><a name="line-437"></a><span class="hs-comment">--</span><span>
+</span><a name="line-438"></a><span class="hs-comment">-- Transformation over a stream is the equivalent of a @for@ loop construct in</span><span>
+</span><a name="line-439"></a><span class="hs-comment">-- imperative paradigm. We iterate over every element in the stream and perform</span><span>
+</span><a name="line-440"></a><span class="hs-comment">-- certain transformations for each element.  Transformations may involve</span><span>
+</span><a name="line-441"></a><span class="hs-comment">-- mapping functions over the elements, filtering elements from the stream or</span><span>
+</span><a name="line-442"></a><span class="hs-comment">-- folding all the elements in the stream into a single value. Streamly streams</span><span>
+</span><a name="line-443"></a><span class="hs-comment">-- are exactly like lists and you can perform all the transformations in the</span><span>
+</span><a name="line-444"></a><span class="hs-comment">-- same way as you would on lists.</span><span>
+</span><a name="line-445"></a><span class="hs-comment">--</span><span>
+</span><a name="line-446"></a><span class="hs-comment">-- Here is a simple console echo program that just echoes every input line,</span><span>
+</span><a name="line-447"></a><span class="hs-comment">-- forever:</span><span>
+</span><a name="line-448"></a><span class="hs-comment">--</span><span>
+</span><a name="line-449"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-450"></a><span class="hs-comment">-- &gt; import Data.Function ((&amp;))</span><span>
+</span><a name="line-451"></a><span class="hs-comment">-- &gt; S.'drain' $ S.'repeatM' getLine &amp; S.'mapM' putStrLn</span><span>
+</span><a name="line-452"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-453"></a><span class="hs-comment">--</span><span>
+</span><a name="line-454"></a><span class="hs-comment">-- The following code snippet reads lines from standard input, filters blank</span><span>
+</span><a name="line-455"></a><span class="hs-comment">-- lines, drops the first non-blank line, takes the next two, up cases them,</span><span>
+</span><a name="line-456"></a><span class="hs-comment">-- numbers them and prints them:</span><span>
+</span><a name="line-457"></a><span class="hs-comment">--</span><span>
+</span><a name="line-458"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-459"></a><span class="hs-comment">-- import &quot;Streamly&quot;</span><span>
+</span><a name="line-460"></a><span class="hs-comment">-- import qualified &quot;Streamly.Prelude&quot; as S</span><span>
+</span><a name="line-461"></a><span class="hs-comment">-- import Data.Char (toUpper)</span><span>
+</span><a name="line-462"></a><span class="hs-comment">-- import Data.Function ((&amp;))</span><span>
+</span><a name="line-463"></a><span class="hs-comment">--</span><span>
+</span><a name="line-464"></a><span class="hs-comment">-- main = S.'drain' $</span><span>
+</span><a name="line-465"></a><span class="hs-comment">--        S.'repeatM' getLine</span><span>
+</span><a name="line-466"></a><span class="hs-comment">--      &amp; S.'filter' (not . null)</span><span>
+</span><a name="line-467"></a><span class="hs-comment">--      &amp; S.'drop' 1</span><span>
+</span><a name="line-468"></a><span class="hs-comment">--      &amp; S.'take' 2</span><span>
+</span><a name="line-469"></a><span class="hs-comment">--      &amp; fmap (map toUpper)</span><span>
+</span><a name="line-470"></a><span class="hs-comment">--      &amp; S.'zipWith' (\\n s -&gt; show n ++ &quot; &quot; ++ s) (S.'fromFoldable' [1..])</span><span>
+</span><a name="line-471"></a><span class="hs-comment">--      &amp; S.'mapM' putStrLn</span><span>
+</span><a name="line-472"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-473"></a><span>
+</span><a name="line-474"></a><span class="hs-comment">-- $concurrentTransformation</span><span>
+</span><a name="line-475"></a><span class="hs-comment">--</span><span>
+</span><a name="line-476"></a><span class="hs-comment">-- Monadic transformation functions 'mapM' and 'sequence' work concurrently</span><span>
+</span><a name="line-477"></a><span class="hs-comment">-- when used with appropriate stream type combinators. The pure versions do not</span><span>
+</span><a name="line-478"></a><span class="hs-comment">-- work concurrently, however you can use the monadic versions even for pure</span><span>
+</span><a name="line-479"></a><span class="hs-comment">-- computations to get the concurrent transformation capability where required.</span><span>
+</span><a name="line-480"></a><span class="hs-comment">--</span><span>
+</span><a name="line-481"></a><span class="hs-comment">-- This would print a value every second (2 seconds when serial):</span><span>
+</span><a name="line-482"></a><span class="hs-comment">--</span><span>
+</span><a name="line-483"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-484"></a><span class="hs-comment">-- &gt; let p n = threadDelay (n * 1000000) &gt;&gt; return n</span><span>
+</span><a name="line-485"></a><span class="hs-comment">-- &gt; S.'drain' $ S.aheadly $ S.'mapM' (\\x -&gt; p 1 &gt;&gt; print x) (serially $ S.repeatM (p 1))</span><span>
+</span><a name="line-486"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-487"></a><span class="hs-comment">--</span><span>
+</span><a name="line-488"></a><span>
+</span><a name="line-489"></a><span class="hs-comment">-- $concurrentApplication</span><span>
+</span><a name="line-490"></a><span class="hs-comment">--</span><span>
+</span><a name="line-491"></a><span class="hs-comment">-- The concurrent function application operators '|$' and '|&amp;' apply a stream</span><span>
+</span><a name="line-492"></a><span class="hs-comment">-- argument to a stream function concurrently to compose a concurrent pipeline</span><span>
+</span><a name="line-493"></a><span class="hs-comment">-- of stream processing functions:</span><span>
+</span><a name="line-494"></a><span class="hs-comment">--</span><span>
+</span><a name="line-495"></a><span class="hs-comment">-- Because both the stages run concurrently, we would see a delay of only 1</span><span>
+</span><a name="line-496"></a><span class="hs-comment">-- second instead of 2 seconds in the following:</span><span>
+</span><a name="line-497"></a><span class="hs-comment">--</span><span>
+</span><a name="line-498"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-499"></a><span class="hs-comment">-- &gt; let p n = threadDelay (n * 1000000) &gt;&gt; return n</span><span>
+</span><a name="line-500"></a><span class="hs-comment">-- &gt; S.'drain' $ S.'repeatM' (p 1) '|&amp;' S.'mapM' (\\x -&gt; p 1 &gt;&gt; print x)</span><span>
+</span><a name="line-501"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-502"></a><span>
+</span><a name="line-503"></a><span class="hs-comment">-- $semigroup</span><span>
+</span><a name="line-504"></a><span class="hs-comment">--</span><span>
+</span><a name="line-505"></a><span class="hs-comment">-- We can combine two streams into a single stream using semigroup composition</span><span>
+</span><a name="line-506"></a><span class="hs-comment">-- operation '&lt;&gt;'.  Streams can be combined in many different ways as described</span><span>
+</span><a name="line-507"></a><span class="hs-comment">-- in the following sections, the '&lt;&gt;' operation behaves differently depending</span><span>
+</span><a name="line-508"></a><span class="hs-comment">-- on the stream type in effect. The stream type and therefore the composition</span><span>
+</span><a name="line-509"></a><span class="hs-comment">-- style can be changed at any point using one of the type combinators as</span><span>
+</span><a name="line-510"></a><span class="hs-comment">-- discussed earlier.</span><span>
+</span><a name="line-511"></a><span>
+</span><a name="line-512"></a><span class="hs-comment">-- $imports</span><span>
+</span><a name="line-513"></a><span class="hs-comment">--</span><span>
+</span><a name="line-514"></a><span class="hs-comment">-- In most of example snippets we do not repeat the imports. Where imports are</span><span>
+</span><a name="line-515"></a><span class="hs-comment">-- not explicitly specified use the imports shown below.</span><span>
+</span><a name="line-516"></a><span class="hs-comment">--</span><span>
+</span><a name="line-517"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-518"></a><span class="hs-comment">-- import &quot;Streamly&quot;</span><span>
+</span><a name="line-519"></a><span class="hs-comment">-- import &quot;Streamly.Prelude&quot; ((|:), nil)</span><span>
+</span><a name="line-520"></a><span class="hs-comment">-- import qualified &quot;Streamly.Prelude&quot; as S</span><span>
+</span><a name="line-521"></a><span class="hs-comment">--</span><span>
+</span><a name="line-522"></a><span class="hs-comment">-- import Control.Concurrent</span><span>
+</span><a name="line-523"></a><span class="hs-comment">-- import Control.Monad (forever)</span><span>
+</span><a name="line-524"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-525"></a><span class="hs-comment">--</span><span>
+</span><a name="line-526"></a><span class="hs-comment">-- To illustrate concurrent vs serial composition aspects, we will use the</span><span>
+</span><a name="line-527"></a><span class="hs-comment">-- following @delay@ function to introduce a sleep or delay specified in</span><span>
+</span><a name="line-528"></a><span class="hs-comment">-- seconds. After the delay it prints the number of seconds it slept.</span><span>
+</span><a name="line-529"></a><span class="hs-comment">--</span><span>
+</span><a name="line-530"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-531"></a><span class="hs-comment">-- delay n = S.'yieldM' $ do</span><span>
+</span><a name="line-532"></a><span class="hs-comment">--  threadDelay (n * 1000000)</span><span>
+</span><a name="line-533"></a><span class="hs-comment">--  tid \&lt;- myThreadId</span><span>
+</span><a name="line-534"></a><span class="hs-comment">--  putStrLn (show tid ++ &quot;: Delay &quot; ++ show n)</span><span>
+</span><a name="line-535"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-536"></a><span>
+</span><a name="line-537"></a><span class="hs-comment">-- $serial</span><span>
+</span><a name="line-538"></a><span class="hs-comment">--</span><span>
+</span><a name="line-539"></a><span class="hs-comment">-- The 'Semigroup' operation '&lt;&gt;' of the 'Serial' type combines the two streams</span><span>
+</span><a name="line-540"></a><span class="hs-comment">-- in a /serial depth first/ manner. We use the 'serially' type combinator to</span><span>
+</span><a name="line-541"></a><span class="hs-comment">-- effect 'Serial' style of composition. We can also use an explicit 'Serial'</span><span>
+</span><a name="line-542"></a><span class="hs-comment">-- type annotation for the stream to achieve the same effect.  However, since</span><span>
+</span><a name="line-543"></a><span class="hs-comment">-- 'Serial' is the default type unless explicitly specified by using a</span><span>
+</span><a name="line-544"></a><span class="hs-comment">-- combinator, we can omit using an explicit combinator or type annotation for</span><span>
+</span><a name="line-545"></a><span class="hs-comment">-- this style of composition.</span><span>
+</span><a name="line-546"></a><span class="hs-comment">--</span><span>
+</span><a name="line-547"></a><span class="hs-comment">-- When two streams with multiple elements are combined in this manner, the</span><span>
+</span><a name="line-548"></a><span class="hs-comment">-- monadic actions in the two streams are performed sequentially i.e. first all</span><span>
+</span><a name="line-549"></a><span class="hs-comment">-- actions in the first stream are performed sequentially and then all actions</span><span>
+</span><a name="line-550"></a><span class="hs-comment">-- in the second stream are performed sequentially. We call it</span><span>
+</span><a name="line-551"></a><span class="hs-comment">-- /serial depth first/ as the full depth of one stream is fully traversed</span><span>
+</span><a name="line-552"></a><span class="hs-comment">-- before we move to the next. The following example prints the sequence 1, 2,</span><span>
+</span><a name="line-553"></a><span class="hs-comment">-- 3, 4:</span><span>
+</span><a name="line-554"></a><span class="hs-comment">--</span><span>
+</span><a name="line-555"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-556"></a><span class="hs-comment">-- main = S.'drain' $ (print 1 |: print 2 |: nil) &lt;&gt; (print 3 |: print 4 |: nil)</span><span>
+</span><a name="line-557"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-558"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-559"></a><span class="hs-comment">-- 1</span><span>
+</span><a name="line-560"></a><span class="hs-comment">-- 2</span><span>
+</span><a name="line-561"></a><span class="hs-comment">-- 3</span><span>
+</span><a name="line-562"></a><span class="hs-comment">-- 4</span><span>
+</span><a name="line-563"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-564"></a><span class="hs-comment">--</span><span>
+</span><a name="line-565"></a><span class="hs-comment">-- All actions in both the streams are performed serially in the same thread.</span><span>
+</span><a name="line-566"></a><span class="hs-comment">-- In the following example we can see that all actions are performed in the</span><span>
+</span><a name="line-567"></a><span class="hs-comment">-- same thread and take a combined total of @3 + 2 + 1 = 6@ seconds:</span><span>
+</span><a name="line-568"></a><span class="hs-comment">--</span><span>
+</span><a name="line-569"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-570"></a><span class="hs-comment">-- main = S.'drain' $ delay 3 &lt;&gt; delay 2 &lt;&gt; delay 1</span><span>
+</span><a name="line-571"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-572"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-573"></a><span class="hs-comment">-- ThreadId 36: Delay 3</span><span>
+</span><a name="line-574"></a><span class="hs-comment">-- ThreadId 36: Delay 2</span><span>
+</span><a name="line-575"></a><span class="hs-comment">-- ThreadId 36: Delay 1</span><span>
+</span><a name="line-576"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-577"></a><span class="hs-comment">--</span><span>
+</span><a name="line-578"></a><span class="hs-comment">-- The polymorphic version of the binary operation '&lt;&gt;' of the 'Serial' type is</span><span>
+</span><a name="line-579"></a><span class="hs-comment">-- 'serial'. We can use 'serial' to join streams in a sequential manner</span><span>
+</span><a name="line-580"></a><span class="hs-comment">-- irrespective of the type of stream:</span><span>
+</span><a name="line-581"></a><span class="hs-comment">--</span><span>
+</span><a name="line-582"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-583"></a><span class="hs-comment">-- main = S.'drain' $ (print 1 |: print 2 |: nil) \`serial` (print 3 |: print 4 |: nil)</span><span>
+</span><a name="line-584"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-585"></a><span>
+</span><a name="line-586"></a><span class="hs-comment">-- $interleaved</span><span>
+</span><a name="line-587"></a><span class="hs-comment">--</span><span>
+</span><a name="line-588"></a><span class="hs-comment">-- The 'Semigroup' operation '&lt;&gt;' of the 'WSerial' type combines the two</span><span>
+</span><a name="line-589"></a><span class="hs-comment">-- streams in a /serial breadth first/ manner. We use the 'wSerially' type</span><span>
+</span><a name="line-590"></a><span class="hs-comment">-- combinator to effect 'WSerial' style of composition. We can also use the</span><span>
+</span><a name="line-591"></a><span class="hs-comment">-- 'WSerial' type annotation for the stream to achieve the same effect.</span><span>
+</span><a name="line-592"></a><span class="hs-comment">--</span><span>
+</span><a name="line-593"></a><span class="hs-comment">-- When two streams with multiple elements are combined in this manner, we</span><span>
+</span><a name="line-594"></a><span class="hs-comment">-- traverse all the streams in a breadth first manner i.e. one action from each</span><span>
+</span><a name="line-595"></a><span class="hs-comment">-- stream is performed and yielded to the resulting stream before we come back</span><span>
+</span><a name="line-596"></a><span class="hs-comment">-- to the first stream again and so on.</span><span>
+</span><a name="line-597"></a><span class="hs-comment">-- The following example prints the sequence 1, 3, 2, 4</span><span>
+</span><a name="line-598"></a><span class="hs-comment">--</span><span>
+</span><a name="line-599"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-600"></a><span class="hs-comment">-- main = S.'drain' . 'wSerially' $ (print 1 |: print 2 |: nil) &lt;&gt; (print 3 |: print 4 |: nil)</span><span>
+</span><a name="line-601"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-602"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-603"></a><span class="hs-comment">-- 1</span><span>
+</span><a name="line-604"></a><span class="hs-comment">-- 3</span><span>
+</span><a name="line-605"></a><span class="hs-comment">-- 2</span><span>
+</span><a name="line-606"></a><span class="hs-comment">-- 4</span><span>
+</span><a name="line-607"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-608"></a><span class="hs-comment">--</span><span>
+</span><a name="line-609"></a><span class="hs-comment">-- Even though the monadic actions of the two streams are performed in an</span><span>
+</span><a name="line-610"></a><span class="hs-comment">-- interleaved manner they are all performed serially in the same thread. In</span><span>
+</span><a name="line-611"></a><span class="hs-comment">-- the following example we can see that all actions are performed in the same</span><span>
+</span><a name="line-612"></a><span class="hs-comment">-- thread and take a combined total of @3 + 2 + 1 = 6@ seconds:</span><span>
+</span><a name="line-613"></a><span class="hs-comment">--</span><span>
+</span><a name="line-614"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-615"></a><span class="hs-comment">-- main = S.'drain' . 'wSerially' $ delay 3 &lt;&gt; delay 2 &lt;&gt; delay 1</span><span>
+</span><a name="line-616"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-617"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-618"></a><span class="hs-comment">-- ThreadId 36: Delay 3</span><span>
+</span><a name="line-619"></a><span class="hs-comment">-- ThreadId 36: Delay 2</span><span>
+</span><a name="line-620"></a><span class="hs-comment">-- ThreadId 36: Delay 1</span><span>
+</span><a name="line-621"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-622"></a><span class="hs-comment">--</span><span>
+</span><a name="line-623"></a><span class="hs-comment">-- The polymorphic version of the 'WSerial' binary operation '&lt;&gt;' is called</span><span>
+</span><a name="line-624"></a><span class="hs-comment">-- 'wSerial'. We can use 'wSerial' to join streams in an interleaved manner</span><span>
+</span><a name="line-625"></a><span class="hs-comment">-- irrespective of the type, notice that we have not used the 'wSerially'</span><span>
+</span><a name="line-626"></a><span class="hs-comment">-- combinator in the following example:</span><span>
+</span><a name="line-627"></a><span class="hs-comment">--</span><span>
+</span><a name="line-628"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-629"></a><span class="hs-comment">-- main = S.'drain' $ (print 1 |: print 2 |: nil) \`wSerial` (print 3 |: print 4 |: nil)</span><span>
+</span><a name="line-630"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-631"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-632"></a><span class="hs-comment">-- 1</span><span>
+</span><a name="line-633"></a><span class="hs-comment">-- 3</span><span>
+</span><a name="line-634"></a><span class="hs-comment">-- 2</span><span>
+</span><a name="line-635"></a><span class="hs-comment">-- 4</span><span>
+</span><a name="line-636"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-637"></a><span class="hs-comment">--</span><span>
+</span><a name="line-638"></a><span class="hs-comment">-- Note that this composition cannot be used to fold infinite number of streams</span><span>
+</span><a name="line-639"></a><span class="hs-comment">-- since it requires preserving the state until a stream is finished.</span><span>
+</span><a name="line-640"></a><span>
+</span><a name="line-641"></a><span class="hs-comment">-- $ahead</span><span>
+</span><a name="line-642"></a><span class="hs-comment">--</span><span>
+</span><a name="line-643"></a><span class="hs-comment">-- The 'Semigroup' operation '&lt;&gt;' of the 'Ahead' type combines two streams in a</span><span>
+</span><a name="line-644"></a><span class="hs-comment">-- /serial depth first/ manner with concurrent lookahead. We use the 'aheadly'</span><span>
+</span><a name="line-645"></a><span class="hs-comment">-- type combinator to effect 'Ahead' style of composition. We can also use an</span><span>
+</span><a name="line-646"></a><span class="hs-comment">-- explicit 'Ahead' type annotation for the stream to achieve the same effect.</span><span>
+</span><a name="line-647"></a><span class="hs-comment">--</span><span>
+</span><a name="line-648"></a><span class="hs-comment">-- When two streams are combined in this manner, the streams are traversed in</span><span>
+</span><a name="line-649"></a><span class="hs-comment">-- depth first manner just like 'Serial', however it can execute the next</span><span>
+</span><a name="line-650"></a><span class="hs-comment">-- stream concurrently and keep the results ready when its turn arrives.</span><span>
+</span><a name="line-651"></a><span class="hs-comment">-- Concurrent execution of the next stream(s) is performed if the first stream</span><span>
+</span><a name="line-652"></a><span class="hs-comment">-- blocks or if it cannot produce output at the rate that is enough to meet the</span><span>
+</span><a name="line-653"></a><span class="hs-comment">-- consumer demand. Multiple streams can be executed concurrently to meet the</span><span>
+</span><a name="line-654"></a><span class="hs-comment">-- demand.  The following example would print the result in a second even</span><span>
+</span><a name="line-655"></a><span class="hs-comment">-- though each action in each stream takes one second:</span><span>
+</span><a name="line-656"></a><span class="hs-comment">--</span><span>
+</span><a name="line-657"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-658"></a><span class="hs-comment">-- main = do</span><span>
+</span><a name="line-659"></a><span class="hs-comment">--  xs \&lt;- S.'toList' . 'aheadly' $ (p 1 |: p 2 |: nil) &lt;&gt; (p 3 |: p 4 |: nil)</span><span>
+</span><a name="line-660"></a><span class="hs-comment">--  print xs</span><span>
+</span><a name="line-661"></a><span class="hs-comment">--  where p n = threadDelay 1000000 &gt;&gt; return n</span><span>
+</span><a name="line-662"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-663"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-664"></a><span class="hs-comment">-- [1,2,3,4]</span><span>
+</span><a name="line-665"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-666"></a><span class="hs-comment">--</span><span>
+</span><a name="line-667"></a><span class="hs-comment">-- Each stream is constructed 'aheadly' and then both the streams are merged</span><span>
+</span><a name="line-668"></a><span class="hs-comment">-- 'aheadly', therefore, all the actions can run concurrently but the result is</span><span>
+</span><a name="line-669"></a><span class="hs-comment">-- presented in serial order.</span><span>
+</span><a name="line-670"></a><span class="hs-comment">--</span><span>
+</span><a name="line-671"></a><span class="hs-comment">-- You can also use the polymorphic combinator 'ahead' in place of '&lt;&gt;' to</span><span>
+</span><a name="line-672"></a><span class="hs-comment">-- compose any type of streams in this manner.</span><span>
+</span><a name="line-673"></a><span>
+</span><a name="line-674"></a><span class="hs-comment">-- $async</span><span>
+</span><a name="line-675"></a><span class="hs-comment">--</span><span>
+</span><a name="line-676"></a><span class="hs-comment">-- The 'Semigroup' operation '&lt;&gt;' of the 'Async' type combines the two</span><span>
+</span><a name="line-677"></a><span class="hs-comment">-- streams in a depth first manner with parallel look ahead. We use the</span><span>
+</span><a name="line-678"></a><span class="hs-comment">-- 'asyncly' type combinator to effect 'Async' style of composition. We</span><span>
+</span><a name="line-679"></a><span class="hs-comment">-- can also use the 'Async' type annotation for the stream type to achieve</span><span>
+</span><a name="line-680"></a><span class="hs-comment">-- the same effect.</span><span>
+</span><a name="line-681"></a><span class="hs-comment">--</span><span>
+</span><a name="line-682"></a><span class="hs-comment">-- When two streams with multiple elements are combined in this manner, the</span><span>
+</span><a name="line-683"></a><span class="hs-comment">-- streams are traversed in depth first manner just like 'Serial', however it</span><span>
+</span><a name="line-684"></a><span class="hs-comment">-- can execute the next stream concurrently and return the results from it</span><span>
+</span><a name="line-685"></a><span class="hs-comment">-- as they arrive i.e. the results from the next stream may be yielded even</span><span>
+</span><a name="line-686"></a><span class="hs-comment">-- before the results from the first stream. Concurrent execution of the next</span><span>
+</span><a name="line-687"></a><span class="hs-comment">-- stream(s) is performed if the first stream blocks or if it cannot produce</span><span>
+</span><a name="line-688"></a><span class="hs-comment">-- output at the rate that is enough to meet the consumer demand. Multiple</span><span>
+</span><a name="line-689"></a><span class="hs-comment">-- streams can be executed concurrently to meet the demand.</span><span>
+</span><a name="line-690"></a><span class="hs-comment">-- In the example below each element in the stream introduces a constant delay</span><span>
+</span><a name="line-691"></a><span class="hs-comment">-- of 1 second, however, it takes just one second to produce all the results.</span><span>
+</span><a name="line-692"></a><span class="hs-comment">-- The results are not guaranteed to be in any particular order:</span><span>
+</span><a name="line-693"></a><span class="hs-comment">--</span><span>
+</span><a name="line-694"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-695"></a><span class="hs-comment">-- main = do</span><span>
+</span><a name="line-696"></a><span class="hs-comment">--   xs \&lt;- S.'toList' . 'asyncly' $ (p 1 |: p 2 |: nil) &lt;&gt; (p 3 |: p 4 |: nil)</span><span>
+</span><a name="line-697"></a><span class="hs-comment">--   print xs</span><span>
+</span><a name="line-698"></a><span class="hs-comment">--   where p n = threadDelay 1000000 &gt;&gt; return n</span><span>
+</span><a name="line-699"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-700"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-701"></a><span class="hs-comment">-- [4,2,1,3]</span><span>
+</span><a name="line-702"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-703"></a><span class="hs-comment">--</span><span>
+</span><a name="line-704"></a><span class="hs-comment">-- The constituent streams are also composed in 'Async' manner and the</span><span>
+</span><a name="line-705"></a><span class="hs-comment">-- composition of streams too. We can compose the constituent streams to run</span><span>
+</span><a name="line-706"></a><span class="hs-comment">-- serially, in that case it would take 2 seconds to produce all the results.</span><span>
+</span><a name="line-707"></a><span class="hs-comment">-- The elements in the serial streams would be in serial order in the results:</span><span>
+</span><a name="line-708"></a><span class="hs-comment">--</span><span>
+</span><a name="line-709"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-710"></a><span class="hs-comment">-- main = do</span><span>
+</span><a name="line-711"></a><span class="hs-comment">--   xs \&lt;- S.'toList' . 'asyncly' $ (serially $ p 1 |: p 2 |: nil) &lt;&gt; (serially $ p 3 |: p 4 |: nil)</span><span>
+</span><a name="line-712"></a><span class="hs-comment">--   print xs</span><span>
+</span><a name="line-713"></a><span class="hs-comment">--   where p n = threadDelay 1000000 &gt;&gt; return n</span><span>
+</span><a name="line-714"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-715"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-716"></a><span class="hs-comment">-- [3,1,2,4]</span><span>
+</span><a name="line-717"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-718"></a><span class="hs-comment">--</span><span>
+</span><a name="line-719"></a><span class="hs-comment">-- In the following example we can see that new threads are started when a</span><span>
+</span><a name="line-720"></a><span class="hs-comment">-- computation blocks.  Notice that the output from the stream with the</span><span>
+</span><a name="line-721"></a><span class="hs-comment">-- shortest delay is printed first. The whole computation takes @maximum of</span><span>
+</span><a name="line-722"></a><span class="hs-comment">-- (3, 2, 1) = 3@ seconds:</span><span>
+</span><a name="line-723"></a><span class="hs-comment">--</span><span>
+</span><a name="line-724"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-725"></a><span class="hs-comment">-- main = S.'drain' . 'asyncly' $ delay 3 '&lt;&gt;' delay 2 '&lt;&gt;' delay 1</span><span>
+</span><a name="line-726"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-727"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-728"></a><span class="hs-comment">-- ThreadId 42: Delay 1</span><span>
+</span><a name="line-729"></a><span class="hs-comment">-- ThreadId 41: Delay 2</span><span>
+</span><a name="line-730"></a><span class="hs-comment">-- ThreadId 40: Delay 3</span><span>
+</span><a name="line-731"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-732"></a><span class="hs-comment">--</span><span>
+</span><a name="line-733"></a><span class="hs-comment">-- When we have a tree of computations composed using this style, the tree is</span><span>
+</span><a name="line-734"></a><span class="hs-comment">-- traversed in DFS style just like the 'Serial' style, the only difference is</span><span>
+</span><a name="line-735"></a><span class="hs-comment">-- that here we can move on to executing the next stream if a stream blocks.</span><span>
+</span><a name="line-736"></a><span class="hs-comment">-- However, we will not start new threads if we have sufficient output to</span><span>
+</span><a name="line-737"></a><span class="hs-comment">-- saturate the consumer.  This is why we call it left-biased demand driven or</span><span>
+</span><a name="line-738"></a><span class="hs-comment">-- adaptive concurrency style, the concurrency tends to stay on the left side</span><span>
+</span><a name="line-739"></a><span class="hs-comment">-- of the composition as long as possible. More threads are started based on</span><span>
+</span><a name="line-740"></a><span class="hs-comment">-- the pull rate of the consumer. The following example prints an output every</span><span>
+</span><a name="line-741"></a><span class="hs-comment">-- second as all of the actions are concurrent.</span><span>
+</span><a name="line-742"></a><span class="hs-comment">--</span><span>
+</span><a name="line-743"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-744"></a><span class="hs-comment">-- main = S.'drain' . 'asyncly' $ (delay 1 &lt;&gt; delay 2) &lt;&gt; (delay 3 &lt;&gt; delay 4)</span><span>
+</span><a name="line-745"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-746"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-747"></a><span class="hs-comment">-- 1</span><span>
+</span><a name="line-748"></a><span class="hs-comment">-- 2</span><span>
+</span><a name="line-749"></a><span class="hs-comment">-- 3</span><span>
+</span><a name="line-750"></a><span class="hs-comment">-- 4</span><span>
+</span><a name="line-751"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-752"></a><span class="hs-comment">--</span><span>
+</span><a name="line-753"></a><span class="hs-comment">-- All the computations may even run in a single thread when more threads are</span><span>
+</span><a name="line-754"></a><span class="hs-comment">-- not needed. As you can see, in the following example the computations are</span><span>
+</span><a name="line-755"></a><span class="hs-comment">-- run in a single thread one after another, because none of them blocks.</span><span>
+</span><a name="line-756"></a><span class="hs-comment">-- However, if the thread consuming the stream were faster than the producer</span><span>
+</span><a name="line-757"></a><span class="hs-comment">-- then it would have started parallel threads for each computation to keep up</span><span>
+</span><a name="line-758"></a><span class="hs-comment">-- even if none of them blocks:</span><span>
+</span><a name="line-759"></a><span class="hs-comment">--</span><span>
+</span><a name="line-760"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-761"></a><span class="hs-comment">-- main = S.'drain' . 'asyncly' $ traced (sqrt 9) '&lt;&gt;' traced (sqrt 16) '&lt;&gt;' traced (sqrt 25)</span><span>
+</span><a name="line-762"></a><span class="hs-comment">--  where traced m = S.'yieldM' (myThreadId &gt;&gt;= print) &gt;&gt; return m</span><span>
+</span><a name="line-763"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-764"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-765"></a><span class="hs-comment">-- ThreadId 40</span><span>
+</span><a name="line-766"></a><span class="hs-comment">-- ThreadId 40</span><span>
+</span><a name="line-767"></a><span class="hs-comment">-- ThreadId 40</span><span>
+</span><a name="line-768"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-769"></a><span class="hs-comment">--</span><span>
+</span><a name="line-770"></a><span class="hs-comment">-- Note that the order of printing in the above examples may change due to</span><span>
+</span><a name="line-771"></a><span class="hs-comment">-- variations in scheduling latencies for concurrent threads.</span><span>
+</span><a name="line-772"></a><span class="hs-comment">--</span><span>
+</span><a name="line-773"></a><span class="hs-comment">-- The polymorphic version of the 'Async' binary operation '&lt;&gt;' is called</span><span>
+</span><a name="line-774"></a><span class="hs-comment">-- 'async'. We can use 'async' to join streams in a left biased</span><span>
+</span><a name="line-775"></a><span class="hs-comment">-- adaptively concurrent manner irrespective of the type, notice that we have</span><span>
+</span><a name="line-776"></a><span class="hs-comment">-- not used the 'asyncly' combinator in the following example:</span><span>
+</span><a name="line-777"></a><span class="hs-comment">--</span><span>
+</span><a name="line-778"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-779"></a><span class="hs-comment">-- main = S.'drain' $ delay 3 \`async` delay 2 \`async` delay 1</span><span>
+</span><a name="line-780"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-781"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-782"></a><span class="hs-comment">-- ThreadId 42: Delay 1</span><span>
+</span><a name="line-783"></a><span class="hs-comment">-- ThreadId 41: Delay 2</span><span>
+</span><a name="line-784"></a><span class="hs-comment">-- ThreadId 40: Delay 3</span><span>
+</span><a name="line-785"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-786"></a><span class="hs-comment">--</span><span>
+</span><a name="line-787"></a><span class="hs-comment">-- Since the concurrency provided by this operator is demand driven it cannot</span><span>
+</span><a name="line-788"></a><span class="hs-comment">-- be used when the composed computations start timers that are relative to</span><span>
+</span><a name="line-789"></a><span class="hs-comment">-- each other because all computations may not be started at the same time and</span><span>
+</span><a name="line-790"></a><span class="hs-comment">-- therefore timers in all of them may not start at the same time.  When</span><span>
+</span><a name="line-791"></a><span class="hs-comment">-- relative timing among all computations is important or when we need to start</span><span>
+</span><a name="line-792"></a><span class="hs-comment">-- all computations at once for any reason 'Parallel' style must be used</span><span>
+</span><a name="line-793"></a><span class="hs-comment">-- instead.</span><span>
+</span><a name="line-794"></a><span class="hs-comment">--</span><span>
+</span><a name="line-795"></a><span class="hs-comment">-- 'Async' style utilizes resources optimally and should be preferred over</span><span>
+</span><a name="line-796"></a><span class="hs-comment">-- 'Parallel' or 'WAsync' unless you really need those. 'Async' should be used</span><span>
+</span><a name="line-797"></a><span class="hs-comment">-- when we know that the computations can run in parallel but we do not care if</span><span>
+</span><a name="line-798"></a><span class="hs-comment">-- they actually run in parallel or not, that decision can be left to the</span><span>
+</span><a name="line-799"></a><span class="hs-comment">-- scheduler based on demand. Also, note that 'async' operator can be used to fold</span><span>
+</span><a name="line-800"></a><span class="hs-comment">-- infinite number of streams in contrast to the 'Parallel' or 'WAsync' styles,</span><span>
+</span><a name="line-801"></a><span class="hs-comment">-- because it does not require us to run all of them at the same time in a fair</span><span>
+</span><a name="line-802"></a><span class="hs-comment">-- manner.</span><span>
+</span><a name="line-803"></a><span>
+</span><a name="line-804"></a><span class="hs-comment">-- $wasync</span><span>
+</span><a name="line-805"></a><span class="hs-comment">--</span><span>
+</span><a name="line-806"></a><span class="hs-comment">-- The 'Semigroup' operation '&lt;&gt;' of the 'WAsync' type combines two streams in</span><span>
+</span><a name="line-807"></a><span class="hs-comment">-- a concurrent manner using /breadth first traversal/. We use the 'wAsyncly'</span><span>
+</span><a name="line-808"></a><span class="hs-comment">-- type combinator to effect 'WAsync' style of composition. We can also use the</span><span>
+</span><a name="line-809"></a><span class="hs-comment">-- 'WAsync' type annotation for the stream to achieve the same effect.</span><span>
+</span><a name="line-810"></a><span class="hs-comment">--</span><span>
+</span><a name="line-811"></a><span class="hs-comment">-- When streams with multiple elements are combined in this manner, we traverse</span><span>
+</span><a name="line-812"></a><span class="hs-comment">-- all the streams concurrently in a breadth first manner i.e. one action from</span><span>
+</span><a name="line-813"></a><span class="hs-comment">-- each stream is performed and yielded to the resulting stream before we come</span><span>
+</span><a name="line-814"></a><span class="hs-comment">-- back to the first stream again and so on. Even though we execute the actions</span><span>
+</span><a name="line-815"></a><span class="hs-comment">-- in a breadth first order the outputs are consumed on a first come first</span><span>
+</span><a name="line-816"></a><span class="hs-comment">-- serve basis.</span><span>
+</span><a name="line-817"></a><span class="hs-comment">--</span><span>
+</span><a name="line-818"></a><span class="hs-comment">-- In the following example we can see that outputs are produced in the breadth</span><span>
+</span><a name="line-819"></a><span class="hs-comment">-- first traversal order but this is not guaranteed.</span><span>
+</span><a name="line-820"></a><span class="hs-comment">--</span><span>
+</span><a name="line-821"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-822"></a><span class="hs-comment">-- main = S.'drain' . 'wAsyncly' $ (serially $ print 1 |: print 2 |: nil) &lt;&gt; (serially $ print 3 |: print 4 |: nil)</span><span>
+</span><a name="line-823"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-824"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-825"></a><span class="hs-comment">-- 1</span><span>
+</span><a name="line-826"></a><span class="hs-comment">-- 3</span><span>
+</span><a name="line-827"></a><span class="hs-comment">-- 2</span><span>
+</span><a name="line-828"></a><span class="hs-comment">-- 4</span><span>
+</span><a name="line-829"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-830"></a><span class="hs-comment">--</span><span>
+</span><a name="line-831"></a><span class="hs-comment">-- The polymorphic version of the binary operation '&lt;&gt;' of the 'WAsync' type is</span><span>
+</span><a name="line-832"></a><span class="hs-comment">-- 'wAsync'.  We can use 'wAsync' to join streams using a breadth first</span><span>
+</span><a name="line-833"></a><span class="hs-comment">-- concurrent traversal irrespective of the type, notice that we have not used</span><span>
+</span><a name="line-834"></a><span class="hs-comment">-- the 'wAsyncly' combinator in the following example:</span><span>
+</span><a name="line-835"></a><span class="hs-comment">--</span><span>
+</span><a name="line-836"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-837"></a><span class="hs-comment">-- main = S.'drain' $ delay 3 \`wAsync` delay 2 \`wAsync` delay 1</span><span>
+</span><a name="line-838"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-839"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-840"></a><span class="hs-comment">-- ThreadId 42: Delay 1</span><span>
+</span><a name="line-841"></a><span class="hs-comment">-- ThreadId 41: Delay 2</span><span>
+</span><a name="line-842"></a><span class="hs-comment">-- ThreadId 40: Delay 3</span><span>
+</span><a name="line-843"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-844"></a><span class="hs-comment">--</span><span>
+</span><a name="line-845"></a><span class="hs-comment">-- Since the concurrency provided by this style is demand driven it may not</span><span>
+</span><a name="line-846"></a><span class="hs-comment">-- be used when the composed computations start timers that are relative to</span><span>
+</span><a name="line-847"></a><span class="hs-comment">-- each other because all computations may not be started at the same time and</span><span>
+</span><a name="line-848"></a><span class="hs-comment">-- therefore timers in all of them may not start at the same time.  When</span><span>
+</span><a name="line-849"></a><span class="hs-comment">-- relative timing among all computations is important or when we need to start</span><span>
+</span><a name="line-850"></a><span class="hs-comment">-- all computations at once for any reason 'Parallel' style must be used</span><span>
+</span><a name="line-851"></a><span class="hs-comment">-- instead.</span><span>
+</span><a name="line-852"></a><span class="hs-comment">--</span><span>
+</span><a name="line-853"></a><span>
+</span><a name="line-854"></a><span class="hs-comment">-- $parallel</span><span>
+</span><a name="line-855"></a><span class="hs-comment">--</span><span>
+</span><a name="line-856"></a><span class="hs-comment">-- The 'Semigroup' operation '&lt;&gt;' of the 'Parallel' type combines the two</span><span>
+</span><a name="line-857"></a><span class="hs-comment">-- streams in a fairly concurrent manner with round robin scheduling. We use</span><span>
+</span><a name="line-858"></a><span class="hs-comment">-- the 'parallely' type combinator to effect 'Parallel' style of composition.</span><span>
+</span><a name="line-859"></a><span class="hs-comment">-- We can also use the 'Parallel' type annotation for the stream type to</span><span>
+</span><a name="line-860"></a><span class="hs-comment">-- achieve the same effect.</span><span>
+</span><a name="line-861"></a><span class="hs-comment">--</span><span>
+</span><a name="line-862"></a><span class="hs-comment">-- When two streams with multiple elements are combined in this manner, the</span><span>
+</span><a name="line-863"></a><span class="hs-comment">-- monadic actions in both the streams are performed concurrently with a fair</span><span>
+</span><a name="line-864"></a><span class="hs-comment">-- round robin scheduling.  The outputs are yielded in the order in which the</span><span>
+</span><a name="line-865"></a><span class="hs-comment">-- actions complete. This is pretty similar to the 'WAsync' type, the</span><span>
+</span><a name="line-866"></a><span class="hs-comment">-- difference is that 'WAsync' is adaptive to the consumer demand and may or</span><span>
+</span><a name="line-867"></a><span class="hs-comment">-- may not execute all actions in parallel depending on the demand, whereas</span><span>
+</span><a name="line-868"></a><span class="hs-comment">-- 'Parallel' runs all the streams in parallel irrespective of the demand.</span><span>
+</span><a name="line-869"></a><span class="hs-comment">--</span><span>
+</span><a name="line-870"></a><span class="hs-comment">-- The following example sends a query to all the three search engines in</span><span>
+</span><a name="line-871"></a><span class="hs-comment">-- parallel and prints the name of the search engines in the order in which the</span><span>
+</span><a name="line-872"></a><span class="hs-comment">-- responses arrive. You need the [http-conduit](http://hackage.haskell.org/package/http-conduit)</span><span>
+</span><a name="line-873"></a><span class="hs-comment">-- package to run this example:</span><span>
+</span><a name="line-874"></a><span class="hs-comment">--</span><span>
+</span><a name="line-875"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-876"></a><span class="hs-comment">-- import &quot;Streamly&quot;</span><span>
+</span><a name="line-877"></a><span class="hs-comment">-- import qualified Streamly.Prelude as S</span><span>
+</span><a name="line-878"></a><span class="hs-comment">-- import Network.HTTP.Simple</span><span>
+</span><a name="line-879"></a><span class="hs-comment">--</span><span>
+</span><a name="line-880"></a><span class="hs-comment">-- main = S.'drain' . 'parallely' $ google \&lt;&gt; bing \&lt;&gt; duckduckgo</span><span>
+</span><a name="line-881"></a><span class="hs-comment">--     where</span><span>
+</span><a name="line-882"></a><span class="hs-comment">--         google     = get &quot;https://www.google.com/search?q=haskell&quot;</span><span>
+</span><a name="line-883"></a><span class="hs-comment">--         bing       = get &quot;https://www.bing.com/search?q=haskell&quot;</span><span>
+</span><a name="line-884"></a><span class="hs-comment">--         duckduckgo = get &quot;https://www.duckduckgo.com/?q=haskell&quot;</span><span>
+</span><a name="line-885"></a><span class="hs-comment">--         get s = S.'yieldM' (httpNoBody (parseRequest_ s) &gt;&gt; putStrLn (show s))</span><span>
+</span><a name="line-886"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-887"></a><span class="hs-comment">--</span><span>
+</span><a name="line-888"></a><span class="hs-comment">-- The polymorphic version of the binary operation '&lt;&gt;' of the 'Parallel' type</span><span>
+</span><a name="line-889"></a><span class="hs-comment">-- is 'parallel'. We can use 'parallel' to join streams in a fairly concurrent</span><span>
+</span><a name="line-890"></a><span class="hs-comment">-- manner irrespective of the type, notice that we have not used the</span><span>
+</span><a name="line-891"></a><span class="hs-comment">-- 'parallely' combinator in the following example:</span><span>
+</span><a name="line-892"></a><span class="hs-comment">--</span><span>
+</span><a name="line-893"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-894"></a><span class="hs-comment">-- main = S.'drain' $ delay 3 \`parallel` delay 2 \`wAsync` delay 1</span><span>
+</span><a name="line-895"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-896"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-897"></a><span class="hs-comment">-- ThreadId 42: Delay 1</span><span>
+</span><a name="line-898"></a><span class="hs-comment">-- ThreadId 41: Delay 2</span><span>
+</span><a name="line-899"></a><span class="hs-comment">-- ThreadId 40: Delay 3</span><span>
+</span><a name="line-900"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-901"></a><span class="hs-comment">--</span><span>
+</span><a name="line-902"></a><span class="hs-comment">-- Note that this style of composition cannot be used to combine infinite</span><span>
+</span><a name="line-903"></a><span class="hs-comment">-- number of streams, as it will lead to an infinite sized scheduling queue.</span><span>
+</span><a name="line-904"></a><span class="hs-comment">--</span><span>
+</span><a name="line-905"></a><span>
+</span><a name="line-906"></a><span class="hs-comment">-- XXX to be removed</span><span>
+</span><a name="line-907"></a><span class="hs-comment">-- $custom</span><span>
+</span><a name="line-908"></a><span class="hs-comment">--</span><span>
+</span><a name="line-909"></a><span class="hs-comment">-- The 'mkAsync' API can be used to create references to asynchronously running</span><span>
+</span><a name="line-910"></a><span class="hs-comment">-- stream computations. We can then use 'uncons' to explore the streams</span><span>
+</span><a name="line-911"></a><span class="hs-comment">-- arbitrarily and then recompose individual elements to create a new stream.</span><span>
+</span><a name="line-912"></a><span class="hs-comment">-- This way we can dynamically decide which stream to explore at any given</span><span>
+</span><a name="line-913"></a><span class="hs-comment">-- time.  Take an example of a merge sort of two sorted streams. We need to</span><span>
+</span><a name="line-914"></a><span class="hs-comment">-- keep consuming items from the stream which has the lowest item in the sort</span><span>
+</span><a name="line-915"></a><span class="hs-comment">-- order.  This can be achieved using async references to streams. See</span><span>
+</span><a name="line-916"></a><span class="hs-comment">-- &quot;MergeSort.hs&quot; in the examples directory.</span><span>
+</span><a name="line-917"></a><span>
+</span><a name="line-918"></a><span class="hs-comment">-- $monoid</span><span>
+</span><a name="line-919"></a><span class="hs-comment">--</span><span>
+</span><a name="line-920"></a><span class="hs-comment">-- We can use 'Monoid' instances to fold a container of streams in the desired</span><span>
+</span><a name="line-921"></a><span class="hs-comment">-- style using 'fold' or 'foldMap'.  We have also provided some fold utilities</span><span>
+</span><a name="line-922"></a><span class="hs-comment">-- to fold streams using the polymorphic combine operations:</span><span>
+</span><a name="line-923"></a><span class="hs-comment">--</span><span>
+</span><a name="line-924"></a><span class="hs-comment">-- * 'foldWith' is like 'fold', it folds a 'Foldable' container of streams</span><span>
+</span><a name="line-925"></a><span class="hs-comment">-- using the given composition operator.</span><span>
+</span><a name="line-926"></a><span class="hs-comment">-- * 'foldMapWith' is like 'foldMap', it folds like @foldWith@ but also maps a</span><span>
+</span><a name="line-927"></a><span class="hs-comment">-- function before folding.</span><span>
+</span><a name="line-928"></a><span class="hs-comment">-- * 'forEachWith' is like @foldMapwith@ but the container argument comes before</span><span>
+</span><a name="line-929"></a><span class="hs-comment">-- the function argument.</span><span>
+</span><a name="line-930"></a><span class="hs-comment">--</span><span>
+</span><a name="line-931"></a><span class="hs-comment">-- All of the following are equivalent and start ten concurrent tasks each with</span><span>
+</span><a name="line-932"></a><span class="hs-comment">-- a delay from 1 to 10 seconds, resulting in the printing of each number every</span><span>
+</span><a name="line-933"></a><span class="hs-comment">-- second:</span><span>
+</span><a name="line-934"></a><span class="hs-comment">--</span><span>
+</span><a name="line-935"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-936"></a><span class="hs-comment">-- import &quot;Streamly&quot;</span><span>
+</span><a name="line-937"></a><span class="hs-comment">-- import qualified &quot;Streamly.Prelude&quot; as S</span><span>
+</span><a name="line-938"></a><span class="hs-comment">-- import Control.Concurrent</span><span>
+</span><a name="line-939"></a><span class="hs-comment">--</span><span>
+</span><a name="line-940"></a><span class="hs-comment">-- main = do</span><span>
+</span><a name="line-941"></a><span class="hs-comment">--  S.'drain' $ 'asyncly' $ foldMap delay [1..10]</span><span>
+</span><a name="line-942"></a><span class="hs-comment">--  S.'drain' $ S.'foldWith'    'async' (map delay [1..10])</span><span>
+</span><a name="line-943"></a><span class="hs-comment">--  S.'drain' $ S.'foldMapWith' 'async' delay [1..10]</span><span>
+</span><a name="line-944"></a><span class="hs-comment">--  S.'drain' $ S.'forEachWith' 'async' [1..10] delay</span><span>
+</span><a name="line-945"></a><span class="hs-comment">--  where delay n = S.'yieldM' $ threadDelay (n * 1000000) &gt;&gt; print n</span><span>
+</span><a name="line-946"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-947"></a><span>
+</span><a name="line-948"></a><span class="hs-comment">-- $nesting</span><span>
+</span><a name="line-949"></a><span class="hs-comment">--</span><span>
+</span><a name="line-950"></a><span class="hs-comment">-- Till now we discussed ways to apply transformations on a stream or to merge</span><span>
+</span><a name="line-951"></a><span class="hs-comment">-- streams together to create another stream. We mentioned earlier that</span><span>
+</span><a name="line-952"></a><span class="hs-comment">-- transforming a stream is similar to a @for@ loop in the imperative paradigm.</span><span>
+</span><a name="line-953"></a><span class="hs-comment">-- We will now discuss the concept of a nested composition of streams which is</span><span>
+</span><a name="line-954"></a><span class="hs-comment">-- analogous to nested @for@ loops in the imperative paradigm. Functional</span><span>
+</span><a name="line-955"></a><span class="hs-comment">-- programmers call this style of composition a list transformer or @ListT@.</span><span>
+</span><a name="line-956"></a><span class="hs-comment">-- Logic programmers call it a logic monad or non-deterministic composition,</span><span>
+</span><a name="line-957"></a><span class="hs-comment">-- but for ordinary imperative minded people like me it is easier to think in</span><span>
+</span><a name="line-958"></a><span class="hs-comment">-- terms of good old nested @for@ loops.</span><span>
+</span><a name="line-959"></a><span class="hs-comment">--</span><span>
+</span><a name="line-960"></a><span class="hs-comment">-- $monad</span><span>
+</span><a name="line-961"></a><span class="hs-comment">--</span><span>
+</span><a name="line-962"></a><span class="hs-comment">-- In functional programmer's parlance the 'Monad' instances of different</span><span>
+</span><a name="line-963"></a><span class="hs-comment">-- 'IsStream' types implement non-determinism, exploring all possible</span><span>
+</span><a name="line-964"></a><span class="hs-comment">-- combination of choices from both the streams. From an imperative</span><span>
+</span><a name="line-965"></a><span class="hs-comment">-- programmer's point of view it behaves like nested loops i.e.  for each</span><span>
+</span><a name="line-966"></a><span class="hs-comment">-- element in the first stream and for each element in the second stream</span><span>
+</span><a name="line-967"></a><span class="hs-comment">-- execute the body of the loop.</span><span>
+</span><a name="line-968"></a><span class="hs-comment">--</span><span>
+</span><a name="line-969"></a><span class="hs-comment">-- The 'Monad' instances of 'Serial', 'WSerial', 'Async' and 'WAsync'</span><span>
+</span><a name="line-970"></a><span class="hs-comment">-- stream types support different flavors of nested looping.  In other words,</span><span>
+</span><a name="line-971"></a><span class="hs-comment">-- they are all variants of list transformer.  The nesting behavior of these</span><span>
+</span><a name="line-972"></a><span class="hs-comment">-- types correspond exactly to the way they merge streams as we discussed in</span><span>
+</span><a name="line-973"></a><span class="hs-comment">-- the previous section.</span><span>
+</span><a name="line-974"></a><span class="hs-comment">--</span><span>
+</span><a name="line-975"></a><span>
+</span><a name="line-976"></a><span class="hs-comment">-- $regularSerial</span><span>
+</span><a name="line-977"></a><span class="hs-comment">--</span><span>
+</span><a name="line-978"></a><span class="hs-comment">-- The 'Monad' composition of the 'Serial' type behaves like a standard list</span><span>
+</span><a name="line-979"></a><span class="hs-comment">-- transformer. This is the default when we do not use an explicit type</span><span>
+</span><a name="line-980"></a><span class="hs-comment">-- combinator. However, the 'serially' type combinator can be used to switch to</span><span>
+</span><a name="line-981"></a><span class="hs-comment">-- this style of composition. We will see how this style of composition works</span><span>
+</span><a name="line-982"></a><span class="hs-comment">-- in the following examples.</span><span>
+</span><a name="line-983"></a><span class="hs-comment">--</span><span>
+</span><a name="line-984"></a><span class="hs-comment">-- Let's start with an example with a simple @for@ loop without any nesting.</span><span>
+</span><a name="line-985"></a><span class="hs-comment">-- For simplicity of illustration we are using streams of pure values in all</span><span>
+</span><a name="line-986"></a><span class="hs-comment">-- the examples.  However, the streams could also be made of monadic actions</span><span>
+</span><a name="line-987"></a><span class="hs-comment">-- instead.</span><span>
+</span><a name="line-988"></a><span class="hs-comment">--</span><span>
+</span><a name="line-989"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-990"></a><span class="hs-comment">-- import &quot;Streamly&quot;</span><span>
+</span><a name="line-991"></a><span class="hs-comment">-- import qualified &quot;Streamly.Prelude&quot; as S</span><span>
+</span><a name="line-992"></a><span class="hs-comment">--</span><span>
+</span><a name="line-993"></a><span class="hs-comment">-- main = S.'drain' $ do</span><span>
+</span><a name="line-994"></a><span class="hs-comment">--     x &lt;- S.'fromFoldable' [3,2,1]</span><span>
+</span><a name="line-995"></a><span class="hs-comment">--     delay x</span><span>
+</span><a name="line-996"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-997"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-998"></a><span class="hs-comment">-- ThreadId 30: Delay 3</span><span>
+</span><a name="line-999"></a><span class="hs-comment">-- ThreadId 30: Delay 2</span><span>
+</span><a name="line-1000"></a><span class="hs-comment">-- ThreadId 30: Delay 1</span><span>
+</span><a name="line-1001"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-1002"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1003"></a><span class="hs-comment">-- As we can see, the code after the @fromFoldable@ statement is run three</span><span>
+</span><a name="line-1004"></a><span class="hs-comment">-- times, once for each value of @x@ drawn from the stream. All the three</span><span>
+</span><a name="line-1005"></a><span class="hs-comment">-- iterations are serial and run in the same thread one after another. In</span><span>
+</span><a name="line-1006"></a><span class="hs-comment">-- imperative terms this is equivalent to a @for@ loop with three iterations.</span><span>
+</span><a name="line-1007"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1008"></a><span class="hs-comment">-- A console echo loop copying standard input to standard output can simply be</span><span>
+</span><a name="line-1009"></a><span class="hs-comment">-- written like this:</span><span>
+</span><a name="line-1010"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1011"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-1012"></a><span class="hs-comment">-- import &quot;Streamly&quot;</span><span>
+</span><a name="line-1013"></a><span class="hs-comment">-- import qualified &quot;Streamly.Prelude&quot; as S</span><span>
+</span><a name="line-1014"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1015"></a><span class="hs-comment">-- import Control.Monad (forever)</span><span>
+</span><a name="line-1016"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1017"></a><span class="hs-comment">-- main = S.'drain' $ forever $ S.yieldM getLine &gt;&gt;= S.yieldM . putStrLn</span><span>
+</span><a name="line-1018"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-1019"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1020"></a><span class="hs-comment">-- When multiple streams are composed using this style they nest in a DFS</span><span>
+</span><a name="line-1021"></a><span class="hs-comment">-- manner i.e. nested iterations of a loop are executed before we proceed to</span><span>
+</span><a name="line-1022"></a><span class="hs-comment">-- the next iteration of the parent loop. This behaves just like nested @for@</span><span>
+</span><a name="line-1023"></a><span class="hs-comment">-- loops in imperative programming.</span><span>
+</span><a name="line-1024"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1025"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-1026"></a><span class="hs-comment">-- import &quot;Streamly&quot;</span><span>
+</span><a name="line-1027"></a><span class="hs-comment">-- import qualified &quot;Streamly.Prelude&quot; as S</span><span>
+</span><a name="line-1028"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1029"></a><span class="hs-comment">-- main = S.'drain' $ do</span><span>
+</span><a name="line-1030"></a><span class="hs-comment">--     x &lt;- S.'fromFoldable' [1,2]</span><span>
+</span><a name="line-1031"></a><span class="hs-comment">--     y &lt;- S.'fromFoldable' [3,4]</span><span>
+</span><a name="line-1032"></a><span class="hs-comment">--     S.'yieldM' $ putStrLn $ show (x, y)</span><span>
+</span><a name="line-1033"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-1034"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-1035"></a><span class="hs-comment">-- (1,3)</span><span>
+</span><a name="line-1036"></a><span class="hs-comment">-- (1,4)</span><span>
+</span><a name="line-1037"></a><span class="hs-comment">-- (2,3)</span><span>
+</span><a name="line-1038"></a><span class="hs-comment">-- (2,4)</span><span>
+</span><a name="line-1039"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-1040"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1041"></a><span class="hs-comment">-- Notice that this is analogous to merging streams of type 'Serial' or merging</span><span>
+</span><a name="line-1042"></a><span class="hs-comment">-- streams using 'serial'.</span><span>
+</span><a name="line-1043"></a><span>
+</span><a name="line-1044"></a><span class="hs-comment">-- $aheadNesting</span><span>
+</span><a name="line-1045"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1046"></a><span class="hs-comment">-- The 'Monad' composition of 'Ahead' type behaves just like 'Serial' except</span><span>
+</span><a name="line-1047"></a><span class="hs-comment">-- that it can speculatively perform a bounded number of next iterations of a</span><span>
+</span><a name="line-1048"></a><span class="hs-comment">-- loop concurrently.</span><span>
+</span><a name="line-1049"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1050"></a><span class="hs-comment">-- The 'aheadly' type combinator can be used to switch to this style of</span><span>
+</span><a name="line-1051"></a><span class="hs-comment">-- composition. Alternatively, a type annotation can be used to specify the</span><span>
+</span><a name="line-1052"></a><span class="hs-comment">-- type of the stream as 'Ahead'.</span><span>
+</span><a name="line-1053"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1054"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-1055"></a><span class="hs-comment">-- import &quot;Streamly&quot;</span><span>
+</span><a name="line-1056"></a><span class="hs-comment">-- import qualified &quot;Streamly.Prelude&quot; as S</span><span>
+</span><a name="line-1057"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1058"></a><span class="hs-comment">-- comp = S.'toList' . 'aheadly' $ do</span><span>
+</span><a name="line-1059"></a><span class="hs-comment">--     x &lt;- S.'fromFoldable' [3,2,1]</span><span>
+</span><a name="line-1060"></a><span class="hs-comment">--     delay x &gt;&gt; return x</span><span>
+</span><a name="line-1061"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1062"></a><span class="hs-comment">-- main = comp &gt;&gt;= print</span><span>
+</span><a name="line-1063"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-1064"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-1065"></a><span class="hs-comment">-- ThreadId 40: Delay 1</span><span>
+</span><a name="line-1066"></a><span class="hs-comment">-- ThreadId 39: Delay 2</span><span>
+</span><a name="line-1067"></a><span class="hs-comment">-- ThreadId 38: Delay 3</span><span>
+</span><a name="line-1068"></a><span class="hs-comment">-- [3,2,1]</span><span>
+</span><a name="line-1069"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-1070"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1071"></a><span class="hs-comment">-- This code finishes in 3 seconds, 'Serial' would take 6 seconds.  As we can</span><span>
+</span><a name="line-1072"></a><span class="hs-comment">-- see all the three iterations are concurrent and run in different threads,</span><span>
+</span><a name="line-1073"></a><span class="hs-comment">-- however, the results are returned in the serial order.</span><span>
+</span><a name="line-1074"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1075"></a><span class="hs-comment">-- Concurrency is demand driven, when multiple streams are composed using this</span><span>
+</span><a name="line-1076"></a><span class="hs-comment">-- style, the iterations are executed in a depth first manner just like</span><span>
+</span><a name="line-1077"></a><span class="hs-comment">-- 'Serial' i.e. nested iterations are executed before we proceed to the next</span><span>
+</span><a name="line-1078"></a><span class="hs-comment">-- outer iteration. The only difference is that we may execute multiple future</span><span>
+</span><a name="line-1079"></a><span class="hs-comment">-- iterations concurrently and keep the results ready.</span><span>
+</span><a name="line-1080"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1081"></a><span>
+</span><a name="line-1082"></a><span class="hs-comment">-- $concurrentNesting</span><span>
+</span><a name="line-1083"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1084"></a><span class="hs-comment">-- The 'Monad' composition of 'Async' type can perform the iterations of a</span><span>
+</span><a name="line-1085"></a><span class="hs-comment">-- loop concurrently.  Concurrency is demand driven i.e. more concurrent</span><span>
+</span><a name="line-1086"></a><span class="hs-comment">-- iterations are started only if the previous iterations are not able to</span><span>
+</span><a name="line-1087"></a><span class="hs-comment">-- produce enough output for the consumer of the output stream.  This works</span><span>
+</span><a name="line-1088"></a><span class="hs-comment">-- exactly the same way as the merging of two streams 'asyncly' works.</span><span>
+</span><a name="line-1089"></a><span class="hs-comment">-- This is the concurrent analogue of 'Serial' style monadic composition.</span><span>
+</span><a name="line-1090"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1091"></a><span class="hs-comment">-- The 'asyncly' type combinator can be used to switch to this style of</span><span>
+</span><a name="line-1092"></a><span class="hs-comment">-- composition. Alternatively, a type annotation can be used to specify the</span><span>
+</span><a name="line-1093"></a><span class="hs-comment">-- type of the stream as 'Async'.</span><span>
+</span><a name="line-1094"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1095"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-1096"></a><span class="hs-comment">-- import &quot;Streamly&quot;</span><span>
+</span><a name="line-1097"></a><span class="hs-comment">-- import qualified &quot;Streamly.Prelude&quot; as S</span><span>
+</span><a name="line-1098"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1099"></a><span class="hs-comment">-- main = S.'drain' . 'asyncly' $ do</span><span>
+</span><a name="line-1100"></a><span class="hs-comment">--     x &lt;- S.'fromFoldable' [3,2,1]</span><span>
+</span><a name="line-1101"></a><span class="hs-comment">--     delay x</span><span>
+</span><a name="line-1102"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-1103"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-1104"></a><span class="hs-comment">-- ThreadId 40: Delay 1</span><span>
+</span><a name="line-1105"></a><span class="hs-comment">-- ThreadId 39: Delay 2</span><span>
+</span><a name="line-1106"></a><span class="hs-comment">-- ThreadId 38: Delay 3</span><span>
+</span><a name="line-1107"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-1108"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1109"></a><span class="hs-comment">-- As we can see the code after the @fromFoldable@ statement is run three</span><span>
+</span><a name="line-1110"></a><span class="hs-comment">-- times, once for each value of @x@. All the three iterations are concurrent</span><span>
+</span><a name="line-1111"></a><span class="hs-comment">-- and run in different threads. The iteration with least delay finishes first.</span><span>
+</span><a name="line-1112"></a><span class="hs-comment">-- When compared to imperative programming, this can be viewed as a @for@ loop</span><span>
+</span><a name="line-1113"></a><span class="hs-comment">-- with three concurrent iterations.</span><span>
+</span><a name="line-1114"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1115"></a><span class="hs-comment">-- Concurrency is demand driven just as in the case of 'async' merging.</span><span>
+</span><a name="line-1116"></a><span class="hs-comment">-- When multiple streams are composed using this style, the iterations are</span><span>
+</span><a name="line-1117"></a><span class="hs-comment">-- triggered in a depth first manner just like 'Serial' i.e. nested iterations are</span><span>
+</span><a name="line-1118"></a><span class="hs-comment">-- executed before we proceed to the next iteration at higher level. However,</span><span>
+</span><a name="line-1119"></a><span class="hs-comment">-- unlike 'Serial' more than one iterations may be started concurrently based</span><span>
+</span><a name="line-1120"></a><span class="hs-comment">-- on the demand from the consumer of the stream.</span><span>
+</span><a name="line-1121"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1122"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-1123"></a><span class="hs-comment">-- import &quot;Streamly&quot;</span><span>
+</span><a name="line-1124"></a><span class="hs-comment">-- import qualified &quot;Streamly.Prelude&quot; as S</span><span>
+</span><a name="line-1125"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1126"></a><span class="hs-comment">-- main = S.'drain' . 'asyncly' $ do</span><span>
+</span><a name="line-1127"></a><span class="hs-comment">--     x &lt;- S.'fromFoldable' [1,2]</span><span>
+</span><a name="line-1128"></a><span class="hs-comment">--     y &lt;- S.'fromFoldable' [3,4]</span><span>
+</span><a name="line-1129"></a><span class="hs-comment">--     S.'yieldM' $ putStrLn $ show (x, y)</span><span>
+</span><a name="line-1130"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-1131"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-1132"></a><span class="hs-comment">-- (1,3)</span><span>
+</span><a name="line-1133"></a><span class="hs-comment">-- (1,4)</span><span>
+</span><a name="line-1134"></a><span class="hs-comment">-- (2,3)</span><span>
+</span><a name="line-1135"></a><span class="hs-comment">-- (2,4)</span><span>
+</span><a name="line-1136"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-1137"></a><span>
+</span><a name="line-1138"></a><span class="hs-comment">-- $interleavedNesting</span><span>
+</span><a name="line-1139"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1140"></a><span class="hs-comment">-- The 'Monad' composition of 'WSerial' type interleaves the iterations of</span><span>
+</span><a name="line-1141"></a><span class="hs-comment">-- outer and inner loops in a nested loop composition. This works exactly the</span><span>
+</span><a name="line-1142"></a><span class="hs-comment">-- same way as the merging of two streams in 'wSerially' fashion works.  The</span><span>
+</span><a name="line-1143"></a><span class="hs-comment">-- 'wSerially' type combinator can be used to switch to this style of</span><span>
+</span><a name="line-1144"></a><span class="hs-comment">-- composition. Alternatively, a type annotation can be used to specify the</span><span>
+</span><a name="line-1145"></a><span class="hs-comment">-- type of the stream as 'WSerial'.</span><span>
+</span><a name="line-1146"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1147"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-1148"></a><span class="hs-comment">-- import &quot;Streamly&quot;</span><span>
+</span><a name="line-1149"></a><span class="hs-comment">-- import qualified &quot;Streamly.Prelude&quot; as S</span><span>
+</span><a name="line-1150"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1151"></a><span class="hs-comment">-- main = S.'drain' . 'wSerially' $ do</span><span>
+</span><a name="line-1152"></a><span class="hs-comment">--     x &lt;- S.'fromFoldable' [1,2]</span><span>
+</span><a name="line-1153"></a><span class="hs-comment">--     y &lt;- S.'fromFoldable' [3,4]</span><span>
+</span><a name="line-1154"></a><span class="hs-comment">--     S.yieldM $ putStrLn $ show (x, y)</span><span>
+</span><a name="line-1155"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-1156"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-1157"></a><span class="hs-comment">-- (1,3)</span><span>
+</span><a name="line-1158"></a><span class="hs-comment">-- (2,3)</span><span>
+</span><a name="line-1159"></a><span class="hs-comment">-- (1,4)</span><span>
+</span><a name="line-1160"></a><span class="hs-comment">-- (2,4)</span><span>
+</span><a name="line-1161"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-1162"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1163"></a><span>
+</span><a name="line-1164"></a><span class="hs-comment">-- $wasyncNesting</span><span>
+</span><a name="line-1165"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1166"></a><span class="hs-comment">-- Just like 'Async' the 'Monad' composition of 'WAsync' runs the iterations of</span><span>
+</span><a name="line-1167"></a><span class="hs-comment">-- a loop concurrently. The difference is in the nested loop behavior. The</span><span>
+</span><a name="line-1168"></a><span class="hs-comment">-- nested loops in this type are traversed and executed in a breadth first</span><span>
+</span><a name="line-1169"></a><span class="hs-comment">-- manner rather than the depth first manner of 'Async' style.</span><span>
+</span><a name="line-1170"></a><span class="hs-comment">-- The loop nesting works exactly the same way as the merging of streams</span><span>
+</span><a name="line-1171"></a><span class="hs-comment">-- 'wAsyncly' works.  The 'wAsyncly' type combinator can be used to switch to</span><span>
+</span><a name="line-1172"></a><span class="hs-comment">-- this style of composition. Alternatively, a type annotation can be used to</span><span>
+</span><a name="line-1173"></a><span class="hs-comment">-- specify the type of the stream as 'WAsync'.</span><span>
+</span><a name="line-1174"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1175"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-1176"></a><span class="hs-comment">-- import &quot;Streamly&quot;</span><span>
+</span><a name="line-1177"></a><span class="hs-comment">-- import qualified &quot;Streamly.Prelude&quot; as S</span><span>
+</span><a name="line-1178"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1179"></a><span class="hs-comment">-- main = S.'drain' . 'wAsyncly' $ do</span><span>
+</span><a name="line-1180"></a><span class="hs-comment">--     x &lt;- S.'fromFoldable' [1,2]</span><span>
+</span><a name="line-1181"></a><span class="hs-comment">--     y &lt;- S.'fromFoldable' [3,4]</span><span>
+</span><a name="line-1182"></a><span class="hs-comment">--     S.'yieldM' $ putStrLn $ show (x, y)</span><span>
+</span><a name="line-1183"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-1184"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-1185"></a><span class="hs-comment">-- (1,3)</span><span>
+</span><a name="line-1186"></a><span class="hs-comment">-- (2,3)</span><span>
+</span><a name="line-1187"></a><span class="hs-comment">-- (1,4)</span><span>
+</span><a name="line-1188"></a><span class="hs-comment">-- (2,4)</span><span>
+</span><a name="line-1189"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-1190"></a><span>
+</span><a name="line-1191"></a><span class="hs-comment">-- $parallelNesting</span><span>
+</span><a name="line-1192"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1193"></a><span class="hs-comment">-- Just like 'Async' or 'WAsync' the 'Monad' composition of 'Parallel' runs the</span><span>
+</span><a name="line-1194"></a><span class="hs-comment">-- iterations of a loop concurrently. The difference is in the nested loop</span><span>
+</span><a name="line-1195"></a><span class="hs-comment">-- behavior. The streams at each nest level is run fully concurrently</span><span>
+</span><a name="line-1196"></a><span class="hs-comment">-- irrespective of the demand.  The loop nesting works exactly the same way as</span><span>
+</span><a name="line-1197"></a><span class="hs-comment">-- the merging of streams 'parallely' works.  The 'parallely' type combinator</span><span>
+</span><a name="line-1198"></a><span class="hs-comment">-- can be used to switch to this style of composition. Alternatively, a type</span><span>
+</span><a name="line-1199"></a><span class="hs-comment">-- annotation can be used to specify the type of the stream as 'Parallel'.</span><span>
+</span><a name="line-1200"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1201"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-1202"></a><span class="hs-comment">-- import &quot;Streamly&quot;</span><span>
+</span><a name="line-1203"></a><span class="hs-comment">-- import qualified &quot;Streamly.Prelude&quot; as S</span><span>
+</span><a name="line-1204"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1205"></a><span class="hs-comment">-- main = S.'drain' . 'parallely' $ do</span><span>
+</span><a name="line-1206"></a><span class="hs-comment">--     x &lt;- S.'fromFoldable' [3,2,1]</span><span>
+</span><a name="line-1207"></a><span class="hs-comment">--     delay x</span><span>
+</span><a name="line-1208"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-1209"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-1210"></a><span class="hs-comment">-- ThreadId 40: Delay 1</span><span>
+</span><a name="line-1211"></a><span class="hs-comment">-- ThreadId 39: Delay 2</span><span>
+</span><a name="line-1212"></a><span class="hs-comment">-- ThreadId 38: Delay 3</span><span>
+</span><a name="line-1213"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-1214"></a><span>
+</span><a name="line-1215"></a><span class="hs-comment">-- $monadExercise</span><span>
+</span><a name="line-1216"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1217"></a><span class="hs-comment">-- Streamly code is usually written in a way that is agnostic of the</span><span>
+</span><a name="line-1218"></a><span class="hs-comment">-- specific monadic composition type. We use a polymorphic type with a</span><span>
+</span><a name="line-1219"></a><span class="hs-comment">-- 'IsStream' type class constraint. When running the stream we can choose the</span><span>
+</span><a name="line-1220"></a><span class="hs-comment">-- specific mode of composition. For example take a look at the following code.</span><span>
+</span><a name="line-1221"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1222"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-1223"></a><span class="hs-comment">-- import &quot;Streamly&quot;</span><span>
+</span><a name="line-1224"></a><span class="hs-comment">-- import qualified &quot;Streamly.Prelude&quot; as S</span><span>
+</span><a name="line-1225"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1226"></a><span class="hs-comment">-- composed :: (IsStream t, Monad (t IO)) =&gt; t IO ()</span><span>
+</span><a name="line-1227"></a><span class="hs-comment">-- composed = do</span><span>
+</span><a name="line-1228"></a><span class="hs-comment">--     sz &lt;- sizes</span><span>
+</span><a name="line-1229"></a><span class="hs-comment">--     cl &lt;- colors</span><span>
+</span><a name="line-1230"></a><span class="hs-comment">--     sh &lt;- shapes</span><span>
+</span><a name="line-1231"></a><span class="hs-comment">--     S.'yieldM' $ putStrLn $ show (sz, cl, sh)</span><span>
+</span><a name="line-1232"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1233"></a><span class="hs-comment">--     where</span><span>
+</span><a name="line-1234"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1235"></a><span class="hs-comment">--     sizes  = S.'fromFoldable' [1, 2, 3]</span><span>
+</span><a name="line-1236"></a><span class="hs-comment">--     colors = S.'fromFoldable' [&quot;red&quot;, &quot;green&quot;, &quot;blue&quot;]</span><span>
+</span><a name="line-1237"></a><span class="hs-comment">--     shapes = S.'fromFoldable' [&quot;triangle&quot;, &quot;square&quot;, &quot;circle&quot;]</span><span>
+</span><a name="line-1238"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-1239"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1240"></a><span class="hs-comment">-- Now we can interpret this in whatever way we want:</span><span>
+</span><a name="line-1241"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1242"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-1243"></a><span class="hs-comment">-- main = S.'drain' . 'serially'  $ composed</span><span>
+</span><a name="line-1244"></a><span class="hs-comment">-- main = S.'drain' . 'wSerially' $ composed</span><span>
+</span><a name="line-1245"></a><span class="hs-comment">-- main = S.'drain' . 'asyncly'   $ composed</span><span>
+</span><a name="line-1246"></a><span class="hs-comment">-- main = S.'drain' . 'wAsyncly'  $ composed</span><span>
+</span><a name="line-1247"></a><span class="hs-comment">-- main = S.'drain' . 'parallely' $ composed</span><span>
+</span><a name="line-1248"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-1249"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1250"></a><span class="hs-comment">--  As an exercise try to figure out the output of this code for each mode of</span><span>
+</span><a name="line-1251"></a><span class="hs-comment">--  composition.</span><span>
+</span><a name="line-1252"></a><span>
+</span><a name="line-1253"></a><span class="hs-comment">-- $functor</span><span>
+</span><a name="line-1254"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1255"></a><span class="hs-comment">-- 'fmap' transforms a stream by mapping a function on all elements of the</span><span>
+</span><a name="line-1256"></a><span class="hs-comment">-- stream. 'fmap' behaves in the same way for all stream types, it is always</span><span>
+</span><a name="line-1257"></a><span class="hs-comment">-- serial.</span><span>
+</span><a name="line-1258"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1259"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-1260"></a><span class="hs-comment">-- import &quot;Streamly&quot;</span><span>
+</span><a name="line-1261"></a><span class="hs-comment">-- import qualified &quot;Streamly.Prelude&quot; as S</span><span>
+</span><a name="line-1262"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1263"></a><span class="hs-comment">-- main = (S.'toList' $ fmap show $ S.'fromFoldable' [1..10]) &gt;&gt;= print</span><span>
+</span><a name="line-1264"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-1265"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1266"></a><span class="hs-comment">-- Also see the 'mapM' and 'sequence' functions for mapping actions, in the</span><span>
+</span><a name="line-1267"></a><span class="hs-comment">-- &quot;Streamly.Prelude&quot; module.</span><span>
+</span><a name="line-1268"></a><span>
+</span><a name="line-1269"></a><span class="hs-comment">-- $applicative</span><span>
+</span><a name="line-1270"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1271"></a><span class="hs-comment">-- Applicative is precisely the same as the 'ap' operation of 'Monad'. For</span><span>
+</span><a name="line-1272"></a><span class="hs-comment">-- zipping applicatives separate types 'ZipSerial' and 'ZipAsync' are</span><span>
+</span><a name="line-1273"></a><span class="hs-comment">-- provided.</span><span>
+</span><a name="line-1274"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1275"></a><span class="hs-comment">-- The following example uses the 'Serial' applicative, it runs all iterations</span><span>
+</span><a name="line-1276"></a><span class="hs-comment">-- serially and takes a total 17 seconds (1 + 3 + 4 + 2 + 3 + 4):</span><span>
+</span><a name="line-1277"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1278"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-1279"></a><span class="hs-comment">-- import &quot;Streamly&quot;</span><span>
+</span><a name="line-1280"></a><span class="hs-comment">-- import qualified &quot;Streamly.Prelude&quot; as S</span><span>
+</span><a name="line-1281"></a><span class="hs-comment">-- import Control.Concurrent</span><span>
+</span><a name="line-1282"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1283"></a><span class="hs-comment">-- s1 = d 1 &lt;&gt; d 2</span><span>
+</span><a name="line-1284"></a><span class="hs-comment">-- s2 = d 3 &lt;&gt; d 4</span><span>
+</span><a name="line-1285"></a><span class="hs-comment">-- d n = delay n &gt;&gt; return n</span><span>
+</span><a name="line-1286"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1287"></a><span class="hs-comment">-- main = (S.'toList' . 'serially' $ (,) \&lt;$&gt; s1 \&lt;*&gt; s2) &gt;&gt;= print</span><span>
+</span><a name="line-1288"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-1289"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-1290"></a><span class="hs-comment">-- ThreadId 36: Delay 1</span><span>
+</span><a name="line-1291"></a><span class="hs-comment">-- ThreadId 36: Delay 3</span><span>
+</span><a name="line-1292"></a><span class="hs-comment">-- ThreadId 36: Delay 4</span><span>
+</span><a name="line-1293"></a><span class="hs-comment">-- ThreadId 36: Delay 2</span><span>
+</span><a name="line-1294"></a><span class="hs-comment">-- ThreadId 36: Delay 3</span><span>
+</span><a name="line-1295"></a><span class="hs-comment">-- ThreadId 36: Delay 4</span><span>
+</span><a name="line-1296"></a><span class="hs-comment">-- [(1,3),(1,4),(2,3),(2,4)]</span><span>
+</span><a name="line-1297"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-1298"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1299"></a><span class="hs-comment">-- Similarly 'WSerial' applicative runs the iterations in an interleaved</span><span>
+</span><a name="line-1300"></a><span class="hs-comment">-- order but since it is serial it takes a total of 17 seconds:</span><span>
+</span><a name="line-1301"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1302"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-1303"></a><span class="hs-comment">-- main = (S.'toList' . 'wSerially' $ (,) \&lt;$&gt; s1 \&lt;*&gt; s2) &gt;&gt;= print</span><span>
+</span><a name="line-1304"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-1305"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-1306"></a><span class="hs-comment">-- ThreadId 36: Delay 1</span><span>
+</span><a name="line-1307"></a><span class="hs-comment">-- ThreadId 36: Delay 3</span><span>
+</span><a name="line-1308"></a><span class="hs-comment">-- ThreadId 36: Delay 2</span><span>
+</span><a name="line-1309"></a><span class="hs-comment">-- ThreadId 36: Delay 3</span><span>
+</span><a name="line-1310"></a><span class="hs-comment">-- ThreadId 36: Delay 4</span><span>
+</span><a name="line-1311"></a><span class="hs-comment">-- ThreadId 36: Delay 4</span><span>
+</span><a name="line-1312"></a><span class="hs-comment">-- [(1,3),(2,3),(1,4),(2,4)]</span><span>
+</span><a name="line-1313"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-1314"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1315"></a><span class="hs-comment">-- 'Async' can run the iterations concurrently and therefore takes a total</span><span>
+</span><a name="line-1316"></a><span class="hs-comment">-- of 6 seconds which is max (1, 2) + max (3, 4):</span><span>
+</span><a name="line-1317"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1318"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-1319"></a><span class="hs-comment">-- main = (S.'toList' . 'asyncly' $ (,) \&lt;$&gt; s1 \&lt;*&gt; s2) &gt;&gt;= print</span><span>
+</span><a name="line-1320"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-1321"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-1322"></a><span class="hs-comment">-- ThreadId 34: Delay 1</span><span>
+</span><a name="line-1323"></a><span class="hs-comment">-- ThreadId 36: Delay 2</span><span>
+</span><a name="line-1324"></a><span class="hs-comment">-- ThreadId 35: Delay 3</span><span>
+</span><a name="line-1325"></a><span class="hs-comment">-- ThreadId 36: Delay 3</span><span>
+</span><a name="line-1326"></a><span class="hs-comment">-- ThreadId 35: Delay 4</span><span>
+</span><a name="line-1327"></a><span class="hs-comment">-- ThreadId 36: Delay 4</span><span>
+</span><a name="line-1328"></a><span class="hs-comment">-- [(1,3),(2,3),(1,4),(2,4)]</span><span>
+</span><a name="line-1329"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-1330"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1331"></a><span class="hs-comment">-- Similarly 'WAsync' as well can run the iterations concurrently and</span><span>
+</span><a name="line-1332"></a><span class="hs-comment">-- therefore takes a total of 6 seconds (2 + 4):</span><span>
+</span><a name="line-1333"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1334"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-1335"></a><span class="hs-comment">-- main = (S.'toList' . 'wAsyncly' $ (,) \&lt;$&gt; s1 \&lt;*&gt; s2) &gt;&gt;= print</span><span>
+</span><a name="line-1336"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-1337"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-1338"></a><span class="hs-comment">-- ThreadId 34: Delay 1</span><span>
+</span><a name="line-1339"></a><span class="hs-comment">-- ThreadId 36: Delay 2</span><span>
+</span><a name="line-1340"></a><span class="hs-comment">-- ThreadId 35: Delay 3</span><span>
+</span><a name="line-1341"></a><span class="hs-comment">-- ThreadId 36: Delay 3</span><span>
+</span><a name="line-1342"></a><span class="hs-comment">-- ThreadId 35: Delay 4</span><span>
+</span><a name="line-1343"></a><span class="hs-comment">-- ThreadId 36: Delay 4</span><span>
+</span><a name="line-1344"></a><span class="hs-comment">-- [(1,3),(2,3),(1,4),(2,4)]</span><span>
+</span><a name="line-1345"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-1346"></a><span>
+</span><a name="line-1347"></a><span class="hs-comment">-- $zipping</span><span>
+</span><a name="line-1348"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1349"></a><span class="hs-comment">-- Zipping is a special transformation where the corresponding elements of two</span><span>
+</span><a name="line-1350"></a><span class="hs-comment">-- streams are combined together using a zip function producing a new stream of</span><span>
+</span><a name="line-1351"></a><span class="hs-comment">-- outputs. Two different types are provided for serial and concurrent zipping.</span><span>
+</span><a name="line-1352"></a><span class="hs-comment">-- These types provide an applicative instance that can be used to lift</span><span>
+</span><a name="line-1353"></a><span class="hs-comment">-- functions to zip the argument streams.</span><span>
+</span><a name="line-1354"></a><span class="hs-comment">-- Also see the zipping functions in the &quot;Streamly.Prelude&quot; module.</span><span>
+</span><a name="line-1355"></a><span>
+</span><a name="line-1356"></a><span class="hs-comment">-- $serialzip</span><span>
+</span><a name="line-1357"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1358"></a><span class="hs-comment">-- The applicative instance of 'ZipSerial' type zips streams serially.</span><span>
+</span><a name="line-1359"></a><span class="hs-comment">-- 'zipSerially' type combinator can be used to switch to serial applicative</span><span>
+</span><a name="line-1360"></a><span class="hs-comment">-- zip composition:</span><span>
+</span><a name="line-1361"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1362"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-1363"></a><span class="hs-comment">-- import &quot;Streamly&quot;</span><span>
+</span><a name="line-1364"></a><span class="hs-comment">-- import qualified &quot;Streamly.Prelude&quot; as S</span><span>
+</span><a name="line-1365"></a><span class="hs-comment">-- import Control.Concurrent</span><span>
+</span><a name="line-1366"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1367"></a><span class="hs-comment">-- d n = delay n &gt;&gt; return n</span><span>
+</span><a name="line-1368"></a><span class="hs-comment">-- s1 = 'serially' $ d 1 &lt;&gt; d 2</span><span>
+</span><a name="line-1369"></a><span class="hs-comment">-- s2 = 'serially' $ d 3 &lt;&gt; d 4</span><span>
+</span><a name="line-1370"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1371"></a><span class="hs-comment">-- main = (S.'toList' . 'zipSerially' $ (,) \&lt;$&gt; s1 \&lt;*&gt; s2) &gt;&gt;= print</span><span>
+</span><a name="line-1372"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-1373"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1374"></a><span class="hs-comment">-- This takes total 10 seconds to zip, which is (1 + 2 + 3 + 4) since</span><span>
+</span><a name="line-1375"></a><span class="hs-comment">-- everything runs serially:</span><span>
+</span><a name="line-1376"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1377"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-1378"></a><span class="hs-comment">-- ThreadId 29: Delay 1</span><span>
+</span><a name="line-1379"></a><span class="hs-comment">-- ThreadId 29: Delay 3</span><span>
+</span><a name="line-1380"></a><span class="hs-comment">-- ThreadId 29: Delay 2</span><span>
+</span><a name="line-1381"></a><span class="hs-comment">-- ThreadId 29: Delay 4</span><span>
+</span><a name="line-1382"></a><span class="hs-comment">-- [(1,3),(2,4)]</span><span>
+</span><a name="line-1383"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-1384"></a><span>
+</span><a name="line-1385"></a><span class="hs-comment">-- $parallelzip</span><span>
+</span><a name="line-1386"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1387"></a><span class="hs-comment">-- The applicative instance of 'ZipAsync' type zips streams concurrently.</span><span>
+</span><a name="line-1388"></a><span class="hs-comment">-- 'zipAsyncly' type combinator can be used to switch to parallel applicative</span><span>
+</span><a name="line-1389"></a><span class="hs-comment">-- zip composition:</span><span>
+</span><a name="line-1390"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1391"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1392"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-1393"></a><span class="hs-comment">-- import &quot;Streamly&quot;</span><span>
+</span><a name="line-1394"></a><span class="hs-comment">-- import qualified &quot;Streamly.Prelude&quot; as S</span><span>
+</span><a name="line-1395"></a><span class="hs-comment">-- import Control.Concurrent</span><span>
+</span><a name="line-1396"></a><span class="hs-comment">-- import System.IO (stdout, hSetBuffering, BufferMode(LineBuffering))</span><span>
+</span><a name="line-1397"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1398"></a><span class="hs-comment">-- d n = delay n &gt;&gt; return n</span><span>
+</span><a name="line-1399"></a><span class="hs-comment">-- s1 = 'serially' $ d 1 &lt;&gt; d 2</span><span>
+</span><a name="line-1400"></a><span class="hs-comment">-- s2 = 'serially' $ d 3 &lt;&gt; d 4</span><span>
+</span><a name="line-1401"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1402"></a><span class="hs-comment">-- main = do</span><span>
+</span><a name="line-1403"></a><span class="hs-comment">--     hSetBuffering stdout LineBuffering</span><span>
+</span><a name="line-1404"></a><span class="hs-comment">--     (S.'toList' . 'zipAsyncly' $ (,) \&lt;$&gt; s1 \&lt;*&gt; s2) &gt;&gt;= print</span><span>
+</span><a name="line-1405"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-1406"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1407"></a><span class="hs-comment">-- This takes 7 seconds to zip, which is max (1,3) + max (2,4) because 1 and 3</span><span>
+</span><a name="line-1408"></a><span class="hs-comment">-- are produced concurrently, and 2 and 4 are produced concurrently:</span><span>
+</span><a name="line-1409"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1410"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-1411"></a><span class="hs-comment">-- ThreadId 32: Delay 1</span><span>
+</span><a name="line-1412"></a><span class="hs-comment">-- ThreadId 32: Delay 2</span><span>
+</span><a name="line-1413"></a><span class="hs-comment">-- ThreadId 33: Delay 3</span><span>
+</span><a name="line-1414"></a><span class="hs-comment">-- ThreadId 33: Delay 4</span><span>
+</span><a name="line-1415"></a><span class="hs-comment">-- [(1,3),(2,4)]</span><span>
+</span><a name="line-1416"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-1417"></a><span>
+</span><a name="line-1418"></a><span class="hs-comment">-- $concurrent</span><span>
+</span><a name="line-1419"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1420"></a><span class="hs-comment">-- When writing concurrent programs there are two distinct places where the</span><span>
+</span><a name="line-1421"></a><span class="hs-comment">-- programmer can control the concurrency. First, when /composing/ a stream by</span><span>
+</span><a name="line-1422"></a><span class="hs-comment">-- merging multiple streams we can choose an appropriate sum style operators to</span><span>
+</span><a name="line-1423"></a><span class="hs-comment">-- combine them concurrently or serially. Second, when /processing/ a stream in</span><span>
+</span><a name="line-1424"></a><span class="hs-comment">-- a monadic composition we can choose one of the monad composition types to</span><span>
+</span><a name="line-1425"></a><span class="hs-comment">-- choose the desired type of concurrency.</span><span>
+</span><a name="line-1426"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1427"></a><span class="hs-comment">-- In the following example the squares of @x@ and @y@ are computed</span><span>
+</span><a name="line-1428"></a><span class="hs-comment">-- concurrently using the 'async' operation and the square roots of their</span><span>
+</span><a name="line-1429"></a><span class="hs-comment">-- sum are computed serially because of the 'streamly' combinator. We can</span><span>
+</span><a name="line-1430"></a><span class="hs-comment">-- choose different combinators for the monadic processing and the stream</span><span>
+</span><a name="line-1431"></a><span class="hs-comment">-- generation, to control the concurrency.  We can also use the 'asyncly'</span><span>
+</span><a name="line-1432"></a><span class="hs-comment">-- combinator instead of explicitly folding with 'async'.</span><span>
+</span><a name="line-1433"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1434"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-1435"></a><span class="hs-comment">-- import &quot;Streamly&quot;</span><span>
+</span><a name="line-1436"></a><span class="hs-comment">-- import qualified &quot;Streamly.Prelude&quot; as S</span><span>
+</span><a name="line-1437"></a><span class="hs-comment">-- import Data.List (sum)</span><span>
+</span><a name="line-1438"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1439"></a><span class="hs-comment">-- main = do</span><span>
+</span><a name="line-1440"></a><span class="hs-comment">--     z \&lt;-   S.'toList'</span><span>
+</span><a name="line-1441"></a><span class="hs-comment">--          $ 'serially'     -- Serial monadic processing (sqrt below)</span><span>
+</span><a name="line-1442"></a><span class="hs-comment">--          $ do</span><span>
+</span><a name="line-1443"></a><span class="hs-comment">--              x2 \&lt;- 'forEachWith' 'async' [1..100] $ -- Concurrent @&quot;for&quot;@ loop</span><span>
+</span><a name="line-1444"></a><span class="hs-comment">--                          \\x -&gt; return $ x * x  -- body of the loop</span><span>
+</span><a name="line-1445"></a><span class="hs-comment">--              y2 \&lt;- 'forEachWith' 'async' [1..100] $</span><span>
+</span><a name="line-1446"></a><span class="hs-comment">--                          \\y -&gt; return $ y * y</span><span>
+</span><a name="line-1447"></a><span class="hs-comment">--              return $ sqrt (x2 + y2)</span><span>
+</span><a name="line-1448"></a><span class="hs-comment">--     print $ sum z</span><span>
+</span><a name="line-1449"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-1450"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1451"></a><span class="hs-comment">-- We can see how this directly maps to the imperative style</span><span>
+</span><a name="line-1452"></a><span class="hs-comment">-- &lt;https://en.wikipedia.org/wiki/OpenMP OpenMP&gt; model, we use combinators</span><span>
+</span><a name="line-1453"></a><span class="hs-comment">-- and operators instead of the ugly pragmas.</span><span>
+</span><a name="line-1454"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1455"></a><span class="hs-comment">-- For more concurrent programming examples see,</span><span>
+</span><a name="line-1456"></a><span class="hs-comment">-- &lt;examples/ListDir.hs ListDir.hs&gt;,</span><span>
+</span><a name="line-1457"></a><span class="hs-comment">-- &lt;examples/MergeSort.hs MergeSort.hs&gt; and</span><span>
+</span><a name="line-1458"></a><span class="hs-comment">-- &lt;examples/SearchQuery.hs SearchQuery.hs&gt; in the examples directory.</span><span>
+</span><a name="line-1459"></a><span>
+</span><a name="line-1460"></a><span class="hs-comment">-- $reactive</span><span>
+</span><a name="line-1461"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1462"></a><span class="hs-comment">-- Reactive programming is nothing but concurrent streaming which is what</span><span>
+</span><a name="line-1463"></a><span class="hs-comment">-- streamly is all about. With streamly we can generate streams of events,</span><span>
+</span><a name="line-1464"></a><span class="hs-comment">-- merge streams that are generated concurrently and process events</span><span>
+</span><a name="line-1465"></a><span class="hs-comment">-- concurrently. We can do all this without any knowledge about the specifics</span><span>
+</span><a name="line-1466"></a><span class="hs-comment">-- of the implementation of concurrency. In the following example you will see</span><span>
+</span><a name="line-1467"></a><span class="hs-comment">-- that the code is just regular Haskell code without much streamly APIs used</span><span>
+</span><a name="line-1468"></a><span class="hs-comment">-- (active hyperlinks are the streamly APIs) and yet it is a reactive</span><span>
+</span><a name="line-1469"></a><span class="hs-comment">-- application.</span><span>
+</span><a name="line-1470"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1471"></a><span class="hs-comment">-- This application has two independent and concurrent sources of event</span><span>
+</span><a name="line-1472"></a><span class="hs-comment">-- streams, @acidRain@ and @userAction@. @acidRain@ continuously generates</span><span>
+</span><a name="line-1473"></a><span class="hs-comment">-- events that deteriorate the health of the character in the game.</span><span>
+</span><a name="line-1474"></a><span class="hs-comment">-- @userAction@ can be &quot;potion&quot; or &quot;quit&quot;. When the user types &quot;potion&quot; the</span><span>
+</span><a name="line-1475"></a><span class="hs-comment">-- health improves and the game continues.</span><span>
+</span><a name="line-1476"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1477"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-1478"></a><span class="hs-comment">-- {-\# LANGUAGE FlexibleContexts #-}</span><span>
+</span><a name="line-1479"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1480"></a><span class="hs-comment">-- import &quot;Streamly&quot;</span><span>
+</span><a name="line-1481"></a><span class="hs-comment">-- import &quot;Streamly.Prelude&quot; as S</span><span>
+</span><a name="line-1482"></a><span class="hs-comment">-- import Control.Monad (void, when)</span><span>
+</span><a name="line-1483"></a><span class="hs-comment">-- import Control.Monad.IO.Class (MonadIO(liftIO))</span><span>
+</span><a name="line-1484"></a><span class="hs-comment">-- import Control.Monad.State (MonadState, get, modify, runStateT, put)</span><span>
+</span><a name="line-1485"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1486"></a><span class="hs-comment">-- data Event = Quit | Harm Int | Heal Int deriving (Show)</span><span>
+</span><a name="line-1487"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1488"></a><span class="hs-comment">-- userAction :: MonadAsync m =&gt; 'SerialT' m Event</span><span>
+</span><a name="line-1489"></a><span class="hs-comment">-- userAction = S.'repeatM' $ liftIO askUser</span><span>
+</span><a name="line-1490"></a><span class="hs-comment">--     where</span><span>
+</span><a name="line-1491"></a><span class="hs-comment">--     askUser = do</span><span>
+</span><a name="line-1492"></a><span class="hs-comment">--         command &lt;- getLine</span><span>
+</span><a name="line-1493"></a><span class="hs-comment">--         case command of</span><span>
+</span><a name="line-1494"></a><span class="hs-comment">--             &quot;potion&quot; -&gt; return (Heal 10)</span><span>
+</span><a name="line-1495"></a><span class="hs-comment">--             &quot;harm&quot;   -&gt; return (Harm 10)</span><span>
+</span><a name="line-1496"></a><span class="hs-comment">--             &quot;quit&quot;   -&gt; return Quit</span><span>
+</span><a name="line-1497"></a><span class="hs-comment">--             _        -&gt; putStrLn &quot;Type potion or harm or quit&quot; &gt;&gt; askUser</span><span>
+</span><a name="line-1498"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1499"></a><span class="hs-comment">-- acidRain :: MonadAsync m =&gt; 'SerialT' m Event</span><span>
+</span><a name="line-1500"></a><span class="hs-comment">-- acidRain = 'asyncly' $ 'constRate' 1 $ S.'repeatM' $ liftIO $ return $ Harm 1</span><span>
+</span><a name="line-1501"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1502"></a><span class="hs-comment">-- data Result = Check | Done</span><span>
+</span><a name="line-1503"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1504"></a><span class="hs-comment">-- runEvents :: (MonadAsync m, MonadState Int m) =&gt; 'SerialT' m Result</span><span>
+</span><a name="line-1505"></a><span class="hs-comment">-- runEvents = do</span><span>
+</span><a name="line-1506"></a><span class="hs-comment">--     event \&lt;- userAction \`parallel` acidRain</span><span>
+</span><a name="line-1507"></a><span class="hs-comment">--     case event of</span><span>
+</span><a name="line-1508"></a><span class="hs-comment">--         Harm n -&gt; modify (\\h -&gt; h - n) &gt;&gt; return Check</span><span>
+</span><a name="line-1509"></a><span class="hs-comment">--         Heal n -&gt; modify (\\h -&gt; h + n) &gt;&gt; return Check</span><span>
+</span><a name="line-1510"></a><span class="hs-comment">--         Quit -&gt; return Done</span><span>
+</span><a name="line-1511"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1512"></a><span class="hs-comment">-- data Status = Alive | GameOver deriving Eq</span><span>
+</span><a name="line-1513"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1514"></a><span class="hs-comment">-- getStatus :: (MonadAsync m, MonadState Int m) =&gt; Result -&gt; m Status</span><span>
+</span><a name="line-1515"></a><span class="hs-comment">-- getStatus result =</span><span>
+</span><a name="line-1516"></a><span class="hs-comment">--     case result of</span><span>
+</span><a name="line-1517"></a><span class="hs-comment">--         Done  -&gt; liftIO $ putStrLn &quot;You quit!&quot; &gt;&gt; return GameOver</span><span>
+</span><a name="line-1518"></a><span class="hs-comment">--         Check -&gt; do</span><span>
+</span><a name="line-1519"></a><span class="hs-comment">--             h &lt;- get</span><span>
+</span><a name="line-1520"></a><span class="hs-comment">--             liftIO $ if (h &lt;= 0)</span><span>
+</span><a name="line-1521"></a><span class="hs-comment">--                      then putStrLn &quot;You die!&quot; &gt;&gt; return GameOver</span><span>
+</span><a name="line-1522"></a><span class="hs-comment">--                      else putStrLn (&quot;Health = &quot; &lt;&gt; show h) &gt;&gt; return Alive</span><span>
+</span><a name="line-1523"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1524"></a><span class="hs-comment">-- main :: IO ()</span><span>
+</span><a name="line-1525"></a><span class="hs-comment">-- main = do</span><span>
+</span><a name="line-1526"></a><span class="hs-comment">--     putStrLn &quot;Your health is deteriorating due to acid rain,\\</span><span>
+</span><a name="line-1527"></a><span class="hs-comment">--              \\ type \\&quot;potion\\&quot; or \\&quot;quit\\&quot;&quot;</span><span>
+</span><a name="line-1528"></a><span class="hs-comment">--     let runGame = S.'drainWhile' (== Alive) $ S.'mapM' getStatus runEvents</span><span>
+</span><a name="line-1529"></a><span class="hs-comment">--     void $ runStateT runGame 60</span><span>
+</span><a name="line-1530"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-1531"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1532"></a><span class="hs-comment">-- You can also find the source of this example in the examples directory as</span><span>
+</span><a name="line-1533"></a><span class="hs-comment">-- &lt;examples/AcidRain.hs AcidRain.hs&gt;. It has been adapted from Gabriel's</span><span>
+</span><a name="line-1534"></a><span class="hs-comment">-- &lt;https://hackage.haskell.org/package/pipes-concurrency-2.0.8/docs/Pipes-Concurrent-Tutorial.html pipes-concurrency&gt;</span><span>
+</span><a name="line-1535"></a><span class="hs-comment">-- package.</span><span>
+</span><a name="line-1536"></a><span class="hs-comment">-- This is much simpler compared to the pipes version because of the builtin</span><span>
+</span><a name="line-1537"></a><span class="hs-comment">-- concurrency in streamly. You can also find a SDL based reactive programming</span><span>
+</span><a name="line-1538"></a><span class="hs-comment">-- example adapted from Yampa in</span><span>
+</span><a name="line-1539"></a><span class="hs-comment">-- &lt;examples/CirclingSquare.hs CirclingSquare.hs&gt;.</span><span>
+</span><a name="line-1540"></a><span>
+</span><a name="line-1541"></a><span class="hs-comment">-- $performance</span><span>
+</span><a name="line-1542"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1543"></a><span class="hs-comment">-- Streamly is highly optimized for performance, it is designed for serious</span><span>
+</span><a name="line-1544"></a><span class="hs-comment">-- high performing, concurrent and scalable applications. We have created the</span><span>
+</span><a name="line-1545"></a><span class="hs-comment">-- &lt;https://hackage.haskell.org/package/streaming-benchmarks streaming-benchmarks&gt;</span><span>
+</span><a name="line-1546"></a><span class="hs-comment">-- package which is specifically and carefully designed to measure the</span><span>
+</span><a name="line-1547"></a><span class="hs-comment">-- performance of Haskell streaming libraries fairly and squarely in the right</span><span>
+</span><a name="line-1548"></a><span class="hs-comment">-- way. Streamly performs at par or even better than most streaming libraries</span><span>
+</span><a name="line-1549"></a><span class="hs-comment">-- for serial operations even though it needs to deal with the concurrency</span><span>
+</span><a name="line-1550"></a><span class="hs-comment">-- capability.</span><span>
+</span><a name="line-1551"></a><span>
+</span><a name="line-1552"></a><span class="hs-comment">-- $interop</span><span>
+</span><a name="line-1553"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1554"></a><span class="hs-comment">-- We can use @unfoldr@ and @uncons@ to convert one streaming type to another.</span><span>
+</span><a name="line-1555"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1556"></a><span class="hs-comment">--  Interop with @vector@:</span><span>
+</span><a name="line-1557"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1558"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-1559"></a><span class="hs-comment">-- import Streamly</span><span>
+</span><a name="line-1560"></a><span class="hs-comment">-- import qualified Streamly.Prelude as S</span><span>
+</span><a name="line-1561"></a><span class="hs-comment">-- import qualified Data.Vector.Fusion.Stream.Monadic as V</span><span>
+</span><a name="line-1562"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1563"></a><span class="hs-comment">-- -- | vector to streamly</span><span>
+</span><a name="line-1564"></a><span class="hs-comment">-- fromVector :: (IsStream t, Monad m) =&gt; V.Stream m a -&gt; t m a</span><span>
+</span><a name="line-1565"></a><span class="hs-comment">-- fromVector = S.unfoldrM unconsV</span><span>
+</span><a name="line-1566"></a><span class="hs-comment">--     where</span><span>
+</span><a name="line-1567"></a><span class="hs-comment">--     unconsV v = do</span><span>
+</span><a name="line-1568"></a><span class="hs-comment">--         r &lt;- V.null v</span><span>
+</span><a name="line-1569"></a><span class="hs-comment">--         if r</span><span>
+</span><a name="line-1570"></a><span class="hs-comment">--         then return Nothing</span><span>
+</span><a name="line-1571"></a><span class="hs-comment">--         else do</span><span>
+</span><a name="line-1572"></a><span class="hs-comment">--             h &lt;- V.head v</span><span>
+</span><a name="line-1573"></a><span class="hs-comment">--             return $ Just (h, V.tail v)</span><span>
+</span><a name="line-1574"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1575"></a><span class="hs-comment">-- -- | streamly to vector</span><span>
+</span><a name="line-1576"></a><span class="hs-comment">-- toVector :: Monad m =&gt; SerialT m a -&gt; V.Stream m a</span><span>
+</span><a name="line-1577"></a><span class="hs-comment">-- toVector = V.unfoldrM (S.uncons . adapt)</span><span>
+</span><a name="line-1578"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1579"></a><span class="hs-comment">-- main = do</span><span>
+</span><a name="line-1580"></a><span class="hs-comment">--     S.toList (fromVector (V.fromList [1..3]))   &gt;&gt;= print</span><span>
+</span><a name="line-1581"></a><span class="hs-comment">--     V.toList (toVector (S.fromFoldable [1..3])) &gt;&gt;= print</span><span>
+</span><a name="line-1582"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-1583"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1584"></a><span class="hs-comment">--  Interop with @pipes@:</span><span>
+</span><a name="line-1585"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1586"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-1587"></a><span class="hs-comment">-- import &quot;Streamly&quot;</span><span>
+</span><a name="line-1588"></a><span class="hs-comment">-- import qualified &quot;Streamly.Prelude&quot; as S</span><span>
+</span><a name="line-1589"></a><span class="hs-comment">-- import qualified Pipes as P</span><span>
+</span><a name="line-1590"></a><span class="hs-comment">-- import qualified Pipes.Prelude as P</span><span>
+</span><a name="line-1591"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1592"></a><span class="hs-comment">-- -- | pipes to streamly</span><span>
+</span><a name="line-1593"></a><span class="hs-comment">-- fromPipes :: (IsStream t, Monad m) =&gt; P.Producer a m r -&gt; t m a</span><span>
+</span><a name="line-1594"></a><span class="hs-comment">-- fromPipes = S.'unfoldrM' unconsP</span><span>
+</span><a name="line-1595"></a><span class="hs-comment">--     where</span><span>
+</span><a name="line-1596"></a><span class="hs-comment">--     -- Adapt P.next to return a Maybe instead of Either</span><span>
+</span><a name="line-1597"></a><span class="hs-comment">--     unconsP p = P.next p &gt;&gt;= either (\\_ -&gt; return Nothing) (return . Just)</span><span>
+</span><a name="line-1598"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1599"></a><span class="hs-comment">-- -- | streamly to pipes</span><span>
+</span><a name="line-1600"></a><span class="hs-comment">-- toPipes :: Monad m =&gt; SerialT m a -&gt; P.Producer a m ()</span><span>
+</span><a name="line-1601"></a><span class="hs-comment">-- toPipes = P.unfoldr unconsS</span><span>
+</span><a name="line-1602"></a><span class="hs-comment">--     where</span><span>
+</span><a name="line-1603"></a><span class="hs-comment">--     -- Adapt S.uncons to return an Either instead of Maybe</span><span>
+</span><a name="line-1604"></a><span class="hs-comment">--     unconsS s = S.'uncons' s &gt;&gt;= maybe (return $ Left ()) (return . Right)</span><span>
+</span><a name="line-1605"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1606"></a><span class="hs-comment">-- main = do</span><span>
+</span><a name="line-1607"></a><span class="hs-comment">--     S.'toList' (fromPipes (P.each [1..3])) &gt;&gt;= print</span><span>
+</span><a name="line-1608"></a><span class="hs-comment">--     P.toListM (toPipes (S.'fromFoldable' [1..3])) &gt;&gt;= print</span><span>
+</span><a name="line-1609"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-1610"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1611"></a><span class="hs-comment">-- Interop with @streaming@:</span><span>
+</span><a name="line-1612"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1613"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-1614"></a><span class="hs-comment">-- import &quot;Streamly&quot;</span><span>
+</span><a name="line-1615"></a><span class="hs-comment">-- import qualified &quot;Streamly.Prelude&quot; as S</span><span>
+</span><a name="line-1616"></a><span class="hs-comment">-- import qualified Streaming as SG</span><span>
+</span><a name="line-1617"></a><span class="hs-comment">-- import qualified Streaming.Prelude as SG</span><span>
+</span><a name="line-1618"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1619"></a><span class="hs-comment">-- -- | streaming to streamly</span><span>
+</span><a name="line-1620"></a><span class="hs-comment">-- fromStreaming :: (IsStream t, MonadAsync m) =&gt; SG.Stream (SG.Of a) m r -&gt; t m a</span><span>
+</span><a name="line-1621"></a><span class="hs-comment">-- fromStreaming = S.unfoldrM SG.uncons</span><span>
+</span><a name="line-1622"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1623"></a><span class="hs-comment">-- -- | streamly to streaming</span><span>
+</span><a name="line-1624"></a><span class="hs-comment">-- toStreaming :: Monad m =&gt; SerialT m a -&gt; SG.Stream (SG.Of a) m ()</span><span>
+</span><a name="line-1625"></a><span class="hs-comment">-- toStreaming = SG.unfoldr unconsS</span><span>
+</span><a name="line-1626"></a><span class="hs-comment">--     where</span><span>
+</span><a name="line-1627"></a><span class="hs-comment">--     -- Adapt S.uncons to return an Either instead of Maybe</span><span>
+</span><a name="line-1628"></a><span class="hs-comment">--     unconsS s = S.'uncons' s &gt;&gt;= maybe (return $ Left ()) (return . Right)</span><span>
+</span><a name="line-1629"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1630"></a><span class="hs-comment">-- main = do</span><span>
+</span><a name="line-1631"></a><span class="hs-comment">--     S.toList (fromStreaming (SG.each [1..3])) &gt;&gt;= print</span><span>
+</span><a name="line-1632"></a><span class="hs-comment">--     SG.toList (toStreaming (S.fromFoldable [1..3])) &gt;&gt;= print</span><span>
+</span><a name="line-1633"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-1634"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1635"></a><span class="hs-comment">-- Interop with @conduit@:</span><span>
+</span><a name="line-1636"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1637"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-1638"></a><span class="hs-comment">-- import &quot;Streamly&quot;</span><span>
+</span><a name="line-1639"></a><span class="hs-comment">-- import qualified &quot;Streamly.Prelude&quot; as S</span><span>
+</span><a name="line-1640"></a><span class="hs-comment">-- import qualified Data.Conduit as C</span><span>
+</span><a name="line-1641"></a><span class="hs-comment">-- import qualified Data.Conduit.List as C</span><span>
+</span><a name="line-1642"></a><span class="hs-comment">-- import qualified Data.Conduit.Combinators as C</span><span>
+</span><a name="line-1643"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1644"></a><span class="hs-comment">-- -- It seems there is no way out of a conduit as it does not provide an</span><span>
+</span><a name="line-1645"></a><span class="hs-comment">-- -- uncons or a tail function. We can convert streamly to conduit though.</span><span>
+</span><a name="line-1646"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1647"></a><span class="hs-comment">-- -- | streamly to conduit</span><span>
+</span><a name="line-1648"></a><span class="hs-comment">-- toConduit :: Monad m =&gt; SerialT m a -&gt; C.ConduitT i a m ()</span><span>
+</span><a name="line-1649"></a><span class="hs-comment">-- toConduit s = C.unfoldM S.'uncons' s</span><span>
+</span><a name="line-1650"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1651"></a><span class="hs-comment">-- main = do</span><span>
+</span><a name="line-1652"></a><span class="hs-comment">--  C.runConduit (toConduit (S.'fromFoldable' [1..3]) C..| C.sinkList) &gt;&gt;= print</span><span>
+</span><a name="line-1653"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-1654"></a><span>
+</span><a name="line-1655"></a><span class="hs-comment">-- $comparison</span><span>
+</span><a name="line-1656"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1657"></a><span class="hs-comment">-- List transformers and logic programming monads also provide a product style</span><span>
+</span><a name="line-1658"></a><span class="hs-comment">-- composition similar to streamly, however streamly generalizes it with the</span><span>
+</span><a name="line-1659"></a><span class="hs-comment">-- time dimension; allowing streams to be composed in an asynchronous and</span><span>
+</span><a name="line-1660"></a><span class="hs-comment">-- concurrent fashion in many different ways.  It also provides multiple</span><span>
+</span><a name="line-1661"></a><span class="hs-comment">-- alternative ways of composing streams e.g.  serial, interleaved or</span><span>
+</span><a name="line-1662"></a><span class="hs-comment">-- concurrent.</span><span>
+</span><a name="line-1663"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1664"></a><span class="hs-comment">-- This seemingly simple addition of asynchronicity and concurrency to product</span><span>
+</span><a name="line-1665"></a><span class="hs-comment">-- style streaming composition unifies a number of disparate abstractions into</span><span>
+</span><a name="line-1666"></a><span class="hs-comment">-- one powerful, concise and elegant abstraction.  A wide variety of</span><span>
+</span><a name="line-1667"></a><span class="hs-comment">-- programming problems can be solved elegantly with this abstraction. In</span><span>
+</span><a name="line-1668"></a><span class="hs-comment">-- particular, it unifies three major programming domains namely</span><span>
+</span><a name="line-1669"></a><span class="hs-comment">-- non-deterministic (logic) programming, concurrent programming and functional</span><span>
+</span><a name="line-1670"></a><span class="hs-comment">-- reactive programming. In other words, you can do everything with this one</span><span>
+</span><a name="line-1671"></a><span class="hs-comment">-- abstraction that you could do with the popular libraries listed under these</span><span>
+</span><a name="line-1672"></a><span class="hs-comment">-- categories in the list below.</span><span>
+</span><a name="line-1673"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1674"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-1675"></a><span class="hs-comment">-- +-----------------+----------------+</span><span>
+</span><a name="line-1676"></a><span class="hs-comment">-- | Non-determinism | &lt;https://hackage.haskell.org/package/pipes pipes&gt;          |</span><span>
+</span><a name="line-1677"></a><span class="hs-comment">-- |                 +----------------+</span><span>
+</span><a name="line-1678"></a><span class="hs-comment">-- |                 | &lt;https://hackage.haskell.org/package/list-t list-t&gt;         |</span><span>
+</span><a name="line-1679"></a><span class="hs-comment">-- |                 +----------------+</span><span>
+</span><a name="line-1680"></a><span class="hs-comment">-- |                 | &lt;https://hackage.haskell.org/package/logict logict&gt;         |</span><span>
+</span><a name="line-1681"></a><span class="hs-comment">-- +-----------------+----------------+</span><span>
+</span><a name="line-1682"></a><span class="hs-comment">-- | Streaming       | &lt;https://hackage.haskell.org/package/vector vector&gt;         |</span><span>
+</span><a name="line-1683"></a><span class="hs-comment">-- |                 +----------------+</span><span>
+</span><a name="line-1684"></a><span class="hs-comment">-- |                 | &lt;https://hackage.haskell.org/package/streaming streaming&gt;      |</span><span>
+</span><a name="line-1685"></a><span class="hs-comment">-- |                 +----------------+</span><span>
+</span><a name="line-1686"></a><span class="hs-comment">-- |                 | &lt;https://hackage.haskell.org/package/pipes pipes&gt;          |</span><span>
+</span><a name="line-1687"></a><span class="hs-comment">-- |                 +----------------+</span><span>
+</span><a name="line-1688"></a><span class="hs-comment">-- |                 | &lt;https://hackage.haskell.org/package/conduit conduit&gt;        |</span><span>
+</span><a name="line-1689"></a><span class="hs-comment">-- +-----------------+----------------+</span><span>
+</span><a name="line-1690"></a><span class="hs-comment">-- | Concurrency     | &lt;https://hackage.haskell.org/package/async async&gt;          |</span><span>
+</span><a name="line-1691"></a><span class="hs-comment">-- |                 +----------------+</span><span>
+</span><a name="line-1692"></a><span class="hs-comment">-- |                 | &lt;https://hackage.haskell.org/package/transient transient&gt;      |</span><span>
+</span><a name="line-1693"></a><span class="hs-comment">-- +-----------------+----------------+</span><span>
+</span><a name="line-1694"></a><span class="hs-comment">-- | FRP             | &lt;https://hackage.haskell.org/package/Yampa Yampa&gt;          |</span><span>
+</span><a name="line-1695"></a><span class="hs-comment">-- |                 +----------------+</span><span>
+</span><a name="line-1696"></a><span class="hs-comment">-- |                 | &lt;https://hackage.haskell.org/package/dunai dunai&gt;          |</span><span>
+</span><a name="line-1697"></a><span class="hs-comment">-- |                 +----------------+</span><span>
+</span><a name="line-1698"></a><span class="hs-comment">-- |                 | &lt;https://hackage.haskell.org/package/reflex reflex&gt;         |</span><span>
+</span><a name="line-1699"></a><span class="hs-comment">-- +-----------------+----------------+</span><span>
+</span><a name="line-1700"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-1701"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1702"></a><span class="hs-comment">-- Streamly is a list-transformer. It provides all the functionality provided</span><span>
+</span><a name="line-1703"></a><span class="hs-comment">-- by any of the list transformer and logic programming packages listed above.</span><span>
+</span><a name="line-1704"></a><span class="hs-comment">-- In addition, Streamly naturally integrates the concurrency dimension to the</span><span>
+</span><a name="line-1705"></a><span class="hs-comment">-- basic list transformer functionality.</span><span>
+</span><a name="line-1706"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1707"></a><span class="hs-comment">-- When it comes to streaming, in terms of the streaming API streamly is almost</span><span>
+</span><a name="line-1708"></a><span class="hs-comment">-- identical to the vector package. Streamly, vector and streaming packages all</span><span>
+</span><a name="line-1709"></a><span class="hs-comment">-- represent a stream as data and are therefore similar in the fundamental</span><span>
+</span><a name="line-1710"></a><span class="hs-comment">-- approach to streaming. The fundamental difference is that streamly adds</span><span>
+</span><a name="line-1711"></a><span class="hs-comment">-- concurrency support and the monad instance provides concurrent looping.</span><span>
+</span><a name="line-1712"></a><span class="hs-comment">-- Other streaming libraries like pipes, conduit and machines represent and</span><span>
+</span><a name="line-1713"></a><span class="hs-comment">-- compose stream processors rather than the stream data and therefore fall in</span><span>
+</span><a name="line-1714"></a><span class="hs-comment">-- another class of streaming libraries and have comparatively more complicated</span><span>
+</span><a name="line-1715"></a><span class="hs-comment">-- types.</span><span>
+</span><a name="line-1716"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1717"></a><span class="hs-comment">-- When it comes to concurrency, streamly can do everything that the @async@</span><span>
+</span><a name="line-1718"></a><span class="hs-comment">-- package can do and more. async provides applicative concurrency whereas</span><span>
+</span><a name="line-1719"></a><span class="hs-comment">-- streamly provides both applicative and monadic concurrency. The</span><span>
+</span><a name="line-1720"></a><span class="hs-comment">-- 'ZipAsync' type behaves like the applicative instance of async.  In</span><span>
+</span><a name="line-1721"></a><span class="hs-comment">-- comparison to transient streamly has a first class streaming interface and</span><span>
+</span><a name="line-1722"></a><span class="hs-comment">-- is a monad transformer that can be used universally in any Haskell monad</span><span>
+</span><a name="line-1723"></a><span class="hs-comment">-- transformer stack.  Streamly was in fact originally inspired by the</span><span>
+</span><a name="line-1724"></a><span class="hs-comment">-- concurrency implementation in @transient@ though it has no resemblance with</span><span>
+</span><a name="line-1725"></a><span class="hs-comment">-- that and takes a lazy pull approach versus transient's strict push approach.</span><span>
+</span><a name="line-1726"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1727"></a><span class="hs-comment">-- The non-determinism, concurrency and streaming combination make streamly a</span><span>
+</span><a name="line-1728"></a><span class="hs-comment">-- strong reactive programming library as well. Reactive programming is</span><span>
+</span><a name="line-1729"></a><span class="hs-comment">-- fundamentally stream of events that can be processed concurrently. The</span><span>
+</span><a name="line-1730"></a><span class="hs-comment">-- example in this tutorial as well as the</span><span>
+</span><a name="line-1731"></a><span class="hs-comment">-- &lt;examples/CirclingSquare.hs CirclingSquare&gt; example from Yampa demonstrate</span><span>
+</span><a name="line-1732"></a><span class="hs-comment">-- the basic reactive capability of streamly. In core concepts streamly is</span><span>
+</span><a name="line-1733"></a><span class="hs-comment">-- strikingly similar to @dunai@.  dunai was designed from a FRP perspective</span><span>
+</span><a name="line-1734"></a><span class="hs-comment">-- and streamly was originally designed from a concurrency perspective.</span><span>
+</span><a name="line-1735"></a><span class="hs-comment">-- However, both have similarity at the core.</span><span>
+</span><a name="line-1736"></a><span>
+</span><a name="line-1737"></a><span class="hs-comment">-- $furtherReading</span><span>
+</span><a name="line-1738"></a><span class="hs-comment">--</span><span>
+</span><a name="line-1739"></a><span class="hs-comment">-- * Read the documentation of &quot;Streamly&quot; module</span><span>
+</span><a name="line-1740"></a><span class="hs-comment">-- * Read the documentation of &quot;Streamly.Prelude&quot; module</span><span>
+</span><a name="line-1741"></a><span class="hs-comment">-- * See the examples in the &quot;examples&quot; directory of the package</span><span>
+</span><a name="line-1742"></a><span class="hs-comment">-- * See the tests in the &quot;test&quot; directory of the package</span><span>
+</span><a name="line-1743"></a></pre></body></html>

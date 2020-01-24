@@ -1,0 +1,754 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-comment">-- |</span><span>
+</span><span id="line-2"></span><span class="hs-comment">-- Module      : Streamly</span><span>
+</span><span id="line-3"></span><span class="hs-comment">-- Copyright   : (c) 2017 Composewell Technologies</span><span>
+</span><span id="line-4"></span><span class="hs-comment">--</span><span>
+</span><span id="line-5"></span><span class="hs-comment">-- License     : BSD3</span><span>
+</span><span id="line-6"></span><span class="hs-comment">-- Maintainer  : streamly@composewell.com</span><span>
+</span><span id="line-7"></span><span class="hs-comment">-- Stability   : experimental</span><span>
+</span><span id="line-8"></span><span class="hs-comment">-- Portability : GHC</span><span>
+</span><span id="line-9"></span><span class="hs-comment">--</span><span>
+</span><span id="line-10"></span><span class="hs-comment">-- Streamly is a general purpose programming framework using cocnurrent data</span><span>
+</span><span id="line-11"></span><span class="hs-comment">-- flow programming paradigm.  It can be considered as a generalization of</span><span>
+</span><span id="line-12"></span><span class="hs-comment">-- Haskell lists to monadic streaming with concurrent composition capability.</span><span>
+</span><span id="line-13"></span><span class="hs-comment">-- The serial stream type in streamly @SerialT m a@ is like the list type @[a]@</span><span>
+</span><span id="line-14"></span><span class="hs-comment">-- parameterized by the monad @m@. For example, @SerialT IO a@ is a moral</span><span>
+</span><span id="line-15"></span><span class="hs-comment">-- equivalent of @[a]@ in the IO monad.  Streams are constructed very much like</span><span>
+</span><span id="line-16"></span><span class="hs-comment">-- lists, except that they use 'nil' and 'cons' instead of '[]' and ':'.</span><span>
+</span><span id="line-17"></span><span class="hs-comment">--</span><span>
+</span><span id="line-18"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-19"></span><span class="hs-comment">-- &gt; import &quot;Streamly&quot;</span><span>
+</span><span id="line-20"></span><span class="hs-comment">-- &gt; import &quot;Streamly.Prelude&quot; (cons, consM)</span><span>
+</span><span id="line-21"></span><span class="hs-comment">-- &gt; import qualified &quot;Streamly.Prelude&quot; as S</span><span>
+</span><span id="line-22"></span><span class="hs-comment">-- &gt;</span><span>
+</span><span id="line-23"></span><span class="hs-comment">-- &gt; S.toList $ 1 \`cons` 2 \`cons` 3 \`cons` nil</span><span>
+</span><span id="line-24"></span><span class="hs-comment">-- [1,2,3]</span><span>
+</span><span id="line-25"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-26"></span><span class="hs-comment">--</span><span>
+</span><span id="line-27"></span><span class="hs-comment">-- Unlike lists, streams can be constructed from monadic effects:</span><span>
+</span><span id="line-28"></span><span class="hs-comment">--</span><span>
+</span><span id="line-29"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-30"></span><span class="hs-comment">-- &gt; S.'toList' $ 'getLine' \`consM` 'getLine' \`consM` S.'nil'</span><span>
+</span><span id="line-31"></span><span class="hs-comment">-- hello</span><span>
+</span><span id="line-32"></span><span class="hs-comment">-- world</span><span>
+</span><span id="line-33"></span><span class="hs-comment">-- [&quot;hello&quot;,&quot;world&quot;]</span><span>
+</span><span id="line-34"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-35"></span><span class="hs-comment">--</span><span>
+</span><span id="line-36"></span><span class="hs-comment">-- Streams are processed just like lists, with list like combinators, except</span><span>
+</span><span id="line-37"></span><span class="hs-comment">-- that they are monadic and work in a streaming fashion.  Here is a simple</span><span>
+</span><span id="line-38"></span><span class="hs-comment">-- console echo program example:</span><span>
+</span><span id="line-39"></span><span class="hs-comment">--</span><span>
+</span><span id="line-40"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-41"></span><span class="hs-comment">-- &gt; S.drain $ S.repeatM getLine &amp; S.mapM putStrLn</span><span>
+</span><span id="line-42"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-43"></span><span class="hs-comment">--</span><span>
+</span><span id="line-44"></span><span class="hs-comment">-- @SerialT Identity a@ is a moral equivalent of pure lists. Streamly utilizes</span><span>
+</span><span id="line-45"></span><span class="hs-comment">-- fusion for high performance, therefore, we can represent and process strings</span><span>
+</span><span id="line-46"></span><span class="hs-comment">-- as streams of 'Char', encode and decode the streams to/from UTF8 and</span><span>
+</span><span id="line-47"></span><span class="hs-comment">-- serialize them to @Array Word8@ obviating the need for special purpose</span><span>
+</span><span id="line-48"></span><span class="hs-comment">-- libraries like @bytestring@ and @text@.</span><span>
+</span><span id="line-49"></span><span class="hs-comment">--</span><span>
+</span><span id="line-50"></span><span class="hs-comment">-- For more details</span><span>
+</span><span id="line-51"></span><span class="hs-comment">-- please see the &quot;Streamly.Tutorial&quot; module and the examples directory in this</span><span>
+</span><span id="line-52"></span><span class="hs-comment">-- package.</span><span>
+</span><span id="line-53"></span><span>
+</span><span id="line-54"></span><span class="hs-pragma">{-# LANGUAGE NoMonomorphismRestriction #-}</span><span>
+</span><span id="line-55"></span><span class="hs-pragma">{-# OPTIONS_GHC -Wno-orphans #-}</span><span class="hs-cpp">
+
+#include &quot;inline.hs&quot;
+</span><span>
+</span><span id="line-59"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Streamly</span><span> </span><span class="hs-pragma">{-# DEPRECATED</span><span> </span><span class="hs-pragma">&quot;Please use \&quot;Streamly.Prelude\&quot; instead.&quot;</span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-60"></span><span>    </span><span class="hs-special">(</span><span>
+</span><span id="line-61"></span><span>    </span><span class="hs-comment">-- -- * Concepts Overview</span><span>
+</span><span id="line-62"></span><span>    </span><span class="hs-comment">-- -- ** Streams</span><span>
+</span><span id="line-63"></span><span>    </span><span class="hs-comment">-- -- $streams</span><span>
+</span><span id="line-64"></span><span>
+</span><span id="line-65"></span><span>    </span><span class="hs-comment">-- -- ** Folds</span><span>
+</span><span id="line-66"></span><span>    </span><span class="hs-comment">-- -- $folds</span><span>
+</span><span id="line-67"></span><span>
+</span><span id="line-68"></span><span>    </span><span class="hs-comment">-- -- ** Arrays</span><span>
+</span><span id="line-69"></span><span>    </span><span class="hs-comment">-- -- $arrays</span><span>
+</span><span id="line-70"></span><span>
+</span><span id="line-71"></span><span>    </span><span class="annot"><span class="hs-comment">-- * Module Overview</span></span><span>
+</span><span id="line-72"></span><span>    </span><span class="annot"><span class="hs-comment">-- $streamtypes</span></span><span>
+</span><span id="line-73"></span><span>
+</span><span id="line-74"></span><span>    </span><span class="annot"><span class="hs-comment">-- * Type Synonyms</span></span><span>
+</span><span id="line-75"></span><span>      </span><span class="annot"><a href="Streamly.Internal.Data.SVar.html#MonadAsync"><span class="hs-identifier">MonadAsync</span></a></span><span>
+</span><span id="line-76"></span><span>
+</span><span id="line-77"></span><span>    </span><span class="annot"><span class="hs-comment">-- * Stream transformers</span></span><span>
+</span><span id="line-78"></span><span>    </span><span class="hs-comment">-- | A stream represents a sequence of pure or effectful actions. The</span><span>
+</span><span id="line-79"></span><span>    </span><span class="hs-comment">-- `cons` and `consM` operations and the corresponding operators '.:' and</span><span>
+</span><span id="line-80"></span><span>    </span><span class="hs-comment">-- '|:' can be used to join pure values or effectful actions in a sequence.</span><span>
+</span><span id="line-81"></span><span>    </span><span class="hs-comment">-- The effects in the stream can be executed in many different ways</span><span>
+</span><span id="line-82"></span><span>    </span><span class="hs-comment">-- depending on the type of stream. In other words, the behavior of 'consM'</span><span>
+</span><span id="line-83"></span><span>    </span><span class="hs-comment">-- depends on the type of the stream.</span><span>
+</span><span id="line-84"></span><span>    </span><span class="hs-comment">--</span><span>
+</span><span id="line-85"></span><span>    </span><span class="hs-comment">-- There are three high level categories of streams, /spatially ordered/</span><span>
+</span><span id="line-86"></span><span>    </span><span class="hs-comment">-- streams, /speculative/ streams and /time ordered/ streams. Spatially</span><span>
+</span><span id="line-87"></span><span>    </span><span class="hs-comment">-- ordered streams, 'SerialT' and 'WSerialT', execute the effects in serial</span><span>
+</span><span id="line-88"></span><span>    </span><span class="hs-comment">-- order i.e. one at a time and present the outputs of those effects to the</span><span>
+</span><span id="line-89"></span><span>    </span><span class="hs-comment">-- consumer in the same order.  Speculative streams, 'AheadT', may execute</span><span>
+</span><span id="line-90"></span><span>    </span><span class="hs-comment">-- many effects concurrently but present the outputs to the consumer in the</span><span>
+</span><span id="line-91"></span><span>    </span><span class="hs-comment">-- specified spatial order.  Time ordered streams, 'AsyncT', 'WAsyncT' and</span><span>
+</span><span id="line-92"></span><span>    </span><span class="hs-comment">-- 'ParallelT', may execute many effects concurrently and present the</span><span>
+</span><span id="line-93"></span><span>    </span><span class="hs-comment">-- outputs of those effects to the consumer in time order i.e. as soon as</span><span>
+</span><span id="line-94"></span><span>    </span><span class="hs-comment">-- the output is generated.</span><span>
+</span><span id="line-95"></span><span>    </span><span class="hs-comment">--</span><span>
+</span><span id="line-96"></span><span>    </span><span class="hs-comment">-- We described above how the effects in a sequence are executed for</span><span>
+</span><span id="line-97"></span><span>    </span><span class="hs-comment">-- different types of streams. The behvavior of the 'Semigroup' and 'Monad'</span><span>
+</span><span id="line-98"></span><span>    </span><span class="hs-comment">-- instances follow the behavior of 'consM'. Stream generation operations</span><span>
+</span><span id="line-99"></span><span>    </span><span class="hs-comment">-- like 'repeatM' also execute the effects differently for different</span><span>
+</span><span id="line-100"></span><span>    </span><span class="hs-comment">-- streams, providing a concurrent generation capability when used with</span><span>
+</span><span id="line-101"></span><span>    </span><span class="hs-comment">-- stream types that execute effects concurrently. Similarly, effectful</span><span>
+</span><span id="line-102"></span><span>    </span><span class="hs-comment">-- transformation operations like 'mapM' also execute the transforming</span><span>
+</span><span id="line-103"></span><span>    </span><span class="hs-comment">-- effects differently for different types of streams.</span><span>
+</span><span id="line-104"></span><span>
+</span><span id="line-105"></span><span>    </span><span class="annot"><span class="hs-comment">-- ** Serial Streams</span></span><span>
+</span><span id="line-106"></span><span>    </span><span class="annot"><span class="hs-comment">-- $serial</span></span><span>
+</span><span id="line-107"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Serial.html#SerialT"><span class="hs-identifier">SerialT</span></a></span><span>
+</span><span id="line-108"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Serial.html#WSerialT"><span class="hs-identifier">WSerialT</span></a></span><span>
+</span><span id="line-109"></span><span>
+</span><span id="line-110"></span><span>    </span><span class="annot"><span class="hs-comment">-- ** Speculative Streams</span></span><span>
+</span><span id="line-111"></span><span>    </span><span class="annot"><span class="hs-comment">-- $ahead</span></span><span>
+</span><span id="line-112"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Ahead.html#AheadT"><span class="hs-identifier">AheadT</span></a></span><span>
+</span><span id="line-113"></span><span>
+</span><span id="line-114"></span><span>    </span><span class="annot"><span class="hs-comment">-- ** Asynchronous Streams</span></span><span>
+</span><span id="line-115"></span><span>    </span><span class="annot"><span class="hs-comment">-- $async</span></span><span>
+</span><span id="line-116"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Async.html#AsyncT"><span class="hs-identifier">AsyncT</span></a></span><span>
+</span><span id="line-117"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Async.html#WAsyncT"><span class="hs-identifier">WAsyncT</span></a></span><span>
+</span><span id="line-118"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Parallel.html#ParallelT"><span class="hs-identifier">ParallelT</span></a></span><span>
+</span><span id="line-119"></span><span>
+</span><span id="line-120"></span><span>    </span><span class="annot"><span class="hs-comment">-- ** Zipping Streams</span></span><span>
+</span><span id="line-121"></span><span>    </span><span class="annot"><span class="hs-comment">-- $zipping</span></span><span>
+</span><span id="line-122"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Zip.html#ZipSerialM"><span class="hs-identifier">ZipSerialM</span></a></span><span>
+</span><span id="line-123"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Zip.html#ZipAsyncM"><span class="hs-identifier">ZipAsyncM</span></a></span><span>
+</span><span id="line-124"></span><span>
+</span><span id="line-125"></span><span>    </span><span class="annot"><span class="hs-comment">-- * Parallel Function Application</span></span><span>
+</span><span id="line-126"></span><span>    </span><span class="annot"><span class="hs-comment">-- $application</span></span><span>
+</span><span id="line-127"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.IsStream.Transform.html#%7C%24"><span class="hs-operator">(IP.|$)</span></a></span><span>
+</span><span id="line-128"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.IsStream.Transform.html#%7C%26"><span class="hs-operator">(IP.|&amp;)</span></a></span><span>
+</span><span id="line-129"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.IsStream.Eliminate.html#%7C%24."><span class="hs-operator">(IP.|$.)</span></a></span><span>
+</span><span id="line-130"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.IsStream.Eliminate.html#%7C%26."><span class="hs-operator">(IP.|&amp;.)</span></a></span><span>
+</span><span id="line-131"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.html#mkAsync"><span class="hs-identifier">mkAsync</span></a></span><span>
+</span><span id="line-132"></span><span>
+</span><span id="line-133"></span><span>    </span><span class="annot"><span class="hs-comment">-- * Merging Streams</span></span><span>
+</span><span id="line-134"></span><span>    </span><span class="annot"><span class="hs-comment">-- $sum</span></span><span>
+</span><span id="line-135"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.StreamK.Type.html#serial"><span class="hs-identifier">serial</span></a></span><span>
+</span><span id="line-136"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Serial.html#wSerial"><span class="hs-identifier">wSerial</span></a></span><span>
+</span><span id="line-137"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Ahead.html#ahead"><span class="hs-identifier">ahead</span></a></span><span>
+</span><span id="line-138"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Async.html#async"><span class="hs-identifier">async</span></a></span><span>
+</span><span id="line-139"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Async.html#wAsync"><span class="hs-identifier">wAsync</span></a></span><span>
+</span><span id="line-140"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Parallel.html#parallel"><span class="hs-identifier">parallel</span></a></span><span>
+</span><span id="line-141"></span><span>
+</span><span id="line-142"></span><span>    </span><span class="annot"><span class="hs-comment">-- * Concurrency Control</span></span><span>
+</span><span id="line-143"></span><span>    </span><span class="annot"><span class="hs-comment">-- $concurrency</span></span><span>
+</span><span id="line-144"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.IsStream.Combinators.html#maxThreads"><span class="hs-identifier">maxThreads</span></a></span><span>
+</span><span id="line-145"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.IsStream.Combinators.html#maxBuffer"><span class="hs-identifier">maxBuffer</span></a></span><span>
+</span><span id="line-146"></span><span>
+</span><span id="line-147"></span><span>    </span><span class="annot"><span class="hs-comment">-- * Rate Limiting</span></span><span>
+</span><span id="line-148"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.SVar.html#Rate"><span class="hs-identifier">Rate</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-149"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.IsStream.Combinators.html#rate"><span class="hs-identifier">rate</span></a></span><span>
+</span><span id="line-150"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.IsStream.Combinators.html#avgRate"><span class="hs-identifier">avgRate</span></a></span><span>
+</span><span id="line-151"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.IsStream.Combinators.html#minRate"><span class="hs-identifier">minRate</span></a></span><span>
+</span><span id="line-152"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.IsStream.Combinators.html#maxRate"><span class="hs-identifier">maxRate</span></a></span><span>
+</span><span id="line-153"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.IsStream.Combinators.html#constRate"><span class="hs-identifier">constRate</span></a></span><span>
+</span><span id="line-154"></span><span>
+</span><span id="line-155"></span><span>    </span><span class="annot"><span class="hs-comment">-- * Stream Type Adapters</span></span><span>
+</span><span id="line-156"></span><span>    </span><span class="annot"><span class="hs-comment">-- $adapters</span></span><span>
+</span><span id="line-157"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.StreamK.Type.html#IsStream"><span class="hs-identifier">IsStream</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-158"></span><span>
+</span><span id="line-159"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Serial.html#serially"><span class="hs-identifier">serially</span></a></span><span>
+</span><span id="line-160"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Serial.html#wSerially"><span class="hs-identifier">wSerially</span></a></span><span>
+</span><span id="line-161"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Async.html#asyncly"><span class="hs-identifier">asyncly</span></a></span><span>
+</span><span id="line-162"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Ahead.html#aheadly"><span class="hs-identifier">aheadly</span></a></span><span>
+</span><span id="line-163"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Async.html#wAsyncly"><span class="hs-identifier">wAsyncly</span></a></span><span>
+</span><span id="line-164"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Parallel.html#parallely"><span class="hs-identifier">parallely</span></a></span><span>
+</span><span id="line-165"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Zip.html#zipSerially"><span class="hs-identifier">zipSerially</span></a></span><span>
+</span><span id="line-166"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Zip.html#zipAsyncly"><span class="hs-identifier">zipAsyncly</span></a></span><span>
+</span><span id="line-167"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.StreamK.Type.html#adapt"><span class="hs-identifier">adapt</span></a></span><span>
+</span><span id="line-168"></span><span>
+</span><span id="line-169"></span><span>    </span><span class="annot"><span class="hs-comment">-- * IO Streams</span></span><span>
+</span><span id="line-170"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Serial.html#Serial"><span class="hs-identifier">Serial</span></a></span><span>
+</span><span id="line-171"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Serial.html#WSerial"><span class="hs-identifier">WSerial</span></a></span><span>
+</span><span id="line-172"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Ahead.html#Ahead"><span class="hs-identifier">Ahead</span></a></span><span>
+</span><span id="line-173"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Async.html#Async"><span class="hs-identifier">Async</span></a></span><span>
+</span><span id="line-174"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Async.html#WAsync"><span class="hs-identifier">WAsync</span></a></span><span>
+</span><span id="line-175"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Parallel.html#Parallel"><span class="hs-identifier">Parallel</span></a></span><span>
+</span><span id="line-176"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Zip.html#ZipSerial"><span class="hs-identifier">ZipSerial</span></a></span><span>
+</span><span id="line-177"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Zip.html#ZipAsync"><span class="hs-identifier">ZipAsync</span></a></span><span>
+</span><span id="line-178"></span><span>
+</span><span id="line-179"></span><span>    </span><span class="annot"><span class="hs-comment">-- ** Folding Containers of Streams</span></span><span>
+</span><span id="line-180"></span><span>    </span><span class="hs-comment">-- | These are variants of standard 'Foldable' fold functions that use a</span><span>
+</span><span id="line-181"></span><span>    </span><span class="hs-comment">-- polymorphic stream sum operation (e.g. 'async' or 'wSerial') to fold a</span><span>
+</span><span id="line-182"></span><span>    </span><span class="hs-comment">-- finite container of streams. Note that these are just special cases of</span><span>
+</span><span id="line-183"></span><span>    </span><span class="hs-comment">-- the more general 'concatMapWith' operation.</span><span>
+</span><span id="line-184"></span><span>    </span><span class="hs-comment">--</span><span>
+</span><span id="line-185"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.html#foldWith"><span class="hs-identifier">foldWith</span></a></span><span>
+</span><span id="line-186"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.html#foldMapWith"><span class="hs-identifier">foldMapWith</span></a></span><span>
+</span><span id="line-187"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.html#forEachWith"><span class="hs-identifier">forEachWith</span></a></span><span>
+</span><span id="line-188"></span><span>
+</span><span id="line-189"></span><span>    </span><span class="annot"><span class="hs-comment">-- * Re-exports</span></span><span>
+</span><span id="line-190"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">Semigroup</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-191"></span><span>    </span><span class="annot"><span class="hs-comment">-- * Deprecated</span></span><span>
+</span><span id="line-192"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.StreamK.Type.html#Streaming"><span class="hs-identifier">Streaming</span></a></span><span>
+</span><span id="line-193"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.html#runStream"><span class="hs-identifier">runStream</span></a></span><span>
+</span><span id="line-194"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.html#runStreaming"><span class="hs-identifier">runStreaming</span></a></span><span>
+</span><span id="line-195"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.html#runStreamT"><span class="hs-identifier">runStreamT</span></a></span><span>
+</span><span id="line-196"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.html#runInterleavedT"><span class="hs-identifier">runInterleavedT</span></a></span><span>
+</span><span id="line-197"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.html#runAsyncT"><span class="hs-identifier">runAsyncT</span></a></span><span>
+</span><span id="line-198"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.html#runParallelT"><span class="hs-identifier">runParallelT</span></a></span><span>
+</span><span id="line-199"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.html#runZipStream"><span class="hs-identifier">runZipStream</span></a></span><span>
+</span><span id="line-200"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.html#runZipAsync"><span class="hs-identifier">runZipAsync</span></a></span><span>
+</span><span id="line-201"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Serial.html#StreamT"><span class="hs-identifier">StreamT</span></a></span><span>
+</span><span id="line-202"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Serial.html#InterleavedT"><span class="hs-identifier">InterleavedT</span></a></span><span>
+</span><span id="line-203"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Zip.html#ZipStream"><span class="hs-identifier">ZipStream</span></a></span><span>
+</span><span id="line-204"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Serial.html#interleaving"><span class="hs-identifier">interleaving</span></a></span><span>
+</span><span id="line-205"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Zip.html#zipping"><span class="hs-identifier">zipping</span></a></span><span>
+</span><span id="line-206"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Zip.html#zippingAsync"><span class="hs-identifier">zippingAsync</span></a></span><span>
+</span><span id="line-207"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Serial.html#%3C%3D%3E"><span class="hs-operator">(&lt;=&gt;)</span></a></span><span>
+</span><span id="line-208"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Async.html#%3C%7C"><span class="hs-operator">(&lt;|)</span></a></span><span>
+</span><span id="line-209"></span><span>    </span><span class="hs-special">)</span><span>
+</span><span id="line-210"></span><span class="hs-keyword">where</span><span>
+</span><span id="line-211"></span><span>
+</span><span id="line-212"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Semigroup</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Semigroup</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-213"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.SVar.html"><span class="hs-identifier">Streamly.Internal.Data.SVar</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.SVar.html#MonadAsync"><span class="hs-identifier">MonadAsync</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.SVar.html#Rate"><span class="hs-identifier">Rate</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-214"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Ahead.html"><span class="hs-identifier">Streamly.Internal.Data.Stream.Ahead</span></a></span><span>
+</span><span id="line-215"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Async.html"><span class="hs-identifier">Streamly.Internal.Data.Stream.Async</span></a></span><span> </span><span class="hs-keyword">hiding</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.Stream.Async.html#mkAsync"><span class="hs-identifier">mkAsync</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-216"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.IsStream.Combinators.html"><span class="hs-identifier">Streamly.Internal.Data.Stream.IsStream.Combinators</span></a></span><span>
+</span><span id="line-217"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Parallel.html"><span class="hs-identifier">Streamly.Internal.Data.Stream.Parallel</span></a></span><span>
+</span><span id="line-218"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Serial.html"><span class="hs-identifier">Streamly.Internal.Data.Stream.Serial</span></a></span><span>
+</span><span id="line-219"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.StreamK.html"><span class="hs-identifier">Streamly.Internal.Data.Stream.StreamK</span></a></span><span> </span><span class="hs-keyword">hiding</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.Stream.StreamK.Type.html#serial"><span class="hs-identifier">serial</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-220"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Zip.html"><span class="hs-identifier">Streamly.Internal.Data.Stream.Zip</span></a></span><span>
+</span><span id="line-221"></span><span>
+</span><span id="line-222"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><a href="Streamly.Prelude.html"><span class="hs-identifier">Streamly.Prelude</span></a></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">P</span></span><span>
+</span><span id="line-223"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.IsStream.html"><span class="hs-identifier">Streamly.Internal.Data.Stream.IsStream</span></a></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">IP</span></span><span>
+</span><span id="line-224"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.StreamK.html"><span class="hs-identifier">Streamly.Internal.Data.Stream.StreamK</span></a></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">K</span></span><span>
+</span><span id="line-225"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Async.html"><span class="hs-identifier">Streamly.Internal.Data.Stream.Async</span></a></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Async</span></span><span>
+</span><span id="line-226"></span><span>
+</span><span id="line-227"></span><span class="hs-comment">-- XXX provide good succinct examples of pipelining, merging, splitting etc.</span><span>
+</span><span id="line-228"></span><span class="hs-comment">-- below.</span><span>
+</span><span id="line-229"></span><span class="hs-comment">--</span><span>
+</span><span id="line-230"></span><span class="hs-comment">-- $streams</span><span>
+</span><span id="line-231"></span><span class="hs-comment">--</span><span>
+</span><span id="line-232"></span><span class="hs-comment">-- A program is expressed as a network of streams and folds. A stream is a</span><span>
+</span><span id="line-233"></span><span class="hs-comment">-- source or generator of data elements and a fold is a consumer of data elements that</span><span>
+</span><span id="line-234"></span><span class="hs-comment">-- reduces multiple input elements to a single value.</span><span>
+</span><span id="line-235"></span><span class="hs-comment">--</span><span>
+</span><span id="line-236"></span><span class="hs-comment">-- In the following example, a 'Word8' stream is generated by using</span><span>
+</span><span id="line-237"></span><span class="hs-comment">-- 'Streamly.FileSystem.Handle.read' on a file handle, then the</span><span>
+</span><span id="line-238"></span><span class="hs-comment">-- 'Streamly.Prelude.splitBySuffix' transformation splits the stream on</span><span>
+</span><span id="line-239"></span><span class="hs-comment">-- newlines (ascii value 10); it uses the 'Streamly.Data.Fold.drain' fold to reduce</span><span>
+</span><span id="line-240"></span><span class="hs-comment">-- the resulting lines to unit values (@()@), 'Streamly.Prelude.length' fold</span><span>
+</span><span id="line-241"></span><span class="hs-comment">-- then counts the unit elements in the resulting stream which gives us the</span><span>
+</span><span id="line-242"></span><span class="hs-comment">-- number of lines in the file:</span><span>
+</span><span id="line-243"></span><span class="hs-comment">--</span><span>
+</span><span id="line-244"></span><span class="hs-comment">-- &gt; S.length $ S.splitOnSuffix FL.drain 10 $ FH.read fh</span><span>
+</span><span id="line-245"></span><span class="hs-comment">--</span><span>
+</span><span id="line-246"></span><span class="hs-comment">-- The following example folds the lines to arrays of 'Word8' using the</span><span>
+</span><span id="line-247"></span><span class="hs-comment">-- 'Streamly.Data.Array.Foreign.writeF' fold and then wraps the lines in square</span><span>
+</span><span id="line-248"></span><span class="hs-comment">-- brackets before writing them to standard output using</span><span>
+</span><span id="line-249"></span><span class="hs-comment">-- 'Streamly.FileSystem.Handle.write':</span><span>
+</span><span id="line-250"></span><span class="hs-comment">--</span><span>
+</span><span id="line-251"></span><span class="hs-comment">-- &gt; wrapLine ln = S.fromList &quot;[&quot; &lt;&gt; A.read ln &lt;&gt; S.fromList &quot;]\n&quot;</span><span>
+</span><span id="line-252"></span><span class="hs-comment">-- &gt; readLines = S.splitOnSuffix A.writeF 10</span><span>
+</span><span id="line-253"></span><span class="hs-comment">-- &gt; FH.write stdout $ S.concatMap wrapLine $ readLines fh1</span><span>
+</span><span id="line-254"></span><span class="hs-comment">--</span><span>
+</span><span id="line-255"></span><span class="hs-comment">-- One stream can be appended after another:</span><span>
+</span><span id="line-256"></span><span class="hs-comment">--</span><span>
+</span><span id="line-257"></span><span class="hs-comment">-- &gt; FH.write stdout $ S.concatMap wrapLine $ readLines fh1 &lt;&gt; readLines fh2</span><span>
+</span><span id="line-258"></span><span class="hs-comment">--</span><span>
+</span><span id="line-259"></span><span class="hs-comment">-- The following example reads two files concurrently, merges the lines from</span><span>
+</span><span id="line-260"></span><span class="hs-comment">-- the two streams and writes the resulting stream to another file:</span><span>
+</span><span id="line-261"></span><span class="hs-comment">--</span><span>
+</span><span id="line-262"></span><span class="hs-comment">-- &gt; FH.write stdout $ S.concatMap wrapLine $ readLines fh1 `parallel` readLines fh2</span><span>
+</span><span id="line-263"></span><span class="hs-comment">--</span><span>
+</span><span id="line-264"></span><span class="hs-comment">-- There are many ways to generate, merge, zip, transform and fold data</span><span>
+</span><span id="line-265"></span><span class="hs-comment">-- streams.  Many transformations can be chained in a stream pipeline. See</span><span>
+</span><span id="line-266"></span><span class="hs-comment">-- &quot;Streamly.Prelude&quot; module for combinators to manipulate streams.</span><span>
+</span><span id="line-267"></span><span>
+</span><span id="line-268"></span><span class="hs-comment">-- $folds</span><span>
+</span><span id="line-269"></span><span class="hs-comment">--</span><span>
+</span><span id="line-270"></span><span class="hs-comment">-- The way stream types in this module like 'SerialT' represent data sources,</span><span>
+</span><span id="line-271"></span><span class="hs-comment">-- the same way the 'Fold' type from &quot;Streamly.Data.Fold&quot; represents data sinks or</span><span>
+</span><span id="line-272"></span><span class="hs-comment">-- reducers of streams. Reducers can be combined to consume a stream source in</span><span>
+</span><span id="line-273"></span><span class="hs-comment">-- many ways. The simplest is to reduce a stream source using a fold e.g.:</span><span>
+</span><span id="line-274"></span><span class="hs-comment">--</span><span>
+</span><span id="line-275"></span><span class="hs-comment">-- &gt; S.fold FL.length $ S.enumerateTo 100</span><span>
+</span><span id="line-276"></span><span class="hs-comment">--</span><span>
+</span><span id="line-277"></span><span class="hs-comment">-- Folds are consumers of streams and can be used to split a stream into</span><span>
+</span><span id="line-278"></span><span class="hs-comment">-- multiple independent flows. Grouping transforms a stream by applying a fold</span><span>
+</span><span id="line-279"></span><span class="hs-comment">-- on segments of a stream, distributing applies multiple folds in parallel on</span><span>
+</span><span id="line-280"></span><span class="hs-comment">-- the same stream and combines them, partitioning sends different elements of</span><span>
+</span><span id="line-281"></span><span class="hs-comment">-- a stream to different folds, unzipping divides the elements of a stream into</span><span>
+</span><span id="line-282"></span><span class="hs-comment">-- parts and sends them through different folds. Parsers are nothing but a</span><span>
+</span><span id="line-283"></span><span class="hs-comment">-- particular type of folds. Transformations can be applied contravariantly on</span><span>
+</span><span id="line-284"></span><span class="hs-comment">-- the input of a fold.</span><span>
+</span><span id="line-285"></span><span class="hs-comment">--</span><span>
+</span><span id="line-286"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-287"></span><span class="hs-comment">--</span><span>
+</span><span id="line-288"></span><span class="hs-comment">--                             |---transform----Fold m a b--------|</span><span>
+</span><span id="line-289"></span><span class="hs-comment">-- ---stream m a--&gt;transform--&gt;|                                  |---f b c ...</span><span>
+</span><span id="line-290"></span><span class="hs-comment">--                             |---transform----Fold m a c--------|</span><span>
+</span><span id="line-291"></span><span class="hs-comment">--                             |                                  |</span><span>
+</span><span id="line-292"></span><span class="hs-comment">--                                        ...</span><span>
+</span><span id="line-293"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-294"></span><span class="hs-comment">--</span><span>
+</span><span id="line-295"></span><span>
+</span><span id="line-296"></span><span class="hs-comment">-- $arrays</span><span>
+</span><span id="line-297"></span><span class="hs-comment">--</span><span>
+</span><span id="line-298"></span><span class="hs-comment">-- Streamly arrays (See &quot;Streamly.Data.Array.Foreign&quot;) complement streams to provide an</span><span>
+</span><span id="line-299"></span><span class="hs-comment">-- efficient computing paradigm.  Streams are suitable for immutable</span><span>
+</span><span id="line-300"></span><span class="hs-comment">-- transformations of /potentially infinite/ data using /sequential access/ and</span><span>
+</span><span id="line-301"></span><span class="hs-comment">-- pipelined transformations whereas arrays are suitable for in-place</span><span>
+</span><span id="line-302"></span><span class="hs-comment">-- transformations of /necessarily finite/ data using /random access/. Streams</span><span>
+</span><span id="line-303"></span><span class="hs-comment">-- are synonymous with /sequential pipelined processing/ whereas arrays are</span><span>
+</span><span id="line-304"></span><span class="hs-comment">-- synonymous with /efficient buffering and random access/.</span><span>
+</span><span id="line-305"></span><span class="hs-comment">--</span><span>
+</span><span id="line-306"></span><span class="hs-comment">-- In general, a data processing pipeline reads data from some IO device, does</span><span>
+</span><span id="line-307"></span><span class="hs-comment">-- some processing on it and finally writes the output to another IO device.</span><span>
+</span><span id="line-308"></span><span class="hs-comment">-- Streams provide the overall framework of sequential processing pipeline in</span><span>
+</span><span id="line-309"></span><span class="hs-comment">-- which arrays are used as buffering elements in the middle.  In addition to</span><span>
+</span><span id="line-310"></span><span class="hs-comment">-- buffering in the middle, arrays can also be used at the boundaries of the</span><span>
+</span><span id="line-311"></span><span class="hs-comment">-- pipeline to efficiently interface with external storage systems like memory,</span><span>
+</span><span id="line-312"></span><span class="hs-comment">-- files and network.  If streams are the pipes in a water pipeline network</span><span>
+</span><span id="line-313"></span><span class="hs-comment">-- then arrays are like the storage tanks in the middle.  On the input side,</span><span>
+</span><span id="line-314"></span><span class="hs-comment">-- think of arrays as buckets to fetch water to feed the pipeline and on the</span><span>
+</span><span id="line-315"></span><span class="hs-comment">-- output side buckets to remove the processed water.</span><span>
+</span><span id="line-316"></span><span class="hs-comment">--</span><span>
+</span><span id="line-317"></span><span class="hs-comment">-- 'ByteString' data type from the 'bytestring' package and the 'Text' data</span><span>
+</span><span id="line-318"></span><span class="hs-comment">-- type from the 'text' package are special cases of arrays.  'ByteString' is</span><span>
+</span><span id="line-319"></span><span class="hs-comment">-- like @Array Word8@ and 'Text' is like @utf16@ encoded @Array Word8@.</span><span>
+</span><span id="line-320"></span><span class="hs-comment">-- Streamly arrays can be transformed as efficiently as @bytestring@ or @text@</span><span>
+</span><span id="line-321"></span><span class="hs-comment">-- by using stream operations on them.</span><span>
+</span><span id="line-322"></span><span>
+</span><span id="line-323"></span><span class="hs-comment">-- Streams and arrays are equally important in computing. They are computing</span><span>
+</span><span id="line-324"></span><span class="hs-comment">-- duals of each other.</span><span>
+</span><span id="line-325"></span><span>
+</span><span id="line-326"></span><span class="hs-comment">-- $streamtypes</span><span>
+</span><span id="line-327"></span><span class="hs-comment">-- The basic stream type is 'Serial', it represents a sequence of IO actions,</span><span>
+</span><span id="line-328"></span><span class="hs-comment">-- and is a 'Monad'.  The type 'SerialT' is a monad transformer that can</span><span>
+</span><span id="line-329"></span><span class="hs-comment">-- represent a sequence of actions in an arbitrary monad. The type 'Serial' is</span><span>
+</span><span id="line-330"></span><span class="hs-comment">-- in fact a synonym for @SerialT IO@.  There are a few more types similar to</span><span>
+</span><span id="line-331"></span><span class="hs-comment">-- 'SerialT', all of them represent a stream and differ only in the</span><span>
+</span><span id="line-332"></span><span class="hs-comment">-- 'Semigroup', 'Applicative' and 'Monad' compositions of the stream. 'Serial'</span><span>
+</span><span id="line-333"></span><span class="hs-comment">-- and 'WSerial' types compose serially whereas 'Async' and 'WAsync'</span><span>
+</span><span id="line-334"></span><span class="hs-comment">-- types compose concurrently. All these types can be freely inter-converted</span><span>
+</span><span id="line-335"></span><span class="hs-comment">-- using type combinators without any cost. You can freely switch to any type</span><span>
+</span><span id="line-336"></span><span class="hs-comment">-- of composition at any point in the program.  When no type annotation or</span><span>
+</span><span id="line-337"></span><span class="hs-comment">-- explicit stream type combinators are used, the default stream type is</span><span>
+</span><span id="line-338"></span><span class="hs-comment">-- inferred as 'Serial'.</span><span>
+</span><span id="line-339"></span><span class="hs-comment">--</span><span>
+</span><span id="line-340"></span><span class="hs-comment">-- This module exports stream types, instances and combinators for:</span><span>
+</span><span id="line-341"></span><span class="hs-comment">--</span><span>
+</span><span id="line-342"></span><span class="hs-comment">-- * converting between different stream types</span><span>
+</span><span id="line-343"></span><span class="hs-comment">-- * appending and concurrently merging streams</span><span>
+</span><span id="line-344"></span><span class="hs-comment">-- * Concurrency control</span><span>
+</span><span id="line-345"></span><span class="hs-comment">-- * Concurrent function application</span><span>
+</span><span id="line-346"></span><span class="hs-comment">-- * Stream rate control</span><span>
+</span><span id="line-347"></span><span class="hs-comment">--</span><span>
+</span><span id="line-348"></span><span class="hs-comment">-- This module is designed to be imported unqualified:</span><span>
+</span><span id="line-349"></span><span class="hs-comment">--</span><span>
+</span><span id="line-350"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-351"></span><span class="hs-comment">-- import Streamly</span><span>
+</span><span id="line-352"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-353"></span><span class="hs-comment">--</span><span>
+</span><span id="line-354"></span><span class="hs-comment">-- See the &quot;Streamly.Prelude&quot; module for APIs for construction,</span><span>
+</span><span id="line-355"></span><span class="hs-comment">-- generation, elimination and transformation of streams.</span><span>
+</span><span id="line-356"></span><span>
+</span><span id="line-357"></span><span class="hs-comment">------------------------------------------------------------------------------</span><span>
+</span><span id="line-358"></span><span class="hs-comment">-- Eliminating a stream</span><span>
+</span><span id="line-359"></span><span class="hs-comment">------------------------------------------------------------------------------</span><span>
+</span><span id="line-360"></span><span>
+</span><span id="line-361"></span><span class="hs-comment">-- | Same as 'runStream'</span><span>
+</span><span id="line-362"></span><span class="hs-comment">--</span><span>
+</span><span id="line-363"></span><span class="hs-comment">-- @since 0.1.0</span><span>
+</span><span id="line-364"></span><span class="hs-pragma">{-# DEPRECATED</span><span> </span><span class="hs-pragma">runStreaming</span><span> </span><span class="hs-pragma">&quot;Please use runStream instead.&quot;</span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-365"></span><span id="local-6989586621679399962"><span id="local-6989586621679399963"><span id="local-6989586621679399964"><span class="annot"><a href="Streamly.html#runStreaming"><span class="hs-identifier hs-type">runStreaming</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Monad</span></span><span> </span><span class="annot"><a href="#local-6989586621679399964"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.StreamK.Type.html#IsStream"><span class="hs-identifier hs-type">IsStream</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679399963"><span class="hs-identifier hs-type">t</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679399963"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679399964"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679399962"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679399964"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span></span></span><span>
+</span><span id="line-366"></span><span id="runStreaming"><span class="annot"><span class="annottext">runStreaming :: t m a -&gt; m ()
+</span><a href="Streamly.html#runStreaming"><span class="hs-identifier hs-var hs-var">runStreaming</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SerialT m a -&gt; m ()
+forall (m :: * -&gt; *) a. Monad m =&gt; SerialT m a -&gt; m ()
+</span><a href="Streamly.Internal.Data.Stream.IsStream.Eliminate.html#drain"><span class="hs-identifier hs-var">P.drain</span></a></span><span> </span><span class="annot"><span class="annottext">(SerialT m a -&gt; m ()) -&gt; (t m a -&gt; SerialT m a) -&gt; t m a -&gt; m ()
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">t m a -&gt; SerialT m a
+forall (t1 :: (* -&gt; *) -&gt; * -&gt; *) (t2 :: (* -&gt; *) -&gt; * -&gt; *)
+       (m :: * -&gt; *) a.
+(IsStream t1, IsStream t2) =&gt;
+t1 m a -&gt; t2 m a
+</span><a href="Streamly.Internal.Data.Stream.StreamK.Type.html#adapt"><span class="hs-identifier hs-var">K.adapt</span></a></span><span>
+</span><span id="line-367"></span><span>
+</span><span id="line-368"></span><span class="hs-comment">-- | Same as @runStream@.</span><span>
+</span><span id="line-369"></span><span class="hs-comment">--</span><span>
+</span><span id="line-370"></span><span class="hs-comment">-- @since 0.1.0</span><span>
+</span><span id="line-371"></span><span class="hs-pragma">{-# DEPRECATED</span><span> </span><span class="hs-pragma">runStreamT</span><span> </span><span class="hs-pragma">&quot;Please use runStream instead.&quot;</span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-372"></span><span id="local-6989586621679399958"><span id="local-6989586621679399959"><span class="annot"><a href="Streamly.html#runStreamT"><span class="hs-identifier hs-type">runStreamT</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Monad</span></span><span> </span><span class="annot"><a href="#local-6989586621679399959"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Serial.html#SerialT"><span class="hs-identifier hs-type">SerialT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679399959"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679399958"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679399959"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span></span><span>
+</span><span id="line-373"></span><span id="runStreamT"><span class="annot"><span class="annottext">runStreamT :: SerialT m a -&gt; m ()
+</span><a href="Streamly.html#runStreamT"><span class="hs-identifier hs-var hs-var">runStreamT</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SerialT m a -&gt; m ()
+forall (m :: * -&gt; *) a. Monad m =&gt; SerialT m a -&gt; m ()
+</span><a href="Streamly.Internal.Data.Stream.IsStream.Eliminate.html#drain"><span class="hs-identifier hs-var">P.drain</span></a></span><span>
+</span><span id="line-374"></span><span>
+</span><span id="line-375"></span><span class="hs-comment">-- | Same as &quot;Streamly.Prelude.runStream&quot;.</span><span>
+</span><span id="line-376"></span><span class="hs-comment">--</span><span>
+</span><span id="line-377"></span><span class="hs-pragma">{-# DEPRECATED</span><span> </span><span class="hs-pragma">runStream</span><span> </span><span class="hs-pragma">&quot;Please use Streamly.Prelude.drain instead.&quot;</span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-378"></span><span id="local-6989586621679399956"><span id="local-6989586621679399957"><span class="annot"><a href="Streamly.html#runStream"><span class="hs-identifier hs-type">runStream</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Monad</span></span><span> </span><span class="annot"><a href="#local-6989586621679399957"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Serial.html#SerialT"><span class="hs-identifier hs-type">SerialT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679399957"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679399956"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679399957"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span></span><span>
+</span><span id="line-379"></span><span id="runStream"><span class="annot"><span class="annottext">runStream :: SerialT m a -&gt; m ()
+</span><a href="Streamly.html#runStream"><span class="hs-identifier hs-var hs-var">runStream</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SerialT m a -&gt; m ()
+forall (m :: * -&gt; *) a. Monad m =&gt; SerialT m a -&gt; m ()
+</span><a href="Streamly.Internal.Data.Stream.IsStream.Eliminate.html#drain"><span class="hs-identifier hs-var">P.drain</span></a></span><span>
+</span><span id="line-380"></span><span>
+</span><span id="line-381"></span><span class="hs-comment">-- | Same as @runStream . wSerially@.</span><span>
+</span><span id="line-382"></span><span class="hs-comment">--</span><span>
+</span><span id="line-383"></span><span class="hs-comment">-- @since 0.1.0</span><span>
+</span><span id="line-384"></span><span class="hs-pragma">{-# DEPRECATED</span><span> </span><span class="hs-pragma">runInterleavedT</span><span> </span><span class="hs-pragma">&quot;Please use 'runStream . interleaving' instead.&quot;</span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-385"></span><span id="local-6989586621679399954"><span id="local-6989586621679399955"><span class="annot"><a href="Streamly.html#runInterleavedT"><span class="hs-identifier hs-type">runInterleavedT</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Monad</span></span><span> </span><span class="annot"><a href="#local-6989586621679399955"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Serial.html#WSerialT"><span class="hs-identifier hs-type">WSerialT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679399955"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679399954"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679399955"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span></span><span>
+</span><span id="line-386"></span><span id="runInterleavedT"><span class="annot"><span class="annottext">runInterleavedT :: WSerialT m a -&gt; m ()
+</span><a href="Streamly.html#runInterleavedT"><span class="hs-identifier hs-var hs-var">runInterleavedT</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SerialT m a -&gt; m ()
+forall (m :: * -&gt; *) a. Monad m =&gt; SerialT m a -&gt; m ()
+</span><a href="Streamly.Internal.Data.Stream.IsStream.Eliminate.html#drain"><span class="hs-identifier hs-var">P.drain</span></a></span><span> </span><span class="annot"><span class="annottext">(SerialT m a -&gt; m ())
+-&gt; (WSerialT m a -&gt; SerialT m a) -&gt; WSerialT m a -&gt; m ()
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">WSerialT m a -&gt; SerialT m a
+forall (t1 :: (* -&gt; *) -&gt; * -&gt; *) (t2 :: (* -&gt; *) -&gt; * -&gt; *)
+       (m :: * -&gt; *) a.
+(IsStream t1, IsStream t2) =&gt;
+t1 m a -&gt; t2 m a
+</span><a href="Streamly.Internal.Data.Stream.StreamK.Type.html#adapt"><span class="hs-identifier hs-var">K.adapt</span></a></span><span>
+</span><span id="line-387"></span><span>
+</span><span id="line-388"></span><span class="hs-comment">-- | Same as @runStream . parallely@.</span><span>
+</span><span id="line-389"></span><span class="hs-comment">--</span><span>
+</span><span id="line-390"></span><span class="hs-comment">-- @since 0.1.0</span><span>
+</span><span id="line-391"></span><span class="hs-pragma">{-# DEPRECATED</span><span> </span><span class="hs-pragma">runParallelT</span><span> </span><span class="hs-pragma">&quot;Please use 'runStream . parallely' instead.&quot;</span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-392"></span><span id="local-6989586621679399952"><span id="local-6989586621679399953"><span class="annot"><a href="Streamly.html#runParallelT"><span class="hs-identifier hs-type">runParallelT</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Monad</span></span><span> </span><span class="annot"><a href="#local-6989586621679399953"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Parallel.html#ParallelT"><span class="hs-identifier hs-type">ParallelT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679399953"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679399952"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679399953"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span></span><span>
+</span><span id="line-393"></span><span id="runParallelT"><span class="annot"><span class="annottext">runParallelT :: ParallelT m a -&gt; m ()
+</span><a href="Streamly.html#runParallelT"><span class="hs-identifier hs-var hs-var">runParallelT</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SerialT m a -&gt; m ()
+forall (m :: * -&gt; *) a. Monad m =&gt; SerialT m a -&gt; m ()
+</span><a href="Streamly.Internal.Data.Stream.IsStream.Eliminate.html#drain"><span class="hs-identifier hs-var">P.drain</span></a></span><span> </span><span class="annot"><span class="annottext">(SerialT m a -&gt; m ())
+-&gt; (ParallelT m a -&gt; SerialT m a) -&gt; ParallelT m a -&gt; m ()
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">ParallelT m a -&gt; SerialT m a
+forall (t1 :: (* -&gt; *) -&gt; * -&gt; *) (t2 :: (* -&gt; *) -&gt; * -&gt; *)
+       (m :: * -&gt; *) a.
+(IsStream t1, IsStream t2) =&gt;
+t1 m a -&gt; t2 m a
+</span><a href="Streamly.Internal.Data.Stream.StreamK.Type.html#adapt"><span class="hs-identifier hs-var">K.adapt</span></a></span><span>
+</span><span id="line-394"></span><span>
+</span><span id="line-395"></span><span class="hs-comment">-- | Same as @runStream . asyncly@.</span><span>
+</span><span id="line-396"></span><span class="hs-comment">--</span><span>
+</span><span id="line-397"></span><span class="hs-comment">-- @since 0.1.0</span><span>
+</span><span id="line-398"></span><span class="hs-pragma">{-# DEPRECATED</span><span> </span><span class="hs-pragma">runAsyncT</span><span> </span><span class="hs-pragma">&quot;Please use 'runStream . asyncly' instead.&quot;</span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-399"></span><span id="local-6989586621679399950"><span id="local-6989586621679399951"><span class="annot"><a href="Streamly.html#runAsyncT"><span class="hs-identifier hs-type">runAsyncT</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Monad</span></span><span> </span><span class="annot"><a href="#local-6989586621679399951"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Async.html#AsyncT"><span class="hs-identifier hs-type">AsyncT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679399951"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679399950"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679399951"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span></span><span>
+</span><span id="line-400"></span><span id="runAsyncT"><span class="annot"><span class="annottext">runAsyncT :: AsyncT m a -&gt; m ()
+</span><a href="Streamly.html#runAsyncT"><span class="hs-identifier hs-var hs-var">runAsyncT</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SerialT m a -&gt; m ()
+forall (m :: * -&gt; *) a. Monad m =&gt; SerialT m a -&gt; m ()
+</span><a href="Streamly.Internal.Data.Stream.IsStream.Eliminate.html#drain"><span class="hs-identifier hs-var">P.drain</span></a></span><span> </span><span class="annot"><span class="annottext">(SerialT m a -&gt; m ())
+-&gt; (AsyncT m a -&gt; SerialT m a) -&gt; AsyncT m a -&gt; m ()
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">AsyncT m a -&gt; SerialT m a
+forall (t1 :: (* -&gt; *) -&gt; * -&gt; *) (t2 :: (* -&gt; *) -&gt; * -&gt; *)
+       (m :: * -&gt; *) a.
+(IsStream t1, IsStream t2) =&gt;
+t1 m a -&gt; t2 m a
+</span><a href="Streamly.Internal.Data.Stream.StreamK.Type.html#adapt"><span class="hs-identifier hs-var">K.adapt</span></a></span><span>
+</span><span id="line-401"></span><span>
+</span><span id="line-402"></span><span class="hs-comment">-- | Same as @runStream . zipping@.</span><span>
+</span><span id="line-403"></span><span class="hs-comment">--</span><span>
+</span><span id="line-404"></span><span class="hs-comment">-- @since 0.1.0</span><span>
+</span><span id="line-405"></span><span class="hs-pragma">{-# DEPRECATED</span><span> </span><span class="hs-pragma">runZipStream</span><span> </span><span class="hs-pragma">&quot;Please use 'runStream . zipSerially instead.&quot;</span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-406"></span><span id="local-6989586621679399948"><span id="local-6989586621679399949"><span class="annot"><a href="Streamly.html#runZipStream"><span class="hs-identifier hs-type">runZipStream</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Monad</span></span><span> </span><span class="annot"><a href="#local-6989586621679399949"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Zip.html#ZipSerialM"><span class="hs-identifier hs-type">ZipSerialM</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679399949"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679399948"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679399949"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span></span><span>
+</span><span id="line-407"></span><span id="runZipStream"><span class="annot"><span class="annottext">runZipStream :: ZipSerialM m a -&gt; m ()
+</span><a href="Streamly.html#runZipStream"><span class="hs-identifier hs-var hs-var">runZipStream</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SerialT m a -&gt; m ()
+forall (m :: * -&gt; *) a. Monad m =&gt; SerialT m a -&gt; m ()
+</span><a href="Streamly.Internal.Data.Stream.IsStream.Eliminate.html#drain"><span class="hs-identifier hs-var">P.drain</span></a></span><span> </span><span class="annot"><span class="annottext">(SerialT m a -&gt; m ())
+-&gt; (ZipSerialM m a -&gt; SerialT m a) -&gt; ZipSerialM m a -&gt; m ()
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">ZipSerialM m a -&gt; SerialT m a
+forall (t1 :: (* -&gt; *) -&gt; * -&gt; *) (t2 :: (* -&gt; *) -&gt; * -&gt; *)
+       (m :: * -&gt; *) a.
+(IsStream t1, IsStream t2) =&gt;
+t1 m a -&gt; t2 m a
+</span><a href="Streamly.Internal.Data.Stream.StreamK.Type.html#adapt"><span class="hs-identifier hs-var">K.adapt</span></a></span><span>
+</span><span id="line-408"></span><span>
+</span><span id="line-409"></span><span class="hs-comment">-- | Same as @runStream . zippingAsync@.</span><span>
+</span><span id="line-410"></span><span class="hs-comment">--</span><span>
+</span><span id="line-411"></span><span class="hs-comment">-- @since 0.1.0</span><span>
+</span><span id="line-412"></span><span class="hs-pragma">{-# DEPRECATED</span><span> </span><span class="hs-pragma">runZipAsync</span><span> </span><span class="hs-pragma">&quot;Please use 'runStream . zipAsyncly instead.&quot;</span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-413"></span><span id="local-6989586621679399946"><span id="local-6989586621679399947"><span class="annot"><a href="Streamly.html#runZipAsync"><span class="hs-identifier hs-type">runZipAsync</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Monad</span></span><span> </span><span class="annot"><a href="#local-6989586621679399947"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Zip.html#ZipAsyncM"><span class="hs-identifier hs-type">ZipAsyncM</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679399947"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679399946"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679399947"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span></span><span>
+</span><span id="line-414"></span><span id="runZipAsync"><span class="annot"><span class="annottext">runZipAsync :: ZipAsyncM m a -&gt; m ()
+</span><a href="Streamly.html#runZipAsync"><span class="hs-identifier hs-var hs-var">runZipAsync</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SerialT m a -&gt; m ()
+forall (m :: * -&gt; *) a. Monad m =&gt; SerialT m a -&gt; m ()
+</span><a href="Streamly.Internal.Data.Stream.IsStream.Eliminate.html#drain"><span class="hs-identifier hs-var">P.drain</span></a></span><span> </span><span class="annot"><span class="annottext">(SerialT m a -&gt; m ())
+-&gt; (ZipAsyncM m a -&gt; SerialT m a) -&gt; ZipAsyncM m a -&gt; m ()
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">ZipAsyncM m a -&gt; SerialT m a
+forall (t1 :: (* -&gt; *) -&gt; * -&gt; *) (t2 :: (* -&gt; *) -&gt; * -&gt; *)
+       (m :: * -&gt; *) a.
+(IsStream t1, IsStream t2) =&gt;
+t1 m a -&gt; t2 m a
+</span><a href="Streamly.Internal.Data.Stream.StreamK.Type.html#adapt"><span class="hs-identifier hs-var">K.adapt</span></a></span><span>
+</span><span id="line-415"></span><span>
+</span><span id="line-416"></span><span class="hs-comment">{-
+-- | Same as &quot;Streamly.Prelude.foldWith&quot;.
+--
+{-# DEPRECATED foldWith &quot;Please use Streamly.Prelude.foldWith instead.&quot; #-}
+{-# INLINABLE foldWith #-}
+foldWith :: (IsStream t, Foldable f)
+    =&gt; (t m a -&gt; t m a -&gt; t m a) -&gt; f (t m a) -&gt; t m a
+foldWith = P.foldWith
+
+-- | Same as &quot;Streamly.Prelude.foldMapWith&quot;.
+--
+{-# DEPRECATED foldMapWith &quot;Please use Streamly.Prelude.foldMapWith instead.&quot; #-}
+{-# INLINABLE foldMapWith #-}
+foldMapWith :: (IsStream t, Foldable f)
+    =&gt; (t m b -&gt; t m b -&gt; t m b) -&gt; (a -&gt; t m b) -&gt; f a -&gt; t m b
+foldMapWith = P.foldMapWith
+
+-- | Same as &quot;Streamly.Prelude.forEachWith&quot;.
+--
+{-# DEPRECATED forEachWith &quot;Please use Streamly.Prelude.forEachWith instead.&quot; #-}
+{-# INLINABLE forEachWith #-}
+forEachWith :: (IsStream t, Foldable f)
+    =&gt; (t m b -&gt; t m b -&gt; t m b) -&gt; f a -&gt; (a -&gt; t m b) -&gt; t m b
+forEachWith = P.forEachWith
+-}</span><span>
+</span><span id="line-441"></span><span>
+</span><span id="line-442"></span><span class="hs-comment">-- XXX Deprecate it in 0.8.0</span><span>
+</span><span id="line-443"></span><span class="hs-comment">--</span><span>
+</span><span id="line-444"></span><span class="hs-comment">-- | Make a stream asynchronous, triggers the computation and returns a stream</span><span>
+</span><span id="line-445"></span><span class="hs-comment">-- in the underlying monad representing the output generated by the original</span><span>
+</span><span id="line-446"></span><span class="hs-comment">-- computation. The returned action is exhaustible and must be drained once. If</span><span>
+</span><span id="line-447"></span><span class="hs-comment">-- not drained fully we may have a thread blocked forever and once exhausted it</span><span>
+</span><span id="line-448"></span><span class="hs-comment">-- will always return 'empty'.</span><span>
+</span><span id="line-449"></span><span class="hs-comment">--</span><span>
+</span><span id="line-450"></span><span class="hs-comment">-- @since 0.2.0</span><span>
+</span><span id="line-451"></span><span class="hs-pragma">{-# INLINABLE</span><span> </span><span class="annot"><a href="Streamly.html#mkAsync"><span class="hs-pragma hs-type">mkAsync</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-452"></span><span id="local-6989586621679399943"><span id="local-6989586621679399944"><span id="local-6989586621679399945"><span class="annot"><a href="Streamly.html#mkAsync"><span class="hs-identifier hs-type">mkAsync</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.Stream.StreamK.Type.html#IsStream"><span class="hs-identifier hs-type">IsStream</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679399945"><span class="hs-identifier hs-type">t</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.SVar.html#MonadAsync"><span class="hs-identifier hs-type">MonadAsync</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679399944"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679399945"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679399944"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679399943"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679399944"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679399945"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679399944"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679399943"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span></span></span></span><span>
+</span><span id="line-453"></span><span id="mkAsync"><span class="annot"><span class="annottext">mkAsync :: t m a -&gt; m (t m a)
+</span><a href="Streamly.html#mkAsync"><span class="hs-identifier hs-var hs-var">mkAsync</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">t m a -&gt; m (t m a)
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">(t m a -&gt; m (t m a)) -&gt; (t m a -&gt; t m a) -&gt; t m a -&gt; m (t m a)
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">t m a -&gt; t m a
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) (m :: * -&gt; *) a.
+(IsStream t, MonadAsync m) =&gt;
+t m a -&gt; t m a
+</span><a href="Streamly.Internal.Data.Stream.Async.html#mkAsync"><span class="hs-identifier hs-var">Async.mkAsync</span></a></span><span>
+</span><span id="line-454"></span><span>
+</span><span id="line-455"></span><span class="hs-comment">------------------------------------------------------------------------------</span><span>
+</span><span id="line-456"></span><span class="hs-comment">-- Documentation</span><span>
+</span><span id="line-457"></span><span class="hs-comment">------------------------------------------------------------------------------</span><span>
+</span><span id="line-458"></span><span>
+</span><span id="line-459"></span><span class="hs-comment">-- $serial</span><span>
+</span><span id="line-460"></span><span class="hs-comment">--</span><span>
+</span><span id="line-461"></span><span class="hs-comment">-- When a stream consumer demands an element from a serial stream constructed</span><span>
+</span><span id="line-462"></span><span class="hs-comment">-- as @a \`consM` b \`consM` ... nil@, the action @a@ at the head of the stream</span><span>
+</span><span id="line-463"></span><span class="hs-comment">-- sequence is executed and the result is supplied to the consumer. When the</span><span>
+</span><span id="line-464"></span><span class="hs-comment">-- next element is demanded, the action @b@ is executed and its result is</span><span>
+</span><span id="line-465"></span><span class="hs-comment">-- supplied.  Thus, the effects are performed and results are consumed strictly</span><span>
+</span><span id="line-466"></span><span class="hs-comment">-- in a serial order.  Serial streams can be considered as /spatially ordered/</span><span>
+</span><span id="line-467"></span><span class="hs-comment">-- streams as the order of execution and consumption is the same as the spatial</span><span>
+</span><span id="line-468"></span><span class="hs-comment">-- order in which the actions are composed by the programmer.</span><span>
+</span><span id="line-469"></span><span class="hs-comment">--</span><span>
+</span><span id="line-470"></span><span class="hs-comment">-- Serial streams enforce the side effects as well as the results of the</span><span>
+</span><span id="line-471"></span><span class="hs-comment">-- actions to be in the same order in which the actions are added to the</span><span>
+</span><span id="line-472"></span><span class="hs-comment">-- stream.  Therefore, the semigroup operation for serial streams is not</span><span>
+</span><span id="line-473"></span><span class="hs-comment">-- commutative:</span><span>
+</span><span id="line-474"></span><span class="hs-comment">--</span><span>
+</span><span id="line-475"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-476"></span><span class="hs-comment">-- a &lt;&gt; b is not the same as b &lt;&gt; a</span><span>
+</span><span id="line-477"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-478"></span><span class="hs-comment">--</span><span>
+</span><span id="line-479"></span><span class="hs-comment">-- There are two serial stream types 'SerialT' and 'WSerialT'. The stream</span><span>
+</span><span id="line-480"></span><span class="hs-comment">-- evaluation of both the variants works in the same way as described above,</span><span>
+</span><span id="line-481"></span><span class="hs-comment">-- they differ only in the 'Semigroup' and 'Monad' implementaitons.</span><span>
+</span><span id="line-482"></span><span>
+</span><span id="line-483"></span><span class="hs-comment">-- $ahead</span><span>
+</span><span id="line-484"></span><span class="hs-comment">--</span><span>
+</span><span id="line-485"></span><span class="hs-comment">-- When a stream consumer demands an element from a speculative stream</span><span>
+</span><span id="line-486"></span><span class="hs-comment">-- constructed as @a \`consM` b \`consM` ... nil@, the action @a@ at the head</span><span>
+</span><span id="line-487"></span><span class="hs-comment">-- of the stream is executed and the output of the action is supplied to the</span><span>
+</span><span id="line-488"></span><span class="hs-comment">-- consumer. However, in addition to the action at the head multiple actions</span><span>
+</span><span id="line-489"></span><span class="hs-comment">-- following it may also be executed concurrently and the results buffered.</span><span>
+</span><span id="line-490"></span><span class="hs-comment">-- When the next element is demanded it may be served from the buffer and we</span><span>
+</span><span id="line-491"></span><span class="hs-comment">-- may execute the next action in the sequence to keep the buffer adequately</span><span>
+</span><span id="line-492"></span><span class="hs-comment">-- filled.  Thus, the actions are executed concurrently but results consumed in</span><span>
+</span><span id="line-493"></span><span class="hs-comment">-- serial order just like serial streams.  `consM` can be used to fold an</span><span>
+</span><span id="line-494"></span><span class="hs-comment">-- infinite lazy container of effects, as the number of concurrent executions</span><span>
+</span><span id="line-495"></span><span class="hs-comment">-- is limited.</span><span>
+</span><span id="line-496"></span><span class="hs-comment">--</span><span>
+</span><span id="line-497"></span><span class="hs-comment">-- Similar to 'consM', the monadic stream generation (e.g. replicateM) and</span><span>
+</span><span id="line-498"></span><span class="hs-comment">-- transformation operations (e.g. mapM) on speculative streams can execute</span><span>
+</span><span id="line-499"></span><span class="hs-comment">-- multiple effects concurrently in a speculative manner.</span><span>
+</span><span id="line-500"></span><span class="hs-comment">--</span><span>
+</span><span id="line-501"></span><span class="hs-comment">-- How many effects can be executed concurrently and how many results can be</span><span>
+</span><span id="line-502"></span><span class="hs-comment">-- buffered are controlled by 'maxThreads' and 'maxBuffer' combinators</span><span>
+</span><span id="line-503"></span><span class="hs-comment">-- respectively.  The actual number of concurrent threads is adjusted according</span><span>
+</span><span id="line-504"></span><span class="hs-comment">-- to the rate at which the consumer is consuming the stream. It may even</span><span>
+</span><span id="line-505"></span><span class="hs-comment">-- execute actions serially in a single thread if that is enough to match the</span><span>
+</span><span id="line-506"></span><span class="hs-comment">-- consumer's speed.</span><span>
+</span><span id="line-507"></span><span class="hs-comment">--</span><span>
+</span><span id="line-508"></span><span class="hs-comment">-- Speculative streams enforce ordering of the results of actions in the stream</span><span>
+</span><span id="line-509"></span><span class="hs-comment">-- but the side effects are only partially ordered.  Therefore, the semigroup</span><span>
+</span><span id="line-510"></span><span class="hs-comment">-- operation for speculative streams is not commutative from the pure outputs</span><span>
+</span><span id="line-511"></span><span class="hs-comment">-- perspective but commutative from side effects perspective.</span><span>
+</span><span id="line-512"></span><span>
+</span><span id="line-513"></span><span class="hs-comment">-- $async</span><span>
+</span><span id="line-514"></span><span class="hs-comment">--</span><span>
+</span><span id="line-515"></span><span class="hs-comment">-- /Scheduling and execution:/ In an asynchronous stream @a \`consM` b \`consM`</span><span>
+</span><span id="line-516"></span><span class="hs-comment">-- c ...@, the actions @a@, @b@, and @c@ are executed concurrently with the</span><span>
+</span><span id="line-517"></span><span class="hs-comment">-- consumer of the stream.  The actions are /scheduled/ for execution in the</span><span>
+</span><span id="line-518"></span><span class="hs-comment">-- same order as they are specified in the stream. Multiple scheduled actions</span><span>
+</span><span id="line-519"></span><span class="hs-comment">-- may be /executed/ concurrently in parallel threads of execution.  The</span><span>
+</span><span id="line-520"></span><span class="hs-comment">-- actions may be executed out of order and they may complete at arbitrary</span><span>
+</span><span id="line-521"></span><span class="hs-comment">-- times.  Therefore, the /effects/ of the actions may be observed out of</span><span>
+</span><span id="line-522"></span><span class="hs-comment">-- order.</span><span>
+</span><span id="line-523"></span><span class="hs-comment">--</span><span>
+</span><span id="line-524"></span><span class="hs-comment">-- /Buffering:/ The /results/ from multiple threads of execution are queued in</span><span>
+</span><span id="line-525"></span><span class="hs-comment">-- a buffer as soon as they become available. The consumer of the stream is</span><span>
+</span><span id="line-526"></span><span class="hs-comment">-- served from this buffer.  Therefore, the consumer may observe the results to</span><span>
+</span><span id="line-527"></span><span class="hs-comment">-- be out of order.  In other words, an asynchronous stream is an unordered</span><span>
+</span><span id="line-528"></span><span class="hs-comment">-- stream i.e.  order does not matter.</span><span>
+</span><span id="line-529"></span><span class="hs-comment">--</span><span>
+</span><span id="line-530"></span><span class="hs-comment">-- /Concurrency control:/ Threads are suspended if the `maxBuffer` limit is</span><span>
+</span><span id="line-531"></span><span class="hs-comment">-- reached, and resumed when the consumer makes space in the buffer.  The</span><span>
+</span><span id="line-532"></span><span class="hs-comment">-- maximum number of concurrent threads depends on `maxThreads`. Number of</span><span>
+</span><span id="line-533"></span><span class="hs-comment">-- threads is increased or decreased based on the speed of the consumer.</span><span>
+</span><span id="line-534"></span><span class="hs-comment">--</span><span>
+</span><span id="line-535"></span><span class="hs-comment">-- /Generation operations:/ Concurrent stream generation operations e.g.</span><span>
+</span><span id="line-536"></span><span class="hs-comment">-- 'Streamly.Prelude.replicateM' when used in async style schedule and execute</span><span>
+</span><span id="line-537"></span><span class="hs-comment">-- the stream generating actions in the manner described above. The generation</span><span>
+</span><span id="line-538"></span><span class="hs-comment">-- actions run concurrently, effects and results of the actions as observed by</span><span>
+</span><span id="line-539"></span><span class="hs-comment">-- the consumer of the stream may be out of order.</span><span>
+</span><span id="line-540"></span><span class="hs-comment">--</span><span>
+</span><span id="line-541"></span><span class="hs-comment">-- /Transformation operations:/ Concurrent stream transformation operations</span><span>
+</span><span id="line-542"></span><span class="hs-comment">-- e.g.  'Streamly.Prelude.mapM', when used in async style, schedule and</span><span>
+</span><span id="line-543"></span><span class="hs-comment">-- execute transformation actions in the manner described above. Transformation</span><span>
+</span><span id="line-544"></span><span class="hs-comment">-- actions run concurrently, effects and results of the actions may be</span><span>
+</span><span id="line-545"></span><span class="hs-comment">-- observed by the consumer out of order.</span><span>
+</span><span id="line-546"></span><span class="hs-comment">--</span><span>
+</span><span id="line-547"></span><span class="hs-comment">-- /Variants:/ There are two asynchronous stream types 'AsyncT' and 'WAsyncT'.</span><span>
+</span><span id="line-548"></span><span class="hs-comment">-- They are identical with respect to single stream evaluation behavior.  Their</span><span>
+</span><span id="line-549"></span><span class="hs-comment">-- behaviors differ in how they combine multiple streams using 'Semigroup' or</span><span>
+</span><span id="line-550"></span><span class="hs-comment">-- 'Monad' composition. Since the order of elements does not matter in</span><span>
+</span><span id="line-551"></span><span class="hs-comment">-- asynchronous streams the 'Semigroup' operation is effectively commutative.</span><span>
+</span><span id="line-552"></span><span>
+</span><span id="line-553"></span><span class="hs-comment">-- $zipping</span><span>
+</span><span id="line-554"></span><span class="hs-comment">--</span><span>
+</span><span id="line-555"></span><span class="hs-comment">-- 'ZipSerialM' and 'ZipAsyncM', provide 'Applicative' instances for zipping the</span><span>
+</span><span id="line-556"></span><span class="hs-comment">-- corresponding elements of two streams together. Note that these types are</span><span>
+</span><span id="line-557"></span><span class="hs-comment">-- not monads.</span><span>
+</span><span id="line-558"></span><span>
+</span><span id="line-559"></span><span class="hs-comment">-- $application</span><span>
+</span><span id="line-560"></span><span class="hs-comment">--</span><span>
+</span><span id="line-561"></span><span class="hs-comment">-- Stream processing functions can be composed in a chain using function</span><span>
+</span><span id="line-562"></span><span class="hs-comment">-- application with or without the '$' operator, or with reverse function</span><span>
+</span><span id="line-563"></span><span class="hs-comment">-- application operator '&amp;'. Streamly provides concurrent versions of these</span><span>
+</span><span id="line-564"></span><span class="hs-comment">-- operators applying stream processing functions such that each stage of the</span><span>
+</span><span id="line-565"></span><span class="hs-comment">-- stream can run in parallel. The operators start with a @|@; we can read '|$'</span><span>
+</span><span id="line-566"></span><span class="hs-comment">-- as &quot;@parallel dollar@&quot; to remember that @|@ comes before '$'.</span><span>
+</span><span id="line-567"></span><span class="hs-comment">--</span><span>
+</span><span id="line-568"></span><span class="hs-comment">-- Imports for the code snippets below:</span><span>
+</span><span id="line-569"></span><span class="hs-comment">--</span><span>
+</span><span id="line-570"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-571"></span><span class="hs-comment">--  import Streamly</span><span>
+</span><span id="line-572"></span><span class="hs-comment">--  import qualified Streamly.Prelude as S</span><span>
+</span><span id="line-573"></span><span class="hs-comment">--  import Control.Concurrent</span><span>
+</span><span id="line-574"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-575"></span><span>
+</span><span id="line-576"></span><span class="hs-comment">-- $sum</span><span>
+</span><span id="line-577"></span><span class="hs-comment">-- The 'Semigroup' operation '&lt;&gt;' of each stream type combines two streams in a</span><span>
+</span><span id="line-578"></span><span class="hs-comment">-- type specific manner. This section provides polymorphic versions of '&lt;&gt;'</span><span>
+</span><span id="line-579"></span><span class="hs-comment">-- which can be used to combine two streams in a predetermined way irrespective</span><span>
+</span><span id="line-580"></span><span class="hs-comment">-- of the type.</span><span>
+</span><span id="line-581"></span><span>
+</span><span id="line-582"></span><span class="hs-comment">-- XXX An alternative design choice would be to let a control parameter affect</span><span>
+</span><span id="line-583"></span><span class="hs-comment">-- the nearest SVar only and then it gets cleared. The benefit of the current</span><span>
+</span><span id="line-584"></span><span class="hs-comment">-- choice is that it is simply just like global configuration, just like state</span><span>
+</span><span id="line-585"></span><span class="hs-comment">-- behaves, so should be easy to comprehend. But it has the downside of leaking</span><span>
+</span><span id="line-586"></span><span class="hs-comment">-- to undesired actions, that is we can forget to reset it.</span><span>
+</span><span id="line-587"></span><span class="hs-comment">--</span><span>
+</span><span id="line-588"></span><span class="hs-comment">-- $concurrency</span><span>
+</span><span id="line-589"></span><span class="hs-comment">--</span><span>
+</span><span id="line-590"></span><span class="hs-comment">-- These combinators can be used at any point in a stream composition to set</span><span>
+</span><span id="line-591"></span><span class="hs-comment">-- parameters to control the concurrency of the /argument stream/.  A control</span><span>
+</span><span id="line-592"></span><span class="hs-comment">-- parameter set at any point remains effective for any concurrent combinators</span><span>
+</span><span id="line-593"></span><span class="hs-comment">-- used in the argument stream until it is reset by using the combinator again.</span><span>
+</span><span id="line-594"></span><span class="hs-comment">-- These control parameters have no effect on non-concurrent combinators in the</span><span>
+</span><span id="line-595"></span><span class="hs-comment">-- stream, or on non-concurrent streams.</span><span>
+</span><span id="line-596"></span><span class="hs-comment">--</span><span>
+</span><span id="line-597"></span><span class="hs-comment">-- /Pitfall:/ Remember that 'maxBuffer' in the following example applies to</span><span>
+</span><span id="line-598"></span><span class="hs-comment">-- 'mapM' and any other combinators that may follow it, and it does not apply</span><span>
+</span><span id="line-599"></span><span class="hs-comment">-- to the combinators before it:</span><span>
+</span><span id="line-600"></span><span class="hs-comment">--</span><span>
+</span><span id="line-601"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-602"></span><span class="hs-comment">--  ...</span><span>
+</span><span id="line-603"></span><span class="hs-comment">--  $ maxBuffer 10</span><span>
+</span><span id="line-604"></span><span class="hs-comment">--  $ S.mapM ...</span><span>
+</span><span id="line-605"></span><span class="hs-comment">--  ...</span><span>
+</span><span id="line-606"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-607"></span><span class="hs-comment">--</span><span>
+</span><span id="line-608"></span><span class="hs-comment">-- If we use '&amp;' instead of '$' the situation will reverse, in the following</span><span>
+</span><span id="line-609"></span><span class="hs-comment">-- example, 'maxBuffer' does not apply to 'mapM', it applies to combinators</span><span>
+</span><span id="line-610"></span><span class="hs-comment">-- that come before it, because those are the arguments to 'maxBuffer':</span><span>
+</span><span id="line-611"></span><span class="hs-comment">--</span><span>
+</span><span id="line-612"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-613"></span><span class="hs-comment">--  ...</span><span>
+</span><span id="line-614"></span><span class="hs-comment">--  &amp; maxBuffer 10</span><span>
+</span><span id="line-615"></span><span class="hs-comment">--  &amp; S.mapM ...</span><span>
+</span><span id="line-616"></span><span class="hs-comment">--  ...</span><span>
+</span><span id="line-617"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-618"></span><span>
+</span><span id="line-619"></span><span class="hs-comment">-- $adapters</span><span>
+</span><span id="line-620"></span><span class="hs-comment">--</span><span>
+</span><span id="line-621"></span><span class="hs-comment">-- You may want to use different stream composition styles at different points</span><span>
+</span><span id="line-622"></span><span class="hs-comment">-- in your program. Stream types can be freely converted or adapted from one</span><span>
+</span><span id="line-623"></span><span class="hs-comment">-- type to another.  The 'IsStream' type class facilitates type conversion of</span><span>
+</span><span id="line-624"></span><span class="hs-comment">-- one stream type to another. It is not used directly, instead the type</span><span>
+</span><span id="line-625"></span><span class="hs-comment">-- combinators provided below are used for conversions.</span><span>
+</span><span id="line-626"></span><span class="hs-comment">--</span><span>
+</span><span id="line-627"></span><span class="hs-comment">-- To adapt from one monomorphic type (e.g. 'AsyncT') to another monomorphic</span><span>
+</span><span id="line-628"></span><span class="hs-comment">-- type (e.g. 'SerialT') use the 'adapt' combinator. To give a polymorphic code</span><span>
+</span><span id="line-629"></span><span class="hs-comment">-- a specific interpretation or to adapt a specific type to a polymorphic type</span><span>
+</span><span id="line-630"></span><span class="hs-comment">-- use the type specific combinators e.g. 'asyncly' or 'wSerially'. You</span><span>
+</span><span id="line-631"></span><span class="hs-comment">-- cannot adapt polymorphic code to polymorphic code, as the compiler would not know</span><span>
+</span><span id="line-632"></span><span class="hs-comment">-- which specific type you are converting from or to. If you see a an</span><span>
+</span><span id="line-633"></span><span class="hs-comment">-- @ambiguous type variable@ error then most likely you are using 'adapt'</span><span>
+</span><span id="line-634"></span><span class="hs-comment">-- unnecessarily on polymorphic code.</span><span>
+</span><span id="line-635"></span><span>
+</span><span id="line-636"></span><span class="hs-comment">-- | Same as 'Streamly.Prelude.concatFoldableWith'</span><span>
+</span><span id="line-637"></span><span class="hs-comment">--</span><span>
+</span><span id="line-638"></span><span class="hs-comment">-- @since 0.1.0</span><span>
+</span><span id="line-639"></span><span class="hs-pragma">{-# DEPRECATED</span><span> </span><span class="hs-pragma">foldWith</span><span> </span><span class="hs-pragma">&quot;Please use 'Streamly.Prelude.concatFoldableWith' instead.&quot;</span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-640"></span><span class="hs-pragma">{-# INLINEABLE</span><span> </span><span class="annot"><a href="Streamly.html#foldWith"><span class="hs-pragma hs-type">foldWith</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-641"></span><span id="local-6989586621679399939"><span id="local-6989586621679399940"><span id="local-6989586621679399941"><span id="local-6989586621679399942"><span class="annot"><a href="Streamly.html#foldWith"><span class="hs-identifier hs-type">foldWith</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.Stream.StreamK.Type.html#IsStream"><span class="hs-identifier hs-type">IsStream</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679399942"><span class="hs-identifier hs-type">t</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Foldable</span></span><span> </span><span class="annot"><a href="#local-6989586621679399941"><span class="hs-identifier hs-type">f</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679399942"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679399940"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679399939"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679399942"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679399940"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679399939"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679399942"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679399940"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679399939"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679399941"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679399942"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679399940"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679399939"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679399942"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679399940"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679399939"><span class="hs-identifier hs-type">a</span></a></span></span></span></span></span><span>
+</span><span id="line-642"></span><span id="foldWith"><span class="annot"><span class="annottext">foldWith :: (t m a -&gt; t m a -&gt; t m a) -&gt; f (t m a) -&gt; t m a
+</span><a href="Streamly.html#foldWith"><span class="hs-identifier hs-var hs-var">foldWith</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(t m a -&gt; t m a -&gt; t m a) -&gt; f (t m a) -&gt; t m a
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) (f :: * -&gt; *) (m :: * -&gt; *) a.
+(IsStream t, Foldable f) =&gt;
+(t m a -&gt; t m a -&gt; t m a) -&gt; f (t m a) -&gt; t m a
+</span><a href="Streamly.Internal.Data.Stream.Prelude.html#concatFoldableWith"><span class="hs-identifier hs-var">P.concatFoldableWith</span></a></span><span>
+</span><span id="line-643"></span><span>
+</span><span id="line-644"></span><span class="hs-comment">-- | Same as 'Streamly.Prelude.concatMapFoldableWith'</span><span>
+</span><span id="line-645"></span><span class="hs-comment">--</span><span>
+</span><span id="line-646"></span><span class="hs-comment">-- @since 0.1.0</span><span>
+</span><span id="line-647"></span><span class="hs-pragma">{-# DEPRECATED</span><span> </span><span class="hs-pragma">foldMapWith</span><span> </span><span class="hs-pragma">&quot;Please use 'Streamly.Prelude.concatMapFoldableWith' instead.&quot;</span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-648"></span><span class="hs-pragma">{-# INLINEABLE</span><span> </span><span class="annot"><a href="Streamly.html#foldMapWith"><span class="hs-pragma hs-type">foldMapWith</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-649"></span><span id="local-6989586621679399933"><span id="local-6989586621679399934"><span id="local-6989586621679399935"><span id="local-6989586621679399936"><span id="local-6989586621679399937"><span class="annot"><a href="Streamly.html#foldMapWith"><span class="hs-identifier hs-type">foldMapWith</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.Stream.StreamK.Type.html#IsStream"><span class="hs-identifier hs-type">IsStream</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679399937"><span class="hs-identifier hs-type">t</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Foldable</span></span><span> </span><span class="annot"><a href="#local-6989586621679399936"><span class="hs-identifier hs-type">f</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679399937"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679399935"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679399934"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679399937"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679399935"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679399934"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679399937"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679399935"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679399934"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679399933"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679399937"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679399935"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679399934"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679399936"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679399933"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679399937"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679399935"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679399934"><span class="hs-identifier hs-type">b</span></a></span></span></span></span></span></span><span>
+</span><span id="line-650"></span><span id="foldMapWith"><span class="annot"><span class="annottext">foldMapWith :: (t m b -&gt; t m b -&gt; t m b) -&gt; (a -&gt; t m b) -&gt; f a -&gt; t m b
+</span><a href="Streamly.html#foldMapWith"><span class="hs-identifier hs-var hs-var">foldMapWith</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(t m b -&gt; t m b -&gt; t m b) -&gt; (a -&gt; t m b) -&gt; f a -&gt; t m b
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) (f :: * -&gt; *) (m :: * -&gt; *) b a.
+(IsStream t, Foldable f) =&gt;
+(t m b -&gt; t m b -&gt; t m b) -&gt; (a -&gt; t m b) -&gt; f a -&gt; t m b
+</span><a href="Streamly.Internal.Data.Stream.Prelude.html#concatMapFoldableWith"><span class="hs-identifier hs-var">P.concatMapFoldableWith</span></a></span><span>
+</span><span id="line-651"></span><span>
+</span><span id="line-652"></span><span class="hs-comment">-- | Same as 'Streamly.Prelude.concatForFoldableWith'</span><span>
+</span><span id="line-653"></span><span class="hs-comment">--</span><span>
+</span><span id="line-654"></span><span class="hs-comment">-- @since 0.1.0</span><span>
+</span><span id="line-655"></span><span class="hs-pragma">{-# DEPRECATED</span><span> </span><span class="hs-pragma">forEachWith</span><span> </span><span class="hs-pragma">&quot;Please use 'Streamly.Prelude.concatForFoldableWith' instead.&quot;</span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-656"></span><span class="hs-pragma">{-# INLINEABLE</span><span> </span><span class="annot"><a href="Streamly.html#forEachWith"><span class="hs-pragma hs-type">forEachWith</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-657"></span><span id="local-6989586621679399927"><span id="local-6989586621679399928"><span id="local-6989586621679399929"><span id="local-6989586621679399930"><span id="local-6989586621679399931"><span class="annot"><a href="Streamly.html#forEachWith"><span class="hs-identifier hs-type">forEachWith</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.Stream.StreamK.Type.html#IsStream"><span class="hs-identifier hs-type">IsStream</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679399931"><span class="hs-identifier hs-type">t</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Foldable</span></span><span> </span><span class="annot"><a href="#local-6989586621679399930"><span class="hs-identifier hs-type">f</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679399931"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679399929"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679399928"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679399931"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679399929"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679399928"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679399931"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679399929"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679399928"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679399930"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679399927"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679399927"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679399931"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679399929"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679399928"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679399931"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679399929"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679399928"><span class="hs-identifier hs-type">b</span></a></span></span></span></span></span></span><span>
+</span><span id="line-658"></span><span id="forEachWith"><span class="annot"><span class="annottext">forEachWith :: (t m b -&gt; t m b -&gt; t m b) -&gt; f a -&gt; (a -&gt; t m b) -&gt; t m b
+</span><a href="Streamly.html#forEachWith"><span class="hs-identifier hs-var hs-var">forEachWith</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(t m b -&gt; t m b -&gt; t m b) -&gt; f a -&gt; (a -&gt; t m b) -&gt; t m b
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) (f :: * -&gt; *) (m :: * -&gt; *) b a.
+(IsStream t, Foldable f) =&gt;
+(t m b -&gt; t m b -&gt; t m b) -&gt; f a -&gt; (a -&gt; t m b) -&gt; t m b
+</span><a href="Streamly.Internal.Data.Stream.Prelude.html#concatForFoldableWith"><span class="hs-identifier hs-var">P.concatForFoldableWith</span></a></span><span>
+</span><span id="line-659"></span></pre></body></html>

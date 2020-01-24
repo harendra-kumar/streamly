@@ -1,0 +1,90 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-comment">-- |</span><span>
+</span><span id="line-2"></span><span class="hs-comment">-- Module      : Streamly.Internal.Data.Either.Strict</span><span>
+</span><span id="line-3"></span><span class="hs-comment">-- Copyright   : (c) 2019 Composewell Technologies</span><span>
+</span><span id="line-4"></span><span class="hs-comment">--               (c) 2013 Gabriel Gonzalez</span><span>
+</span><span id="line-5"></span><span class="hs-comment">-- License     : BSD3</span><span>
+</span><span id="line-6"></span><span class="hs-comment">-- Maintainer  : streamly@composewell.com</span><span>
+</span><span id="line-7"></span><span class="hs-comment">-- Stability   : experimental</span><span>
+</span><span id="line-8"></span><span class="hs-comment">-- Portability : GHC</span><span>
+</span><span id="line-9"></span><span class="hs-comment">--</span><span>
+</span><span id="line-10"></span><span class="hs-comment">-- | Strict data types to be used as accumulator for strict left folds and</span><span>
+</span><span id="line-11"></span><span class="hs-comment">-- scans. For more comprehensive strict data types see</span><span>
+</span><span id="line-12"></span><span class="hs-comment">-- https://hackage.haskell.org/package/strict-base-types . The names have been</span><span>
+</span><span id="line-13"></span><span class="hs-comment">-- suffixed by a prime so that programmers can easily distinguish the strict</span><span>
+</span><span id="line-14"></span><span class="hs-comment">-- versions from the lazy ones.</span><span>
+</span><span id="line-15"></span><span class="hs-comment">--</span><span>
+</span><span id="line-16"></span><span class="hs-comment">-- One major advantage of strict data structures as accumulators in folds and</span><span>
+</span><span id="line-17"></span><span class="hs-comment">-- scans is that it helps the compiler optimize the code much better by</span><span>
+</span><span id="line-18"></span><span class="hs-comment">-- unboxing. In a big tight loop the difference could be huge.</span><span>
+</span><span id="line-19"></span><span class="hs-comment">--</span><span>
+</span><span id="line-20"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Streamly.Internal.Data.Either.Strict</span><span>
+</span><span id="line-21"></span><span>    </span><span class="hs-special">(</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Either.Strict.html#Either%27"><span class="hs-identifier">Either'</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-22"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Either.Strict.html#isLeft%27"><span class="hs-identifier">isLeft'</span></a></span><span>
+</span><span id="line-23"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Either.Strict.html#isRight%27"><span class="hs-identifier">isRight'</span></a></span><span>
+</span><span id="line-24"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Either.Strict.html#fromLeft%27"><span class="hs-identifier">fromLeft'</span></a></span><span>
+</span><span id="line-25"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Either.Strict.html#fromRight%27"><span class="hs-identifier">fromRight'</span></a></span><span>
+</span><span id="line-26"></span><span>    </span><span class="hs-special">)</span><span>
+</span><span id="line-27"></span><span class="hs-keyword">where</span><span>
+</span><span id="line-28"></span><span>
+</span><span id="line-29"></span><span class="hs-comment">-- | A strict 'Either'</span><span>
+</span><span id="line-30"></span><span class="hs-keyword">data</span><span> </span><span id="Either%27"><span class="annot"><a href="Streamly.Internal.Data.Either.Strict.html#Either%27"><span class="hs-identifier hs-var">Either'</span></a></span></span><span> </span><span id="local-6989586621679358692"><span class="annot"><a href="#local-6989586621679358692"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span id="local-6989586621679358691"><span class="annot"><a href="#local-6989586621679358691"><span class="hs-identifier hs-type">b</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="Left%27"><span class="annot"><a href="Streamly.Internal.Data.Either.Strict.html#Left%27"><span class="hs-identifier hs-var">Left'</span></a></span></span><span> </span><span class="hs-glyph">!</span><span class="annot"><a href="#local-6989586621679358692"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">|</span><span> </span><span id="Right%27"><span class="annot"><a href="Streamly.Internal.Data.Either.Strict.html#Right%27"><span class="hs-identifier hs-var">Right'</span></a></span></span><span> </span><span class="hs-glyph">!</span><span class="annot"><a href="#local-6989586621679358691"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-keyword">deriving</span><span> </span><span id="local-6989586621679358683"><span id="local-6989586621679358685"><span id="local-6989586621679358687"><span class="annot"><span class="annottext">Int -&gt; Either' a b -&gt; ShowS
+[Either' a b] -&gt; ShowS
+Either' a b -&gt; String
+(Int -&gt; Either' a b -&gt; ShowS)
+-&gt; (Either' a b -&gt; String)
+-&gt; ([Either' a b] -&gt; ShowS)
+-&gt; Show (Either' a b)
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+forall a b. (Show a, Show b) =&gt; Int -&gt; Either' a b -&gt; ShowS
+forall a b. (Show a, Show b) =&gt; [Either' a b] -&gt; ShowS
+forall a b. (Show a, Show b) =&gt; Either' a b -&gt; String
+showList :: [Either' a b] -&gt; ShowS
+$cshowList :: forall a b. (Show a, Show b) =&gt; [Either' a b] -&gt; ShowS
+show :: Either' a b -&gt; String
+$cshow :: forall a b. (Show a, Show b) =&gt; Either' a b -&gt; String
+showsPrec :: Int -&gt; Either' a b -&gt; ShowS
+$cshowsPrec :: forall a b. (Show a, Show b) =&gt; Int -&gt; Either' a b -&gt; ShowS
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></span></span></span></span><span>
+</span><span id="line-31"></span><span>
+</span><span id="line-32"></span><span class="hs-comment">-- | Return 'True' if the given value is a Left', 'False' otherwise.</span><span>
+</span><span id="line-33"></span><span class="hs-pragma">{-# INLINABLE</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Either.Strict.html#isLeft%27"><span class="hs-pragma hs-type">isLeft'</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-34"></span><span id="local-6989586621679358680"><span id="local-6989586621679358681"><span class="annot"><a href="Streamly.Internal.Data.Either.Strict.html#isLeft%27"><span class="hs-identifier hs-type">isLeft'</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Either.Strict.html#Either%27"><span class="hs-identifier hs-type">Either'</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679358681"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679358680"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span></span></span><span>
+</span><span id="line-35"></span><span id="isLeft%27"><span class="annot"><span class="annottext">isLeft' :: Either' a b -&gt; Bool
+</span><a href="Streamly.Internal.Data.Either.Strict.html#isLeft%27"><span class="hs-identifier hs-var hs-var">isLeft'</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.Either.Strict.html#Left%27"><span class="hs-identifier hs-type">Left'</span></a></span><span>  </span><span class="hs-identifier">_</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">True</span></span><span>
+</span><span id="line-36"></span><span class="annot"><a href="Streamly.Internal.Data.Either.Strict.html#isLeft%27"><span class="hs-identifier hs-var">isLeft'</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.Either.Strict.html#Right%27"><span class="hs-identifier hs-type">Right'</span></a></span><span> </span><span class="hs-identifier">_</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">False</span></span><span>
+</span><span id="line-37"></span><span>
+</span><span id="line-38"></span><span class="hs-comment">-- | Return 'True' if the given value is a Right', 'False' otherwise.</span><span>
+</span><span id="line-39"></span><span class="hs-pragma">{-# INLINABLE</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Either.Strict.html#isRight%27"><span class="hs-pragma hs-type">isRight'</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-40"></span><span id="local-6989586621679358678"><span id="local-6989586621679358679"><span class="annot"><a href="Streamly.Internal.Data.Either.Strict.html#isRight%27"><span class="hs-identifier hs-type">isRight'</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Either.Strict.html#Either%27"><span class="hs-identifier hs-type">Either'</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679358679"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679358678"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span></span></span><span>
+</span><span id="line-41"></span><span id="isRight%27"><span class="annot"><span class="annottext">isRight' :: Either' a b -&gt; Bool
+</span><a href="Streamly.Internal.Data.Either.Strict.html#isRight%27"><span class="hs-identifier hs-var hs-var">isRight'</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.Either.Strict.html#Left%27"><span class="hs-identifier hs-type">Left'</span></a></span><span>  </span><span class="hs-identifier">_</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">False</span></span><span>
+</span><span id="line-42"></span><span class="annot"><a href="Streamly.Internal.Data.Either.Strict.html#isRight%27"><span class="hs-identifier hs-var">isRight'</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.Either.Strict.html#Right%27"><span class="hs-identifier hs-type">Right'</span></a></span><span> </span><span class="hs-identifier">_</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">True</span></span><span>
+</span><span id="line-43"></span><span>
+</span><span id="line-44"></span><span class="hs-comment">-- XXX This is partial. We can use a default value instead.</span><span>
+</span><span id="line-45"></span><span class="hs-comment">-- | Return the contents of a Left'-value or errors out.</span><span>
+</span><span id="line-46"></span><span class="hs-pragma">{-# INLINABLE</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Either.Strict.html#fromLeft%27"><span class="hs-pragma hs-type">fromLeft'</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-47"></span><span id="local-6989586621679358676"><span id="local-6989586621679358677"><span class="annot"><a href="Streamly.Internal.Data.Either.Strict.html#fromLeft%27"><span class="hs-identifier hs-type">fromLeft'</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Either.Strict.html#Either%27"><span class="hs-identifier hs-type">Either'</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679358677"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679358676"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679358677"><span class="hs-identifier hs-type">a</span></a></span></span></span><span>
+</span><span id="line-48"></span><span id="fromLeft%27"><span class="annot"><span class="annottext">fromLeft' :: Either' a b -&gt; a
+</span><a href="Streamly.Internal.Data.Either.Strict.html#fromLeft%27"><span class="hs-identifier hs-var hs-var">fromLeft'</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.Either.Strict.html#Left%27"><span class="hs-identifier hs-type">Left'</span></a></span><span> </span><span id="local-6989586621679358675"><span class="annot"><span class="annottext">a :: a
+</span><a href="#local-6989586621679358675"><span class="hs-identifier hs-var">a</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679358675"><span class="hs-identifier hs-var">a</span></a></span><span>
+</span><span id="line-49"></span><span class="annot"><a href="Streamly.Internal.Data.Either.Strict.html#fromLeft%27"><span class="hs-identifier hs-var">fromLeft'</span></a></span><span> </span><span class="hs-identifier">_</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String -&gt; a
+forall a. HasCallStack =&gt; String -&gt; a
+</span><span class="hs-identifier hs-var">error</span></span><span> </span><span class="annot"><span class="hs-string">&quot;fromLeft' expecting a Left'-value&quot;</span></span><span>
+</span><span id="line-50"></span><span>
+</span><span id="line-51"></span><span class="hs-comment">-- | Return the contents of a Right'-value or errors out.</span><span>
+</span><span id="line-52"></span><span class="hs-pragma">{-# INLINABLE</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Either.Strict.html#fromRight%27"><span class="hs-pragma hs-type">fromRight'</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-53"></span><span id="local-6989586621679358672"><span id="local-6989586621679358673"><span class="annot"><a href="Streamly.Internal.Data.Either.Strict.html#fromRight%27"><span class="hs-identifier hs-type">fromRight'</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Either.Strict.html#Either%27"><span class="hs-identifier hs-type">Either'</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679358673"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679358672"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679358672"><span class="hs-identifier hs-type">b</span></a></span></span></span><span>
+</span><span id="line-54"></span><span id="fromRight%27"><span class="annot"><span class="annottext">fromRight' :: Either' a b -&gt; b
+</span><a href="Streamly.Internal.Data.Either.Strict.html#fromRight%27"><span class="hs-identifier hs-var hs-var">fromRight'</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.Either.Strict.html#Right%27"><span class="hs-identifier hs-type">Right'</span></a></span><span> </span><span id="local-6989586621679358671"><span class="annot"><span class="annottext">b :: b
+</span><a href="#local-6989586621679358671"><span class="hs-identifier hs-var">b</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">b
+</span><a href="#local-6989586621679358671"><span class="hs-identifier hs-var">b</span></a></span><span>
+</span><span id="line-55"></span><span class="annot"><a href="Streamly.Internal.Data.Either.Strict.html#fromRight%27"><span class="hs-identifier hs-var">fromRight'</span></a></span><span> </span><span class="hs-identifier">_</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String -&gt; b
+forall a. HasCallStack =&gt; String -&gt; a
+</span><span class="hs-identifier hs-var">error</span></span><span> </span><span class="annot"><span class="hs-string">&quot;fromRight' expecting a Right'-value&quot;</span></span><span>
+</span><span id="line-56"></span></pre></body></html>

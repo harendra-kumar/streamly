@@ -1,0 +1,999 @@
+cabal-version:      2.2
+name:               streamly
+version:            0.7.0
+synopsis:           Beautiful Streaming, Concurrent and Reactive Composition
+description:
+  Streamly is a framework for writing programs in a high level, declarative
+  data flow programming paradigm. It provides a simple API, very close to
+  standard Haskell lists.  A program is expressed as a composition of data
+  processing pipes, generally known as streams.  Streams can be generated,
+  merged, chained, mapped, zipped, and consumed concurrently – enabling a high
+  level, declarative yet concurrent composition of programs.  Programs can be
+  concurrent or non-concurrent without any significant change.  Concurrency is
+  auto scaled based on consumption rate.  Programmers do not have to be aware
+  of threads, locking or synchronization to write scalable concurrent programs.
+  Streamly provides C like performance, orders of magnitude better compared to
+  existing streaming libraries.
+  .
+  Streamly is designed to express the full spectrum of programs with highest
+  performance. Do not think that if you are writing a small and simple program
+  it may not be for you. It expresses a small "hello world" program with the
+  same efficiency, simplicity and elegance as a large scale concurrent
+  application. It unifies many different aspects of special purpose libraries
+  into a single yet simple framework. 
+  .
+  Streamly covers the functionality provided by Haskell lists as well as the
+  functionality provided by streaming libraries like
+  <https://hackage.haskell.org/package/streaming streaming>,
+  <https://hackage.haskell.org/package/pipes pipes>, and
+  <https://hackage.haskell.org/package/conduit conduit> with a simpler API and
+  better performance. Streamly provides
+  advanced stream composition including various ways of appending, merging,
+  zipping, splitting, grouping, distributing, partitioning and unzipping of
+  streams with true streaming and with concurrency. Streamly subsumes the
+  functionality of list transformer libraries like @pipes@ or
+  <https://hackage.haskell.org/package/list-t list-t> and also the logic
+  programming library <https://hackage.haskell.org/package/logict logict>.
+  The grouping, splitting and windowing combinators in streamly can be compared
+  to the window operators in <https://flink.apache.org/ Apache Flink>.
+  However, compared to Flink streamly has a pure functional, succinct and
+  expressive API.
+  .
+  The concurrency capabilities of streamly are much more advanced and powerful
+  compared to the basic concurrency functionality provided by the
+  <https://hackage.haskell.org/package/async async> package.  Streamly is a
+  first class reactive programming library.  If you are familiar with
+  <http://reactivex.io/ Reactive Extensions> you will find that it is very
+  similar.  For most RxJs combinators you can find or write corresponding ones
+  in streamly. Streamly can be used as an alternative to
+  <https://hackage.haskell.org/package/Yampa Yampa> or
+  <https://hackage.haskell.org/package/reflex reflex> as well.
+  .
+  Streamly focuses on practical engineering with high performance. From well
+  written streamly programs one can expect performance competitive to C.  High
+  performance streaming eliminates the need for string and text libraries like
+  <https://hackage.haskell.org/package/bytestring bytestring>,
+  <https://hackage.haskell.org/package/text text> and their lazy and strict
+  flavors. The confusion and cognitive overhead arising from different
+  string types is eliminated. The two fundamental types in streamly are arrays
+  for storage and streams for processing. Strings and text are simply streams
+  or arrays of 'Char' as they should be. Arrays in streamly have performance
+  at par with the vector library.
+  .
+  Where to find more information:
+  .
+  * /Quick Overview/: <src/README.md README file> in the package
+  * /Building/: <src/docs/Build.md Build guide> for optimal performance
+  * /Detailed Tutorial/: "Streamly.Tutorial" module in the haddock documentation
+  * /Interoperation/: "Streamly.Tutorial" module for interop with other
+    streaming libraries
+  * /Reference Documentation/: Haddock documentation for the respective modules
+  * /Examples/: <src/examples examples directory> in the package
+  * /Guides/: <src/docs docs directory> in the package, for documentation on
+    advanced topics, limitations, semantics of the library or on specific use
+    cases.
+  * <https://github.com/composewell/streaming-benchmarks Streaming Benchmarks>
+  * <https://github.com/composewell/concurrency-benchmarks Concurrency Benchmarks>
+  .
+  For additional unreleased/experimental APIs, build the haddock docs using:
+  .
+  > $ cabal haddock --haddock-option="--show-all"
+  > $ stack haddock --haddock-arguments "--show-all" --no-haddock-deps
+
+
+homepage:            https://github.com/composewell/streamly
+bug-reports:         https://github.com/composewell/streamly/issues
+license:             BSD-3-Clause
+license-file:        LICENSE
+tested-with:         GHC==7.10.3
+                   , GHC==8.0.2
+                   , GHC==8.4.4
+                   , GHC==8.6.5
+                   , GHC==8.8.1
+author:              Harendra Kumar
+maintainer:          streamly@composewell.com
+copyright:           2017 Harendra Kumar
+category:            Control, Concurrency, Streaming, Reactivity
+stability:           Experimental
+build-type:          Configure
+
+extra-source-files:
+    Changelog.md
+    credits/*.md
+    credits/base-4.12.0.0.txt
+    credits/bjoern-2008-2009.txt
+    credits/clock-0.7.2.txt
+    credits/foldl-1.4.5.txt
+    credits/pipes-concurrency-2.0.8.txt
+    credits/pipes-concurrency.txt
+    credits/transient-0.5.5.txt
+    credits/vector-0.12.0.2.txt
+    credits/Yampa-0.10.6.2.txt
+    README.md
+    docs/streamly-vs-async.md
+    docs/streamly-vs-lists.md
+    docs/transformers.md
+    bench.sh
+    stack.yaml
+    src/Streamly/Streams/Instances.hs
+    src/Streamly/Streams/inline.hs
+    configure.ac
+    configure
+    src/Streamly/Internal/Data/Time/config.h.in
+
+extra-tmp-files:
+    config.log
+    config.status
+    autom4te.cache
+    src/Streamly/Internal/Data/Time/config.h
+
+source-repository head
+    type: git
+    location: https://github.com/composewell/streamly
+
+flag benchmark
+  description: Benchmark build
+  manual: True
+  default: False
+
+flag inspection
+  description: Enable inspection testing
+  manual: True
+  default: False
+
+flag debug
+  description: Debug build with asserts enabled
+  manual: True
+  default: False
+
+flag dev
+  description: Development build
+  manual: True
+  default: False
+
+flag has-llvm
+  description: Use llvm backend for better performance
+  manual: True
+  default: False
+
+flag no-charts
+  description: Disable chart generation
+  manual: True
+  default: False
+
+flag no-fusion
+  description: Disable rewrite rules
+  manual: True
+  default: False
+
+flag streamk
+  description: Use CPS style streams when possible
+  manual: True
+  default: False
+
+flag examples
+  description: Build including examples
+  manual: True
+  default: False
+
+flag examples-sdl
+  description: Build including SDL examples
+  manual: True
+  default: False
+
+-------------------------------------------------------------------------------
+-- Common stanzas
+-------------------------------------------------------------------------------
+
+common compile-options
+    default-language: Haskell2010
+    if flag(streamk)
+      cpp-options:    -DUSE_STREAMK_ONLY
+
+    if flag(no-fusion)
+      cpp-options:    -DDISABLE_FUSION
+
+    if flag(dev)
+      cpp-options:    -DDEVBUILD
+
+    if flag(inspection)
+      cpp-options:    -DINSPECTION
+
+    ghc-options:      -Wall
+
+    if flag(has-llvm)
+      ghc-options: -fllvm
+
+    if flag(dev)
+      ghc-options:    -Wmissed-specialisations
+                      -Wall-missed-specialisations
+
+    if flag(dev) || flag(debug)
+      ghc-options:    -fno-ignore-asserts
+
+    if impl(ghc >= 8.0)
+      ghc-options:    -Wcompat
+                      -Wunrecognised-warning-flags
+                      -Widentities
+                      -Wincomplete-record-updates
+                      -Wincomplete-uni-patterns
+                      -Wredundant-constraints
+                      -Wnoncanonical-monad-instances
+
+common optimization-options
+  ghc-options: -O2
+               -fspec-constr-recursive=16
+               -fmax-worker-args=16
+
+common threading-options
+  ghc-options:  -threaded
+                -with-rtsopts=-N
+
+-- We need optimization options here to optimize internal (non-inlined)
+-- versions of functions. Also, we have some benchmarking inspection tests
+-- part of the library when built with --benchmarks flag. Thos tests fail
+-- if we do not use optimization options here. It was observed that due to
+-- -O2 here some concurrent/nested benchmarks improved and others regressed.
+-- We can investigate a bit more here why the regression occurred.
+common lib-options
+  import: compile-options, optimization-options
+
+-- Compilation for coverage builds on CI machines takes too long without -O0
+-- XXX we should use coverage flag for that, -O0 may take too long to run tests
+-- in general.
+common test-options
+  import: compile-options, threading-options
+  ghc-options:  -O0
+                -fno-ignore-asserts
+
+-- Used by maxrate test, benchmarks and executables
+common exe-options
+  import: compile-options, optimization-options, threading-options
+
+-- Some benchmarks are threaded some are not
+common bench-options
+  import: compile-options, optimization-options
+  ghc-options: -with-rtsopts "-T"
+
+-------------------------------------------------------------------------------
+-- Library
+-------------------------------------------------------------------------------
+
+library
+    import: lib-options
+    js-sources: jsbits/clock.js
+    include-dirs:     src/Streamly/Internal/Data/Time
+                    , src/Streamly/Streams
+    if os(windows)
+      c-sources:     src/Streamly/Internal/Data/Time/Windows.c
+    if os(darwin)
+      c-sources:     src/Streamly/Internal/Data/Time/Darwin.c
+    hs-source-dirs:    src
+    other-modules:
+                    -- Memory storage
+                       Streamly.Memory.Malloc
+                     , Streamly.Memory.Ring
+
+                    -- Base streams
+                     , Streamly.Streams.StreamK.Type
+                     , Streamly.Streams.StreamK
+                     , Streamly.Streams.StreamDK.Type
+                     , Streamly.Streams.StreamDK
+                     , Streamly.Streams.StreamD
+                     , Streamly.Streams.Enumeration
+                     , Streamly.Streams.Prelude
+
+                    -- Higher level streams
+                     , Streamly.Streams.SVar
+                     , Streamly.Streams.Serial
+                     , Streamly.Streams.Async
+                     , Streamly.Streams.Parallel
+                     , Streamly.Streams.Ahead
+                     , Streamly.Streams.Zip
+                     , Streamly.Streams.Combinators
+
+                     , Streamly.FileSystem.IOVec
+                     , Streamly.FileSystem.FDIO
+                     , Streamly.FileSystem.FD
+
+    exposed-modules:   Streamly.Prelude
+                     , Streamly
+                     , Streamly.Data.Fold
+                     , Streamly.Data.Unfold
+                     , Streamly.Data.Unicode.Stream
+
+                    -- IO devices
+                     , Streamly.Memory.Array
+                     , Streamly.FileSystem.Handle
+
+                     , Streamly.Tutorial
+
+                     -- Internal modules
+                     , Streamly.Internal.Data.Strict
+                     , Streamly.Internal.Data.Atomics
+                     , Streamly.Internal.Data.Time
+                     , Streamly.Internal.Data.Time.Units
+                     , Streamly.Internal.Data.Time.Clock
+                     , Streamly.Internal.Data.Stream.StreamD.Type
+                     , Streamly.Internal.Data.SVar
+                     , Streamly.Internal.Memory.Array.Types
+                     , Streamly.Internal.Memory.Array
+                     , Streamly.Internal.Memory.ArrayStream
+                     , Streamly.Internal.Data.Fold.Types
+                     , Streamly.Internal.Data.Fold
+                     , Streamly.Internal.Data.Sink.Types
+                     , Streamly.Internal.Data.Sink
+                     , Streamly.Internal.Data.Unfold.Types
+                     , Streamly.Internal.Data.Unfold
+                     , Streamly.Internal.Data.Pipe.Types
+                     , Streamly.Internal.Data.Pipe
+                     , Streamly.Internal.Data.List
+                     , Streamly.Internal.FileSystem.Handle
+                     , Streamly.Internal.FileSystem.Dir
+                     , Streamly.Internal.FileSystem.File
+                     , Streamly.Internal.Data.Unicode.Stream
+                     , Streamly.Internal.Data.Unicode.Char
+                     , Streamly.Internal.Memory.Unicode.Array
+                     , Streamly.Internal.Prelude
+    if !impl(ghcjs)
+       exposed-modules:
+                       Streamly.Network.Socket
+                     , Streamly.Network.Inet.TCP
+
+                     , Streamly.Internal.Network.Socket
+                     , Streamly.Internal.Network.Inet.TCP
+
+    if flag(benchmark)
+       exposed-modules:
+                       Streamly.Benchmark.FileIO.Array
+                     , Streamly.Benchmark.FileIO.Stream
+                     , Streamly.Benchmark.Prelude
+
+    build-depends:     base              >= 4.8   &&  < 5
+                     , ghc-prim          >= 0.2   && < 0.6
+                     , deepseq           >= 1.4.1 && < 1.5
+                     , containers        >= 0.5.8.2   && < 0.7
+                     , heaps             >= 0.3   && < 0.4
+                     , directory         >= 1.3   && < 1.4
+
+                    -- concurrency
+                     , atomic-primops    >= 0.8   && < 0.9
+                     , lockfree-queue    >= 0.2.3 && < 0.3
+
+                    -- transfomers
+                     , exceptions        >= 0.8   && < 0.11
+                     , monad-control     >= 1.0   && < 2
+                     , mtl               >= 2.2   && < 3
+                     , transformers      >= 0.4   && < 0.6
+                     , transformers-base >= 0.4   && < 0.5
+
+  if flag(inspection)
+    build-depends:     template-haskell   >= 2.14  && < 2.16
+                     , inspection-testing >= 0.4   && < 0.5
+
+  if !impl(ghcjs)
+    build-depends:
+                     network           >= 2.6   && < 4
+  if impl(ghc < 8.0)
+    build-depends:
+        semigroups    >= 0.18   && < 0.19
+
+-------------------------------------------------------------------------------
+-- Test suites
+-------------------------------------------------------------------------------
+
+test-suite test
+  import: test-options
+  type: exitcode-stdio-1.0
+  main-is: Main.hs
+  js-sources: jsbits/clock.js
+  hs-source-dirs: test
+  build-depends:
+      streamly
+    , base              >= 4.8   && < 5
+    , hspec             >= 2.0   && < 3
+    , containers        >= 0.5.8.2   && < 0.7
+    , transformers      >= 0.4   && < 0.6
+    , mtl               >= 2.2   && < 3
+    , exceptions        >= 0.8   && < 0.11
+  default-language: Haskell2010
+
+test-suite pure-streams-base
+  import: test-options
+  type: exitcode-stdio-1.0
+  main-is: PureStreams.hs
+  hs-source-dirs: test
+  build-depends:
+      streamly
+    , base              >= 4.8   && < 5
+    , hspec             >= 2.0   && < 3
+  default-language: Haskell2010
+
+test-suite pure-streams-streamly
+  import: test-options
+  type: exitcode-stdio-1.0
+  main-is: PureStreams.hs
+  hs-source-dirs: test
+  cpp-options:  -DUSE_STREAMLY_LIST
+  build-depends:
+      streamly
+    , base              >= 4.8   && < 5
+    , hspec             >= 2.0   && < 3
+  default-language: Haskell2010
+
+test-suite properties
+  import: test-options
+  type: exitcode-stdio-1.0
+  main-is: Prop.hs
+  js-sources: jsbits/clock.js
+  hs-source-dirs: test
+  build-depends:
+      streamly
+    , base              >= 4.8   && < 5
+    , QuickCheck        >= 2.10  && < 2.14
+    , hspec             >= 2.0   && < 3
+  if impl(ghc < 8.0)
+    build-depends:
+        transformers  >= 0.4 && < 0.6
+  default-language: Haskell2010
+
+test-suite array-test
+  import: test-options
+  type: exitcode-stdio-1.0
+  main-is: Arrays.hs
+  js-sources: jsbits/clock.js
+  hs-source-dirs: test
+  build-depends:
+      streamly
+    , base              >= 4.8   && < 5
+    , QuickCheck        >= 2.10  && < 2.14
+    , hspec             >= 2.0   && < 3
+  if impl(ghc < 8.0)
+    build-depends:
+        transformers  >= 0.4 && < 0.6
+  default-language: Haskell2010
+
+test-suite string-test
+  import: test-options
+  type: exitcode-stdio-1.0
+  main-is: String.hs
+  js-sources: jsbits/clock.js
+  hs-source-dirs: test
+  build-depends:
+      streamly
+    , base              >= 4.8   && < 5
+    , QuickCheck        >= 2.10  && < 2.14
+    , hspec             >= 2.0   && < 3
+  if impl(ghc < 8.0)
+    build-depends:
+        transformers  >= 0.4 && < 0.6
+  default-language: Haskell2010
+
+test-suite maxrate
+  import: exe-options
+  type: exitcode-stdio-1.0
+  default-language: Haskell2010
+  main-is: MaxRate.hs
+  js-sources: jsbits/clock.js
+  hs-source-dirs:  test
+  if flag(dev)
+    buildable: True
+    build-Depends:
+          streamly
+        , base   >= 4.8   && < 5
+        , clock  >= 0.7.1 && < 0.9
+        , hspec  >= 2.0   && < 3
+        , random >= 1.0.0 && < 2
+  else
+    buildable: False
+
+test-suite loops
+  import: test-options
+  type: exitcode-stdio-1.0
+  default-language: Haskell2010
+  main-is: loops.hs
+  hs-source-dirs:  test
+  build-Depends:
+      streamly
+    , base >= 4.8   && < 5
+
+test-suite nested-loops
+  import: test-options
+  type: exitcode-stdio-1.0
+  default-language: Haskell2010
+  main-is: nested-loops.hs
+  hs-source-dirs:  test
+  build-Depends:
+      streamly
+    , base   >= 4.8   && < 5
+    , random >= 1.0.0 && < 2
+
+test-suite parallel-loops
+  import: test-options
+  type: exitcode-stdio-1.0
+  default-language: Haskell2010
+  main-is: parallel-loops.hs
+  hs-source-dirs:  test
+  build-Depends:
+      streamly
+    , base   >= 4.8   && < 5
+    , random >= 1.0.0 && < 2
+
+-------------------------------------------------------------------------------
+-- Benchmarks
+-------------------------------------------------------------------------------
+
+benchmark linear
+  import: bench-options
+  type: exitcode-stdio-1.0
+  hs-source-dirs: benchmark
+  main-is: Linear.hs
+  if flag(benchmark)
+    buildable: True
+    build-depends:
+        streamly
+      , base                >= 4.8   && < 5
+      , deepseq             >= 1.4.1 && < 1.5
+      , random              >= 1.0   && < 2.0
+      , gauge               >= 0.2.4 && < 0.3
+    if impl(ghc < 8.0)
+      build-depends:
+          transformers  >= 0.4 && < 0.6
+  else
+    buildable: False
+
+benchmark linear-async
+  import: bench-options
+  cpp-options: -DLINEAR_ASYNC
+  type: exitcode-stdio-1.0
+  hs-source-dirs: benchmark
+  main-is: LinearAsync.hs
+  if flag(benchmark)
+    buildable: True
+    build-depends:
+        streamly
+      , base                >= 4.8   && < 5
+      , deepseq             >= 1.4.1 && < 1.5
+      , random              >= 1.0   && < 2.0
+      , gauge               >= 0.2.4 && < 0.3
+    if impl(ghc < 8.0)
+      build-depends:
+          transformers  >= 0.4 && < 0.6
+  else
+    buildable: False
+
+benchmark linear-rate
+  import: bench-options
+  type: exitcode-stdio-1.0
+  hs-source-dirs: benchmark
+  main-is: LinearRate.hs
+  if flag(benchmark)
+    buildable: True
+    build-depends:
+        streamly
+      , base                >= 4.8   && < 5
+      , deepseq             >= 1.4.1 && < 1.5
+      , random              >= 1.0   && < 2.0
+      , gauge               >= 0.2.4 && < 0.3
+    if impl(ghc < 8.0)
+      build-depends:
+          transformers  >= 0.4 && < 0.6
+  else
+    buildable: False
+
+benchmark nested
+  import: bench-options
+  type: exitcode-stdio-1.0
+  hs-source-dirs: benchmark
+  main-is: Nested.hs
+  other-modules: NestedOps
+  build-depends:
+      streamly
+    , base                >= 4.8   && < 5
+    , deepseq             >= 1.4.1 && < 1.5
+    , random              >= 1.0   && < 2.0
+    , gauge               >= 0.2.4 && < 0.3
+  if impl(ghc < 8.0)
+    build-depends:
+        transformers  >= 0.4 && < 0.6
+
+benchmark nestedUnfold
+  import: bench-options
+  type: exitcode-stdio-1.0
+  hs-source-dirs: benchmark
+  main-is: NestedUnfold.hs
+  other-modules: NestedUnfoldOps
+  build-depends:
+      streamly
+    , base                >= 4.8   && < 5
+    , deepseq             >= 1.4.1 && < 1.5
+    , random              >= 1.0   && < 2.0
+    , gauge               >= 0.2.4 && < 0.3
+  if impl(ghc < 8.0)
+    build-depends:
+        transformers  >= 0.4 && < 0.6
+
+benchmark array
+  import: bench-options
+  type: exitcode-stdio-1.0
+  hs-source-dirs: benchmark
+  main-is: Array.hs
+  other-modules: ArrayOps
+  build-depends:
+      streamly
+    , base                >= 4.8   && < 5
+    , deepseq             >= 1.4.1 && < 1.5
+    , random              >= 1.0   && < 2.0
+    , gauge               >= 0.2.4 && < 0.3
+  if impl(ghc < 8.0)
+    build-depends:
+        transformers  >= 0.4 && < 0.6
+
+benchmark fileio
+  import: bench-options
+  type: exitcode-stdio-1.0
+  -- A value of 400 works better for some benchmarks, however, it takes
+  -- extraordinary amount of time to compile with that.
+  -- ghc-options: -funfolding-use-threshold=150
+  hs-source-dirs: benchmark
+  main-is: FileIO.hs
+  if flag(benchmark)
+    buildable: True
+    build-depends:
+        streamly
+      , base                >= 4.8   && < 5
+      , gauge               >= 0.2.4 && < 0.3
+      , typed-process       >= 0.2.3 && < 0.3
+      , deepseq             >= 1.4.1 && < 1.5
+  else
+    buildable: False
+
+benchmark concurrent
+  import: bench-options
+  type: exitcode-stdio-1.0
+  hs-source-dirs: benchmark
+  main-is: Concurrent.hs
+  if flag(dev)
+    buildable: True
+    build-depends:
+        streamly
+      , base                >= 4.8   && < 5
+      , gauge               >= 0.2.4 && < 0.3
+  else
+    buildable: False
+
+-------------------------------------------------------------------------------
+-- Internal benchmarks for unexposed modules
+-------------------------------------------------------------------------------
+
+-- We have to copy the streamly library modules here because there is no
+-- way to use unexposed modules from the library.
+
+benchmark base
+  import: bench-options
+  type: exitcode-stdio-1.0
+  include-dirs:     src/Streamly/Internal/Data/Time
+                  , src/Streamly/Streams
+  if os(windows)
+    c-sources:     src/Streamly/Internal/Data/Time/Windows.c
+  if os(darwin)
+    c-sources:     src/Streamly/Internal/Data/Time/Darwin.c
+  hs-source-dirs: benchmark, src
+  main-is: BaseStreams.hs
+  other-modules:     Streamly.Internal.Data.Atomics
+                   , Streamly.Internal.Data.Stream.StreamD.Type
+                   , Streamly.Internal.Data.SVar
+                   , Streamly.Internal.Data.Time.Units
+                   , Streamly.Internal.Data.Time.Clock
+                   , Streamly.Streams.StreamDK.Type
+                   , Streamly.Streams.StreamDK
+                   , Streamly.Streams.StreamK.Type
+                   , Streamly.Streams.StreamK
+                   , Streamly.Streams.StreamD
+                   , Streamly.Streams.Prelude
+                   , Streamly.FileSystem.IOVec
+
+                   , StreamDOps
+                   , StreamKOps
+                   , StreamDKOps
+
+  if flag(dev)
+    buildable: True
+    build-depends:
+        base              >= 4.8   && < 5
+      , deepseq           >= 1.4.1 && < 1.5
+      , random            >= 1.0   && < 2.0
+      , gauge             >= 0.2.4 && < 0.3
+
+      , ghc-prim          >= 0.2   && < 0.6
+      , containers        >= 0.5.8.2   && < 0.7
+      , heaps             >= 0.3   && < 0.4
+
+      -- concurrency
+      , atomic-primops    >= 0.8   && < 0.9
+      , lockfree-queue    >= 0.2.3 && < 0.3
+
+      , exceptions        >= 0.8   && < 0.11
+      , monad-control     >= 1.0   && < 2
+      , mtl               >= 2.2   && < 3
+      , transformers      >= 0.4   && < 0.6
+      , transformers-base >= 0.4   && < 0.5
+
+    if impl(ghc < 8.0)
+        build-depends:
+            semigroups    >= 0.18   && < 0.19
+  else
+    buildable: False
+
+executable nano-bench
+  import: bench-options
+  hs-source-dirs: benchmark, src
+  include-dirs:     src/Streamly/Internal/Data/Time
+                  , src/Streamly/Streams
+  if os(windows)
+    c-sources:     src/Streamly/Internal/Data/Time/Windows.c
+  if os(darwin)
+    c-sources:     src/Streamly/Internal/Data/Time/Darwin.c
+  main-is: NanoBenchmarks.hs
+  other-modules:     Streamly.Internal.Data.Atomics
+                   , Streamly.Internal.Data.Stream.StreamD.Type
+                   , Streamly.Internal.Data.SVar
+                   , Streamly.Internal.Data.Time.Units
+                   , Streamly.Internal.Data.Time.Clock
+                   , Streamly.Streams.StreamK.Type
+                   , Streamly.Streams.StreamK
+                   , Streamly.FileSystem.IOVec
+                   , Streamly.Streams.StreamD
+  if flag(dev)
+    buildable: True
+    build-depends:
+         base              >= 4.8   && < 5
+       , gauge             >= 0.2.4 && < 0.3
+       , ghc-prim          >= 0.2   && < 0.6
+       , containers        >= 0.5.8.2   && < 0.7
+       , deepseq           >= 1.4.1 && < 1.5
+       , heaps             >= 0.3   && < 0.4
+       , random            >= 1.0   && < 2.0
+
+       -- concurrency
+       , atomic-primops    >= 0.8   && < 0.9
+       , lockfree-queue    >= 0.2.3 && < 0.3
+
+       , exceptions        >= 0.8   && < 0.11
+       , monad-control     >= 1.0   && < 2
+       , mtl               >= 2.2   && < 3
+       , transformers      >= 0.4   && < 0.6
+       , transformers-base >= 0.4   && < 0.5
+  else
+    buildable: False
+
+executable adaptive
+  import: bench-options
+  hs-source-dirs: benchmark
+  main-is: Adaptive.hs
+  default-language: Haskell2010
+  if flag(dev)
+    buildable: True
+    build-depends:
+        streamly
+       , base              >= 4.8   && < 5
+       , gauge             >= 0.2.4 && < 0.3
+       , random            >= 1.0   && < 2.0
+  else
+    buildable: False
+
+executable chart
+  default-language: Haskell2010
+  ghc-options: -Wall
+  hs-source-dirs: benchmark
+  main-is: Chart.hs
+  if flag(dev) && !flag(no-charts) && !impl(ghcjs)
+    buildable: True
+    build-Depends:
+        base >= 4.8 && < 5
+      , bench-show >= 0.3 && < 0.4
+      , split
+      , transformers >= 0.4   && < 0.6
+  else
+    buildable: False
+
+-------------------------------------------------------------------------------
+-- Examples
+-------------------------------------------------------------------------------
+
+executable SearchQuery
+  import: exe-options
+  main-is: SearchQuery.hs
+  hs-source-dirs:  examples
+  if (flag(examples) || flag(examples-sdl)) && !impl(ghcjs)
+    buildable: True
+    build-Depends:
+        streamly
+      , base         >= 4.8   && < 5
+      , http-conduit >= 2.2.2 && < 2.4
+  else
+    buildable: False
+
+executable ListDir
+  import: exe-options
+  main-is: ListDir.hs
+  hs-source-dirs:  examples
+  if flag(examples) || flag(examples-sdl)
+    buildable: True
+    build-Depends:
+        streamly
+      , base    >= 4.8   && < 5
+      , directory >= 1.3 && < 1.4
+    if impl(ghc < 8.0)
+      build-depends:
+          transformers  >= 0.4    && < 0.6
+  else
+    buildable: False
+
+executable MergeSort
+  import: exe-options
+  main-is: MergeSort.hs
+  hs-source-dirs:  examples
+  if flag(examples) || flag(examples-sdl)
+    buildable: True
+    build-Depends:
+        streamly
+      , base   >= 4.8   && < 5
+      , random >= 1.0.0 && < 2
+  else
+    buildable: False
+
+executable AcidRain
+  import: exe-options
+  main-is: AcidRain.hs
+  hs-source-dirs:  examples
+  if flag(examples) || flag(examples-sdl)
+    buildable: True
+    build-Depends:
+        streamly
+      , base         >= 4.8   && < 5
+      , mtl          >= 2.2   && < 3
+    if impl(ghc < 8.0)
+      build-depends:
+          semigroups    >= 0.18   && < 0.19
+        , transformers  >= 0.4    && < 0.6
+  else
+    buildable: False
+
+executable CirclingSquare
+  import: exe-options
+  main-is: CirclingSquare.hs
+  hs-source-dirs:  examples
+  if flag(examples-sdl)
+    buildable: True
+    build-Depends:
+        streamly
+      , base >= 4.8   && < 5
+      , SDL  >= 0.6.5 && < 0.7
+  else
+    buildable: False
+
+executable ControlFlow
+  import: exe-options
+  main-is: ControlFlow.hs
+  hs-source-dirs:  examples
+  if flag(examples) || flag(examples-sdl)
+    buildable: True
+    build-Depends:
+        streamly
+      , base              >= 4.8   && < 5
+      , exceptions        >= 0.8   && < 0.11
+      , transformers      >= 0.4   && < 0.6
+      , transformers-base >= 0.4   && < 0.5
+    if impl(ghc < 8.0)
+      build-depends:
+          semigroups    >= 0.18   && < 0.19
+  else
+    buildable: False
+
+executable HandleIO
+  import: exe-options
+  main-is: HandleIO.hs
+  hs-source-dirs:  examples
+  if flag(examples) || flag(examples-sdl)
+    buildable: True
+    build-Depends:
+        streamly
+      , base              >= 4.8   && < 5
+  else
+    buildable: False
+
+executable FileIOExamples
+  import: exe-options
+  main-is: FileIOExamples.hs
+  hs-source-dirs:  examples
+  if flag(examples) || flag(examples-sdl)
+    buildable: True
+    build-Depends:
+        streamly
+      , base              >= 4.8   && < 5
+  else
+    buildable: False
+
+executable EchoServer
+  import: exe-options
+  main-is: EchoServer.hs
+  hs-source-dirs:  examples
+  if (flag(examples) || flag(examples-sdl)) && !impl(ghcjs)
+    buildable: True
+    build-Depends:
+        streamly
+      , base              >= 4.8   && < 5
+      , network           >= 2.6   && < 4
+    if impl(ghc < 8.0)
+      build-depends:
+          transformers  >= 0.4 && < 0.6
+  else
+    buildable: False
+
+executable FileSinkServer
+  import: exe-options
+  main-is: FileSinkServer.hs
+  hs-source-dirs:  examples
+  if (flag(examples) || flag(examples-sdl)) && !impl(ghcjs)
+    buildable: True
+    build-Depends:
+        streamly
+      , base              >= 4.8   && < 5
+      , network           >= 2.6   && < 4
+    if impl(ghc < 8.0)
+      build-depends:
+          transformers  >= 0.4 && < 0.6
+  else
+    buildable: False
+
+executable FromFileClient
+  import: exe-options
+  main-is: FromFileClient.hs
+  hs-source-dirs:  examples
+  if (flag(examples) || flag(examples-sdl)) && !impl(ghcjs)
+    buildable: True
+    build-Depends:
+        streamly
+      , base              >= 4.8   && < 5
+  else
+    buildable: False
+
+executable WordClassifier
+  import: exe-options
+  main-is: WordClassifier.hs
+  hs-source-dirs:  examples
+  if (flag(examples) || flag(examples-sdl)) && !impl(ghcjs)
+    buildable: True
+    build-Depends:
+        streamly
+      , base                 >= 4.8   && < 5
+      , hashable             >= 1.2   && < 1.4
+      , unordered-containers >= 0.2   && < 0.3
+  else
+    buildable: False
+
+executable WordCount
+  import: exe-options
+  main-is: WordCount.hs
+  hs-source-dirs:  examples
+  if (flag(examples) || flag(examples-sdl)) && !impl(ghcjs)
+    buildable: True
+    build-Depends:
+        streamly
+      , base                 >= 4.8   && < 5
+      , vector               >= 0.12  && < 0.13
+  else
+    buildable: False
+
+executable CamelCase
+  import: exe-options
+  main-is: CamelCase.hs
+  hs-source-dirs:  examples
+  if (flag(examples) || flag(examples-sdl)) && !impl(ghcjs)
+    buildable: True
+    build-Depends:
+        streamly
+      , base                 >= 4.8   && < 5
+  else
+    buildable: False

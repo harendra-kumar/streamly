@@ -1,0 +1,933 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE CPP                       #-}</span><span>
+</span><a name="line-2"></a><span class="hs-pragma">{-# LANGUAGE RankNTypes                #-}</span><span>
+</span><a name="line-3"></a><span class="hs-pragma">{-# LANGUAGE FlexibleContexts          #-}</span><span>
+</span><a name="line-4"></a><span>
+</span><a name="line-5"></a><span class="hs-cpp">#if __GLASGOW_HASKELL__ &gt;= 800
+</span><span class="hs-pragma">{-# OPTIONS_GHC -Wno-orphans #-}</span><span>
+</span><a name="line-7"></a><span class="hs-cpp">#endif
+</span><span>
+</span><a name="line-9"></a><span class="hs-cpp">#include &quot;inline.hs&quot;
+</span><span>
+</span><a name="line-11"></a><span class="hs-comment">-- |</span><span>
+</span><a name="line-12"></a><span class="hs-comment">-- Module      : Streamly.Prelude</span><span>
+</span><a name="line-13"></a><span class="hs-comment">-- Copyright   : (c) 2017 Harendra Kumar</span><span>
+</span><a name="line-14"></a><span class="hs-comment">--</span><span>
+</span><a name="line-15"></a><span class="hs-comment">-- License     : BSD3</span><span>
+</span><a name="line-16"></a><span class="hs-comment">-- Maintainer  : streamly@composewell.com</span><span>
+</span><a name="line-17"></a><span class="hs-comment">-- Stability   : experimental</span><span>
+</span><a name="line-18"></a><span class="hs-comment">-- Portability : GHC</span><span>
+</span><a name="line-19"></a><span class="hs-comment">--</span><span>
+</span><a name="line-20"></a><span class="hs-comment">-- This module is designed to be imported qualified:</span><span>
+</span><a name="line-21"></a><span class="hs-comment">--</span><span>
+</span><a name="line-22"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-23"></a><span class="hs-comment">-- import qualified Streamly.Prelude as S</span><span>
+</span><a name="line-24"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-25"></a><span class="hs-comment">--</span><span>
+</span><a name="line-26"></a><span class="hs-comment">-- Functions with the suffix @M@ are general functions that work on monadic</span><span>
+</span><a name="line-27"></a><span class="hs-comment">-- arguments. The corresponding functions without the suffix @M@ work on pure</span><span>
+</span><a name="line-28"></a><span class="hs-comment">-- arguments and can in general be derived from their monadic versions but are</span><span>
+</span><a name="line-29"></a><span class="hs-comment">-- provided for convenience and for consistency with other pure APIs in the</span><span>
+</span><a name="line-30"></a><span class="hs-comment">-- @base@ package.</span><span>
+</span><a name="line-31"></a><span class="hs-comment">--</span><span>
+</span><a name="line-32"></a><span class="hs-comment">-- In many cases, short definitions of the combinators are provided in the</span><span>
+</span><a name="line-33"></a><span class="hs-comment">-- documentation for illustration. The actual implementation may differ for</span><span>
+</span><a name="line-34"></a><span class="hs-comment">-- performance reasons.</span><span>
+</span><a name="line-35"></a><span class="hs-comment">--</span><span>
+</span><a name="line-36"></a><span class="hs-comment">-- Functions having a 'MonadAsync' constraint work concurrently when used with</span><span>
+</span><a name="line-37"></a><span class="hs-comment">-- appropriate stream type combinator. Please be careful to not use 'parallely'</span><span>
+</span><a name="line-38"></a><span class="hs-comment">-- with infinite streams.</span><span>
+</span><a name="line-39"></a><span class="hs-comment">--</span><span>
+</span><a name="line-40"></a><span class="hs-comment">-- Deconstruction and folds accept a 'SerialT' type instead of a polymorphic</span><span>
+</span><a name="line-41"></a><span class="hs-comment">-- type to ensure that streams always have a concrete monomorphic type by</span><span>
+</span><a name="line-42"></a><span class="hs-comment">-- default, reducing type errors. In case you want to use any other type of</span><span>
+</span><a name="line-43"></a><span class="hs-comment">-- stream you can use one of the type combinators provided in the &quot;Streamly&quot;</span><span>
+</span><a name="line-44"></a><span class="hs-comment">-- module to convert the stream type.</span><span>
+</span><a name="line-45"></a><span>
+</span><a name="line-46"></a><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Streamly.Prelude</span><span>
+</span><a name="line-47"></a><span>    </span><span class="hs-special">(</span><span>
+</span><a name="line-48"></a><span>    </span><span class="hs-comment">-- * Construction</span><span>
+</span><a name="line-49"></a><span>    </span><span class="hs-comment">-- ** Primitives</span><span>
+</span><a name="line-50"></a><span>    </span><span class="hs-comment">-- | Primitives to construct a stream from pure values or monadic actions.</span><span>
+</span><a name="line-51"></a><span>    </span><span class="hs-comment">-- All other stream construction and generation combinators described later</span><span>
+</span><a name="line-52"></a><span>    </span><span class="hs-comment">-- can be expressed in terms of these primitives. However, the special</span><span>
+</span><a name="line-53"></a><span>    </span><span class="hs-comment">-- versions provided in this module can be much more efficient in most</span><span>
+</span><a name="line-54"></a><span>    </span><span class="hs-comment">-- cases. Users can create custom combinators using these primitives.</span><span>
+</span><a name="line-55"></a><span>
+</span><a name="line-56"></a><span>      </span><a href="Streamly.Internal.Data.Stream.StreamK.Type.html#nil"><span class="hs-identifier hs-var">nil</span></a><span>
+</span><a name="line-57"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Data.Stream.StreamK.Type.html#cons"><span class="hs-identifier hs-var">cons</span></a><span>
+</span><a name="line-58"></a><span>    </span><span class="hs-special">,</span><span> </span><span class="hs-special">(</span><a href="Streamly.Internal.Data.Stream.StreamK.Type.html#.%3A"><span class="hs-operator hs-var">.:</span></a><span class="hs-special">)</span><span>
+</span><a name="line-59"></a><span>
+</span><a name="line-60"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Data.Stream.StreamK.Type.html#consM"><span class="hs-identifier hs-var">consM</span></a><span>
+</span><a name="line-61"></a><span>    </span><span class="hs-special">,</span><span> </span><span class="hs-special">(</span><a href="Streamly.Internal.Data.Stream.StreamK.Type.html#%7C%3A"><span class="hs-operator hs-var">|:</span></a><span class="hs-special">)</span><span>
+</span><a name="line-62"></a><span>
+</span><a name="line-63"></a><span>    </span><span class="hs-comment">-- ** From Values</span><span>
+</span><a name="line-64"></a><span>    </span><span class="hs-comment">-- | Generate a monadic stream from a seed value or values.</span><span>
+</span><a name="line-65"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#yield"><span class="hs-identifier hs-var">yield</span></a><span>
+</span><a name="line-66"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#yieldM"><span class="hs-identifier hs-var">yieldM</span></a><span>
+</span><a name="line-67"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#repeat"><span class="hs-identifier hs-var">repeat</span></a><span>
+</span><a name="line-68"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#repeatM"><span class="hs-identifier hs-var">repeatM</span></a><span>
+</span><a name="line-69"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#replicate"><span class="hs-identifier hs-var">replicate</span></a><span>
+</span><a name="line-70"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#replicateM"><span class="hs-identifier hs-var">replicateM</span></a><span>
+</span><a name="line-71"></a><span>
+</span><a name="line-72"></a><span>    </span><span class="hs-comment">-- Note: Using enumeration functions e.g. 'Prelude.enumFromThen' turns out</span><span>
+</span><a name="line-73"></a><span>    </span><span class="hs-comment">-- to be slightly faster than the idioms like @[from, then..]@.</span><span>
+</span><a name="line-74"></a><span>    </span><span class="hs-comment">--</span><span>
+</span><a name="line-75"></a><span>    </span><span class="hs-comment">-- ** Enumeration</span><span>
+</span><a name="line-76"></a><span>    </span><span class="hs-comment">-- | We can use the 'Enum' type class to enumerate a type producing a list</span><span>
+</span><a name="line-77"></a><span>    </span><span class="hs-comment">-- and then convert it to a stream:</span><span>
+</span><a name="line-78"></a><span>    </span><span class="hs-comment">--</span><span>
+</span><a name="line-79"></a><span>    </span><span class="hs-comment">-- @</span><span>
+</span><a name="line-80"></a><span>    </span><span class="hs-comment">-- 'fromList' $ 'Prelude.enumFromThen' from then</span><span>
+</span><a name="line-81"></a><span>    </span><span class="hs-comment">-- @</span><span>
+</span><a name="line-82"></a><span>    </span><span class="hs-comment">--</span><span>
+</span><a name="line-83"></a><span>    </span><span class="hs-comment">-- However, this is not particularly efficient.</span><span>
+</span><a name="line-84"></a><span>    </span><span class="hs-comment">-- The 'Enumerable' type class provides corresponding functions that</span><span>
+</span><a name="line-85"></a><span>    </span><span class="hs-comment">-- generate a stream instead of a list, efficiently.</span><span>
+</span><a name="line-86"></a><span>
+</span><a name="line-87"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Data.Stream.Enumeration.html#Enumerable"><span class="hs-identifier hs-type">Enumerable</span></a><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><a name="line-88"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Data.Stream.Enumeration.html#enumerate"><span class="hs-identifier hs-var">enumerate</span></a><span>
+</span><a name="line-89"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Data.Stream.Enumeration.html#enumerateTo"><span class="hs-identifier hs-var">enumerateTo</span></a><span>
+</span><a name="line-90"></a><span>
+</span><a name="line-91"></a><span>    </span><span class="hs-comment">-- ** From Generators</span><span>
+</span><a name="line-92"></a><span>    </span><span class="hs-comment">-- | Generate a monadic stream from a seed value and a generator function.</span><span>
+</span><a name="line-93"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#unfoldr"><span class="hs-identifier hs-var">unfoldr</span></a><span>
+</span><a name="line-94"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#unfoldrM"><span class="hs-identifier hs-var">unfoldrM</span></a><span>
+</span><a name="line-95"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#unfold"><span class="hs-identifier hs-var">unfold</span></a><span>
+</span><a name="line-96"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#iterate"><span class="hs-identifier hs-var">iterate</span></a><span>
+</span><a name="line-97"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#iterateM"><span class="hs-identifier hs-var">iterateM</span></a><span>
+</span><a name="line-98"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#fromIndices"><span class="hs-identifier hs-var">fromIndices</span></a><span>
+</span><a name="line-99"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#fromIndicesM"><span class="hs-identifier hs-var">fromIndicesM</span></a><span>
+</span><a name="line-100"></a><span>
+</span><a name="line-101"></a><span>    </span><span class="hs-comment">-- ** From Containers</span><span>
+</span><a name="line-102"></a><span>    </span><span class="hs-comment">-- | Convert an input structure, container or source into a stream. All of</span><span>
+</span><a name="line-103"></a><span>    </span><span class="hs-comment">-- these can be expressed in terms of primitives.</span><span>
+</span><a name="line-104"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Data.Stream.Prelude.html#fromList"><span class="hs-identifier hs-var">fromList</span></a><span>
+</span><a name="line-105"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#fromListM"><span class="hs-identifier hs-var">fromListM</span></a><span>
+</span><a name="line-106"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Data.Stream.StreamK.html#fromFoldable"><span class="hs-identifier hs-var">fromFoldable</span></a><span>
+</span><a name="line-107"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#fromFoldableM"><span class="hs-identifier hs-var">fromFoldableM</span></a><span>
+</span><a name="line-108"></a><span>
+</span><a name="line-109"></a><span>    </span><span class="hs-comment">-- * Elimination</span><span>
+</span><a name="line-110"></a><span>
+</span><a name="line-111"></a><span>    </span><span class="hs-comment">-- ** Deconstruction</span><span>
+</span><a name="line-112"></a><span>    </span><span class="hs-comment">-- | It is easy to express all the folds in terms of the 'uncons' primitive,</span><span>
+</span><a name="line-113"></a><span>    </span><span class="hs-comment">-- however the specific implementations provided later are generally more</span><span>
+</span><a name="line-114"></a><span>    </span><span class="hs-comment">-- efficient.</span><span>
+</span><a name="line-115"></a><span>    </span><span class="hs-comment">--</span><span>
+</span><a name="line-116"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#uncons"><span class="hs-identifier hs-var">uncons</span></a><span>
+</span><a name="line-117"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#tail"><span class="hs-identifier hs-var">tail</span></a><span>
+</span><a name="line-118"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#init"><span class="hs-identifier hs-var">init</span></a><span>
+</span><a name="line-119"></a><span>
+</span><a name="line-120"></a><span>    </span><span class="hs-comment">-- ** Folding</span><span>
+</span><a name="line-121"></a><span class="hs-comment">-- | In imperative terms a fold can be considered as a loop over the stream</span><span>
+</span><a name="line-122"></a><span class="hs-comment">-- that reduces the stream to a single value.</span><span>
+</span><a name="line-123"></a><span class="hs-comment">-- Left and right folds use a fold function @f@ and an identity element @z@</span><span>
+</span><a name="line-124"></a><span class="hs-comment">-- (@zero@) to recursively deconstruct a structure and then combine and reduce</span><span>
+</span><a name="line-125"></a><span class="hs-comment">-- the values or transform and reconstruct a new container.</span><span>
+</span><a name="line-126"></a><span class="hs-comment">--</span><span>
+</span><a name="line-127"></a><span class="hs-comment">-- In general, a right fold is suitable for transforming and reconstructing a</span><span>
+</span><a name="line-128"></a><span class="hs-comment">-- right associated structure (e.g. cons lists and streamly streams) and a left</span><span>
+</span><a name="line-129"></a><span class="hs-comment">-- fold is suitable for reducing a right associated structure.  The behavior of</span><span>
+</span><a name="line-130"></a><span class="hs-comment">-- right and left folds are described in detail in the individual fold's</span><span>
+</span><a name="line-131"></a><span class="hs-comment">-- documentation.  To illustrate the two folds for cons lists:</span><span>
+</span><a name="line-132"></a><span class="hs-comment">--</span><span>
+</span><a name="line-133"></a><span class="hs-comment">-- &gt; foldr :: (a -&gt; b -&gt; b) -&gt; b -&gt; [a] -&gt; b</span><span>
+</span><a name="line-134"></a><span class="hs-comment">-- &gt; foldr f z [] = z</span><span>
+</span><a name="line-135"></a><span class="hs-comment">-- &gt; foldr f z (x:xs) = x `f` foldr f z xs</span><span>
+</span><a name="line-136"></a><span class="hs-comment">-- &gt;</span><span>
+</span><a name="line-137"></a><span class="hs-comment">-- &gt; foldl :: (b -&gt; a -&gt; b) -&gt; b -&gt; [a] -&gt; b</span><span>
+</span><a name="line-138"></a><span class="hs-comment">-- &gt; foldl f z [] = z</span><span>
+</span><a name="line-139"></a><span class="hs-comment">-- &gt; foldl f z (x:xs) = foldl f (z `f` x) xs</span><span>
+</span><a name="line-140"></a><span class="hs-comment">--</span><span>
+</span><a name="line-141"></a><span class="hs-comment">-- @foldr@ is conceptually equivalent to:</span><span>
+</span><a name="line-142"></a><span class="hs-comment">--</span><span>
+</span><a name="line-143"></a><span class="hs-comment">-- &gt; foldr f z [] = z</span><span>
+</span><a name="line-144"></a><span class="hs-comment">-- &gt; foldr f z [x] = f x z</span><span>
+</span><a name="line-145"></a><span class="hs-comment">-- &gt; foldr f z xs = foldr f (foldr f z (tail xs)) [head xs]</span><span>
+</span><a name="line-146"></a><span class="hs-comment">--</span><span>
+</span><a name="line-147"></a><span class="hs-comment">-- @foldl@ is conceptually equivalent to:</span><span>
+</span><a name="line-148"></a><span class="hs-comment">--</span><span>
+</span><a name="line-149"></a><span class="hs-comment">-- &gt; foldl f z [] = z</span><span>
+</span><a name="line-150"></a><span class="hs-comment">-- &gt; foldl f z [x] = f z x</span><span>
+</span><a name="line-151"></a><span class="hs-comment">-- &gt; foldl f z xs = foldl f (foldl f z (init xs)) [last xs]</span><span>
+</span><a name="line-152"></a><span class="hs-comment">--</span><span>
+</span><a name="line-153"></a><span class="hs-comment">-- Left and right folds are duals of each other.</span><span>
+</span><a name="line-154"></a><span class="hs-comment">--</span><span>
+</span><a name="line-155"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-156"></a><span class="hs-comment">-- foldr f z xs = foldl (flip f) z (reverse xs)</span><span>
+</span><a name="line-157"></a><span class="hs-comment">-- foldl f z xs = foldr (flip f) z (reverse xs)</span><span>
+</span><a name="line-158"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-159"></a><span class="hs-comment">--</span><span>
+</span><a name="line-160"></a><span class="hs-comment">-- More generally:</span><span>
+</span><a name="line-161"></a><span class="hs-comment">--</span><span>
+</span><a name="line-162"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-163"></a><span class="hs-comment">-- foldr f z xs = foldl g id xs z where g k x = k . f x</span><span>
+</span><a name="line-164"></a><span class="hs-comment">-- foldl f z xs = foldr g id xs z where g x k = k . flip f x</span><span>
+</span><a name="line-165"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-166"></a><span class="hs-comment">--</span><span>
+</span><a name="line-167"></a><span>
+</span><a name="line-168"></a><span class="hs-comment">-- As a general rule, foldr cannot have state and foldl cannot have control.</span><span>
+</span><a name="line-169"></a><span>
+</span><a name="line-170"></a><span class="hs-comment">-- NOTE: Folds are inherently serial as each step needs to use the result of</span><span>
+</span><a name="line-171"></a><span class="hs-comment">-- the previous step. However, it is possible to fold parts of the stream in</span><span>
+</span><a name="line-172"></a><span class="hs-comment">-- parallel and then combine the results using a monoid.</span><span>
+</span><a name="line-173"></a><span>
+</span><a name="line-174"></a><span>    </span><span class="hs-comment">-- ** Right Folds</span><span>
+</span><a name="line-175"></a><span>    </span><span class="hs-comment">-- $rightfolds</span><span>
+</span><a name="line-176"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#foldrM"><span class="hs-identifier hs-var">foldrM</span></a><span>
+</span><a name="line-177"></a><span>    </span><span class="hs-comment">-- , foldrS</span><span>
+</span><a name="line-178"></a><span>    </span><span class="hs-comment">-- , foldrT</span><span>
+</span><a name="line-179"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#foldr"><span class="hs-identifier hs-var">foldr</span></a><span>
+</span><a name="line-180"></a><span>
+</span><a name="line-181"></a><span>    </span><span class="hs-comment">-- ** Left Folds</span><span>
+</span><a name="line-182"></a><span>    </span><span class="hs-comment">-- $leftfolds</span><span>
+</span><a name="line-183"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#foldl%27"><span class="hs-identifier hs-var">foldl'</span></a><span>
+</span><a name="line-184"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#foldl1%27"><span class="hs-identifier hs-var">foldl1'</span></a><span>
+</span><a name="line-185"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#foldlM%27"><span class="hs-identifier hs-var">foldlM'</span></a><span>
+</span><a name="line-186"></a><span>
+</span><a name="line-187"></a><span>    </span><span class="hs-comment">-- ** Composable Left Folds</span><span>
+</span><a name="line-188"></a><span>    </span><span class="hs-comment">-- $runningfolds</span><span>
+</span><a name="line-189"></a><span>
+</span><a name="line-190"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#fold"><span class="hs-identifier hs-var">fold</span></a><span>
+</span><a name="line-191"></a><span>
+</span><a name="line-192"></a><span>    </span><span class="hs-comment">-- ** Full Folds</span><span>
+</span><a name="line-193"></a><span>    </span><span class="hs-comment">-- | Folds that are guaranteed to evaluate the whole stream.</span><span>
+</span><a name="line-194"></a><span>
+</span><a name="line-195"></a><span>    </span><span class="hs-comment">-- -- ** To Summary (Full Folds)</span><span>
+</span><a name="line-196"></a><span>    </span><span class="hs-comment">-- -- | Folds that summarize the stream to a single value.</span><span>
+</span><a name="line-197"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#drain"><span class="hs-identifier hs-var">drain</span></a><span>
+</span><a name="line-198"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#last"><span class="hs-identifier hs-var">last</span></a><span>
+</span><a name="line-199"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#length"><span class="hs-identifier hs-var">length</span></a><span>
+</span><a name="line-200"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#sum"><span class="hs-identifier hs-var">sum</span></a><span>
+</span><a name="line-201"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#product"><span class="hs-identifier hs-var">product</span></a><span>
+</span><a name="line-202"></a><span>    </span><span class="hs-comment">--, mconcat</span><span>
+</span><a name="line-203"></a><span>
+</span><a name="line-204"></a><span>    </span><span class="hs-comment">-- -- ** To Summary (Maybe) (Full Folds)</span><span>
+</span><a name="line-205"></a><span>    </span><span class="hs-comment">-- -- | Folds that summarize a non-empty stream to a 'Just' value and return</span><span>
+</span><a name="line-206"></a><span>    </span><span class="hs-comment">-- 'Nothing' for an empty stream.</span><span>
+</span><a name="line-207"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#maximumBy"><span class="hs-identifier hs-var">maximumBy</span></a><span>
+</span><a name="line-208"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#maximum"><span class="hs-identifier hs-var">maximum</span></a><span>
+</span><a name="line-209"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#minimumBy"><span class="hs-identifier hs-var">minimumBy</span></a><span>
+</span><a name="line-210"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#minimum"><span class="hs-identifier hs-var">minimum</span></a><span>
+</span><a name="line-211"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#the"><span class="hs-identifier hs-var">the</span></a><span>
+</span><a name="line-212"></a><span>    </span><span class="hs-comment">-- , toListRev -- experimental</span><span>
+</span><a name="line-213"></a><span>
+</span><a name="line-214"></a><span>    </span><span class="hs-comment">-- ** Lazy Folds</span><span>
+</span><a name="line-215"></a><span>    </span><span class="hs-comment">--</span><span>
+</span><a name="line-216"></a><span>    </span><span class="hs-comment">-- | Folds that generate a lazy structure. Note that the generated</span><span>
+</span><a name="line-217"></a><span>    </span><span class="hs-comment">-- structure may not be lazy if the underlying monad is strict.</span><span>
+</span><a name="line-218"></a><span>
+</span><a name="line-219"></a><span>    </span><span class="hs-comment">-- -- ** To Containers (Full Folds)</span><span>
+</span><a name="line-220"></a><span>    </span><span class="hs-comment">-- -- | Convert or divert a stream into an output structure, container or</span><span>
+</span><a name="line-221"></a><span>    </span><span class="hs-comment">-- sink.</span><span>
+</span><a name="line-222"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#toList"><span class="hs-identifier hs-var">toList</span></a><span>
+</span><a name="line-223"></a><span>
+</span><a name="line-224"></a><span>    </span><span class="hs-comment">-- ** Partial Folds</span><span>
+</span><a name="line-225"></a><span>    </span><span class="hs-comment">-- | Folds that may terminate before evaluating the whole stream. These</span><span>
+</span><a name="line-226"></a><span>    </span><span class="hs-comment">-- folds strictly evaluate the stream until the result is determined.</span><span>
+</span><a name="line-227"></a><span>
+</span><a name="line-228"></a><span>    </span><span class="hs-comment">-- -- ** To Elements (Partial Folds)</span><span>
+</span><a name="line-229"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#drainN"><span class="hs-identifier hs-var">drainN</span></a><span>
+</span><a name="line-230"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#drainWhile"><span class="hs-identifier hs-var">drainWhile</span></a><span>
+</span><a name="line-231"></a><span>
+</span><a name="line-232"></a><span>    </span><span class="hs-comment">-- -- | Folds that extract selected elements of a stream or their properties.</span><span>
+</span><a name="line-233"></a><span>    </span><span class="hs-special">,</span><span> </span><span class="hs-special">(</span><a href="Streamly.Internal.Prelude.html#%21%21"><span class="hs-operator hs-var">!!</span></a><span class="hs-special">)</span><span>
+</span><a name="line-234"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#head"><span class="hs-identifier hs-var">head</span></a><span>
+</span><a name="line-235"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#findM"><span class="hs-identifier hs-var">findM</span></a><span>
+</span><a name="line-236"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#find"><span class="hs-identifier hs-var">find</span></a><span>
+</span><a name="line-237"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#lookup"><span class="hs-identifier hs-var">lookup</span></a><span>
+</span><a name="line-238"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#findIndex"><span class="hs-identifier hs-var">findIndex</span></a><span>
+</span><a name="line-239"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#elemIndex"><span class="hs-identifier hs-var">elemIndex</span></a><span>
+</span><a name="line-240"></a><span>
+</span><a name="line-241"></a><span>    </span><span class="hs-comment">-- -- ** To Boolean (Partial Folds)</span><span>
+</span><a name="line-242"></a><span>    </span><span class="hs-comment">-- -- | Folds that summarize the stream to a boolean value.</span><span>
+</span><a name="line-243"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#null"><span class="hs-identifier hs-var">null</span></a><span>
+</span><a name="line-244"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#elem"><span class="hs-identifier hs-var">elem</span></a><span>
+</span><a name="line-245"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#notElem"><span class="hs-identifier hs-var">notElem</span></a><span>
+</span><a name="line-246"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#all"><span class="hs-identifier hs-var">all</span></a><span>
+</span><a name="line-247"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#any"><span class="hs-identifier hs-var">any</span></a><span>
+</span><a name="line-248"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#and"><span class="hs-identifier hs-var">and</span></a><span>
+</span><a name="line-249"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#or"><span class="hs-identifier hs-var">or</span></a><span>
+</span><a name="line-250"></a><span>
+</span><a name="line-251"></a><span>    </span><span class="hs-comment">-- ** Multi-Stream folds</span><span>
+</span><a name="line-252"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#eqBy"><span class="hs-identifier hs-var">eqBy</span></a><span>
+</span><a name="line-253"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#cmpBy"><span class="hs-identifier hs-var">cmpBy</span></a><span>
+</span><a name="line-254"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#isPrefixOf"><span class="hs-identifier hs-var">isPrefixOf</span></a><span>
+</span><a name="line-255"></a><span>    </span><span class="hs-comment">-- , isSuffixOf</span><span>
+</span><a name="line-256"></a><span>    </span><span class="hs-comment">-- , isInfixOf</span><span>
+</span><a name="line-257"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#isSubsequenceOf"><span class="hs-identifier hs-var">isSubsequenceOf</span></a><span>
+</span><a name="line-258"></a><span>
+</span><a name="line-259"></a><span>    </span><span class="hs-comment">-- trimming sequences</span><span>
+</span><a name="line-260"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#stripPrefix"><span class="hs-identifier hs-var">stripPrefix</span></a><span>
+</span><a name="line-261"></a><span>    </span><span class="hs-comment">-- , stripSuffix</span><span>
+</span><a name="line-262"></a><span>    </span><span class="hs-comment">-- , stripInfix</span><span>
+</span><a name="line-263"></a><span>
+</span><a name="line-264"></a><span>    </span><span class="hs-comment">-- * Transformation</span><span>
+</span><a name="line-265"></a><span>
+</span><a name="line-266"></a><span>    </span><span class="hs-comment">--, transform</span><span>
+</span><a name="line-267"></a><span>
+</span><a name="line-268"></a><span>    </span><span class="hs-comment">-- ** Mapping</span><span>
+</span><a name="line-269"></a><span>    </span><span class="hs-comment">-- | In imperative terms a map operation can be considered as a loop over</span><span>
+</span><a name="line-270"></a><span>    </span><span class="hs-comment">-- the stream that transforms the stream into another stream by performing</span><span>
+</span><a name="line-271"></a><span>    </span><span class="hs-comment">-- an operation on each element of the stream.</span><span>
+</span><a name="line-272"></a><span>    </span><span class="hs-comment">--</span><span>
+</span><a name="line-273"></a><span>    </span><span class="hs-comment">-- 'map' is the least powerful transformation operation with strictest</span><span>
+</span><a name="line-274"></a><span>    </span><span class="hs-comment">-- guarantees.  A map, (1) is a stateless loop which means that no state is</span><span>
+</span><a name="line-275"></a><span>    </span><span class="hs-comment">-- allowed to be carried from one iteration to another, therefore,</span><span>
+</span><a name="line-276"></a><span>    </span><span class="hs-comment">-- operations on different elements are guaranteed to not affect each</span><span>
+</span><a name="line-277"></a><span>    </span><span class="hs-comment">-- other, (2) is a strictly one-to-one transformation of stream elements</span><span>
+</span><a name="line-278"></a><span>    </span><span class="hs-comment">-- which means it guarantees that no elements can be added or removed from</span><span>
+</span><a name="line-279"></a><span>    </span><span class="hs-comment">-- the stream, it can merely transform them.</span><span>
+</span><a name="line-280"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Data.Stream.Serial.html#map"><span class="hs-identifier hs-var">map</span></a><span>
+</span><a name="line-281"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#sequence"><span class="hs-identifier hs-var">sequence</span></a><span>
+</span><a name="line-282"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#mapM"><span class="hs-identifier hs-var">mapM</span></a><span>
+</span><a name="line-283"></a><span>
+</span><a name="line-284"></a><span>    </span><span class="hs-comment">-- ** Special Maps</span><span>
+</span><a name="line-285"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#mapM_"><span class="hs-identifier hs-var">mapM_</span></a><span>
+</span><a name="line-286"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#trace"><span class="hs-identifier hs-var">trace</span></a><span>
+</span><a name="line-287"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#tap"><span class="hs-identifier hs-var">tap</span></a><span>
+</span><a name="line-288"></a><span>
+</span><a name="line-289"></a><span>    </span><span class="hs-comment">-- ** Scanning</span><span>
+</span><a name="line-290"></a><span>    </span><span class="hs-comment">--</span><span>
+</span><a name="line-291"></a><span>    </span><span class="hs-comment">-- | A scan is more powerful than map. While a 'map' is a stateless loop, a</span><span>
+</span><a name="line-292"></a><span>    </span><span class="hs-comment">-- @scan@ is a stateful loop which means that a state can be shared across</span><span>
+</span><a name="line-293"></a><span>    </span><span class="hs-comment">-- all the loop iterations, therefore, future iterations can be impacted by</span><span>
+</span><a name="line-294"></a><span>    </span><span class="hs-comment">-- the state changes made by the past iterations. A scan yields the state</span><span>
+</span><a name="line-295"></a><span>    </span><span class="hs-comment">-- of the loop after each iteration. Like a map, a @postscan@ or @prescan@</span><span>
+</span><a name="line-296"></a><span>    </span><span class="hs-comment">-- does not add or remove elements in the stream, it just transforms them.</span><span>
+</span><a name="line-297"></a><span>    </span><span class="hs-comment">-- However, a @scan@ adds one extra element to the stream.</span><span>
+</span><a name="line-298"></a><span>    </span><span class="hs-comment">--</span><span>
+</span><a name="line-299"></a><span>    </span><span class="hs-comment">-- A left associative scan, also known as a prefix sum, can be thought of</span><span>
+</span><a name="line-300"></a><span>    </span><span class="hs-comment">-- as a stream transformation consisting of left folds of all prefixes of a</span><span>
+</span><a name="line-301"></a><span>    </span><span class="hs-comment">-- stream.  Another way of thinking about it is that it streams all the</span><span>
+</span><a name="line-302"></a><span>    </span><span class="hs-comment">-- intermediate values of the accumulator while applying a left fold on the</span><span>
+</span><a name="line-303"></a><span>    </span><span class="hs-comment">-- input stream.  A right associative scan, on the other hand, can be</span><span>
+</span><a name="line-304"></a><span>    </span><span class="hs-comment">-- thought of as a stream consisting of right folds of all the suffixes of</span><span>
+</span><a name="line-305"></a><span>    </span><span class="hs-comment">-- a stream.</span><span>
+</span><a name="line-306"></a><span>    </span><span class="hs-comment">--</span><span>
+</span><a name="line-307"></a><span>    </span><span class="hs-comment">-- The following equations hold for lists:</span><span>
+</span><a name="line-308"></a><span>    </span><span class="hs-comment">--</span><span>
+</span><a name="line-309"></a><span>    </span><span class="hs-comment">-- &gt; scanl f z xs == map (foldl f z) $ inits xs</span><span>
+</span><a name="line-310"></a><span>    </span><span class="hs-comment">-- &gt; scanr f z xs == map (foldr f z) $ tails xs</span><span>
+</span><a name="line-311"></a><span>    </span><span class="hs-comment">--</span><span>
+</span><a name="line-312"></a><span>    </span><span class="hs-comment">-- @</span><span>
+</span><a name="line-313"></a><span>    </span><span class="hs-comment">-- &gt; scanl (+) 0 [1,2,3,4]</span><span>
+</span><a name="line-314"></a><span>    </span><span class="hs-comment">-- 0                 = 0</span><span>
+</span><a name="line-315"></a><span>    </span><span class="hs-comment">-- 0 + 1             = 1</span><span>
+</span><a name="line-316"></a><span>    </span><span class="hs-comment">-- 0 + 1 + 2         = 3</span><span>
+</span><a name="line-317"></a><span>    </span><span class="hs-comment">-- 0 + 1 + 2 + 3     = 6</span><span>
+</span><a name="line-318"></a><span>    </span><span class="hs-comment">-- 0 + 1 + 2 + 3 + 4 = 10</span><span>
+</span><a name="line-319"></a><span>    </span><span class="hs-comment">--</span><span>
+</span><a name="line-320"></a><span>    </span><span class="hs-comment">-- &gt; scanr (+) 0 [1,2,3,4]</span><span>
+</span><a name="line-321"></a><span>    </span><span class="hs-comment">-- 1 + 2 + 3 + 4 + 0 = 10</span><span>
+</span><a name="line-322"></a><span>    </span><span class="hs-comment">--     2 + 3 + 4 + 0 = 9</span><span>
+</span><a name="line-323"></a><span>    </span><span class="hs-comment">--         3 + 4 + 0 = 7</span><span>
+</span><a name="line-324"></a><span>    </span><span class="hs-comment">--             4 + 0 = 4</span><span>
+</span><a name="line-325"></a><span>    </span><span class="hs-comment">--                 0 = 0</span><span>
+</span><a name="line-326"></a><span>    </span><span class="hs-comment">-- @</span><span>
+</span><a name="line-327"></a><span>    </span><span class="hs-comment">--</span><span>
+</span><a name="line-328"></a><span>    </span><span class="hs-comment">-- Left and right scans are duals:</span><span>
+</span><a name="line-329"></a><span>    </span><span class="hs-comment">--</span><span>
+</span><a name="line-330"></a><span>    </span><span class="hs-comment">-- &gt; scanr f z xs ==  reverse $ scanl (flip f) z (reverse xs)</span><span>
+</span><a name="line-331"></a><span>    </span><span class="hs-comment">-- &gt; scanl f z xs ==  reverse $ scanr (flip f) z (reverse xs)</span><span>
+</span><a name="line-332"></a><span>    </span><span class="hs-comment">--</span><span>
+</span><a name="line-333"></a><span>    </span><span class="hs-comment">-- A scan is a stateful map i.e. a combination of map and fold:</span><span>
+</span><a name="line-334"></a><span>    </span><span class="hs-comment">--</span><span>
+</span><a name="line-335"></a><span>    </span><span class="hs-comment">-- &gt; map f xs =           tail $ scanl (\_ x -&gt; f x) z xs</span><span>
+</span><a name="line-336"></a><span>    </span><span class="hs-comment">-- &gt; map f xs = reverse $ head $ scanr (\_ x -&gt; f x) z xs</span><span>
+</span><a name="line-337"></a><span>    </span><span class="hs-comment">--</span><span>
+</span><a name="line-338"></a><span>    </span><span class="hs-comment">-- &gt; foldl f z xs = last $ scanl f z xs</span><span>
+</span><a name="line-339"></a><span>    </span><span class="hs-comment">-- &gt; foldr f z xs = head $ scanr f z xs</span><span>
+</span><a name="line-340"></a><span>
+</span><a name="line-341"></a><span>    </span><span class="hs-comment">-- ** Left scans</span><span>
+</span><a name="line-342"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#scanl%27"><span class="hs-identifier hs-var">scanl'</span></a><span>
+</span><a name="line-343"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#scanlM%27"><span class="hs-identifier hs-var">scanlM'</span></a><span>
+</span><a name="line-344"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#postscanl%27"><span class="hs-identifier hs-var">postscanl'</span></a><span>
+</span><a name="line-345"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#postscanlM%27"><span class="hs-identifier hs-var">postscanlM'</span></a><span>
+</span><a name="line-346"></a><span>    </span><span class="hs-comment">-- , prescanl'</span><span>
+</span><a name="line-347"></a><span>    </span><span class="hs-comment">-- , prescanlM'</span><span>
+</span><a name="line-348"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#scanl1%27"><span class="hs-identifier hs-var">scanl1'</span></a><span>
+</span><a name="line-349"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#scanl1M%27"><span class="hs-identifier hs-var">scanl1M'</span></a><span>
+</span><a name="line-350"></a><span>
+</span><a name="line-351"></a><span>    </span><span class="hs-comment">-- ** Scan Using Fold</span><span>
+</span><a name="line-352"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#scan"><span class="hs-identifier hs-var">scan</span></a><span>
+</span><a name="line-353"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#postscan"><span class="hs-identifier hs-var">postscan</span></a><span>
+</span><a name="line-354"></a><span>
+</span><a name="line-355"></a><span>    </span><span class="hs-comment">-- , lscanl'</span><span>
+</span><a name="line-356"></a><span>    </span><span class="hs-comment">-- , lscanlM'</span><span>
+</span><a name="line-357"></a><span>    </span><span class="hs-comment">-- , lscanl1'</span><span>
+</span><a name="line-358"></a><span>    </span><span class="hs-comment">-- , lscanl1M'</span><span>
+</span><a name="line-359"></a><span>    </span><span class="hs-comment">--</span><span>
+</span><a name="line-360"></a><span>    </span><span class="hs-comment">-- , lpostscanl'</span><span>
+</span><a name="line-361"></a><span>    </span><span class="hs-comment">-- , lpostscanlM'</span><span>
+</span><a name="line-362"></a><span>    </span><span class="hs-comment">-- , lprescanl'</span><span>
+</span><a name="line-363"></a><span>    </span><span class="hs-comment">-- , lprescanlM'</span><span>
+</span><a name="line-364"></a><span>
+</span><a name="line-365"></a><span>    </span><span class="hs-comment">-- ** Filtering</span><span>
+</span><a name="line-366"></a><span>    </span><span class="hs-comment">-- | Remove some elements from the stream based on a predicate. In</span><span>
+</span><a name="line-367"></a><span>    </span><span class="hs-comment">-- imperative terms a filter over a stream corresponds to a loop with a</span><span>
+</span><a name="line-368"></a><span>    </span><span class="hs-comment">-- @continue@ clause for the cases when the predicate fails.</span><span>
+</span><a name="line-369"></a><span>
+</span><a name="line-370"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#filter"><span class="hs-identifier hs-var">filter</span></a><span>
+</span><a name="line-371"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#filterM"><span class="hs-identifier hs-var">filterM</span></a><span>
+</span><a name="line-372"></a><span>
+</span><a name="line-373"></a><span>    </span><span class="hs-comment">-- ** Mapping Filters</span><span>
+</span><a name="line-374"></a><span>    </span><span class="hs-comment">-- | Mapping along with filtering</span><span>
+</span><a name="line-375"></a><span>
+</span><a name="line-376"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#mapMaybe"><span class="hs-identifier hs-var">mapMaybe</span></a><span>
+</span><a name="line-377"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#mapMaybeM"><span class="hs-identifier hs-var">mapMaybeM</span></a><span>
+</span><a name="line-378"></a><span>
+</span><a name="line-379"></a><span>    </span><span class="hs-comment">-- ** Deleting Elements</span><span>
+</span><a name="line-380"></a><span>    </span><span class="hs-comment">-- | Deleting elements is a special case of de-interleaving streams.</span><span>
+</span><a name="line-381"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#deleteBy"><span class="hs-identifier hs-var">deleteBy</span></a><span>
+</span><a name="line-382"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#uniq"><span class="hs-identifier hs-var">uniq</span></a><span>
+</span><a name="line-383"></a><span>    </span><span class="hs-comment">-- , uniqBy -- by predicate e.g. to remove duplicate &quot;/&quot; in a path</span><span>
+</span><a name="line-384"></a><span>    </span><span class="hs-comment">-- , uniqOn -- to remove duplicate sequences</span><span>
+</span><a name="line-385"></a><span>    </span><span class="hs-comment">-- , pruneBy -- dropAround + uniqBy - like words</span><span>
+</span><a name="line-386"></a><span>
+</span><a name="line-387"></a><span>    </span><span class="hs-comment">-- ** Inserting Elements</span><span>
+</span><a name="line-388"></a><span>    </span><span class="hs-comment">-- | Inserting elements is a special case of interleaving/merging streams.</span><span>
+</span><a name="line-389"></a><span>
+</span><a name="line-390"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#insertBy"><span class="hs-identifier hs-var">insertBy</span></a><span>
+</span><a name="line-391"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#intersperseM"><span class="hs-identifier hs-var">intersperseM</span></a><span>
+</span><a name="line-392"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#intersperse"><span class="hs-identifier hs-var">intersperse</span></a><span>
+</span><a name="line-393"></a><span>    </span><span class="hs-comment">-- , insertAfterEach</span><span>
+</span><a name="line-394"></a><span>    </span><span class="hs-comment">-- , intersperseBySpan</span><span>
+</span><a name="line-395"></a><span>    </span><span class="hs-comment">-- , intersperseByIndices -- using an index function/stream</span><span>
+</span><a name="line-396"></a><span>    </span><span class="hs-comment">-- , intersperseByTime</span><span>
+</span><a name="line-397"></a><span>    </span><span class="hs-comment">-- , intersperseByEvent</span><span>
+</span><a name="line-398"></a><span>
+</span><a name="line-399"></a><span>    </span><span class="hs-comment">-- -- * Inserting Streams in Streams</span><span>
+</span><a name="line-400"></a><span>    </span><span class="hs-comment">-- , interposeBy</span><span>
+</span><a name="line-401"></a><span>    </span><span class="hs-comment">-- , intercalate</span><span>
+</span><a name="line-402"></a><span>
+</span><a name="line-403"></a><span>    </span><span class="hs-comment">-- ** Indexing</span><span>
+</span><a name="line-404"></a><span>    </span><span class="hs-comment">-- | Indexing can be considered as a special type of zipping where we zip a</span><span>
+</span><a name="line-405"></a><span>    </span><span class="hs-comment">-- stream with an index stream.</span><span>
+</span><a name="line-406"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#indexed"><span class="hs-identifier hs-var">indexed</span></a><span>
+</span><a name="line-407"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#indexedR"><span class="hs-identifier hs-var">indexedR</span></a><span>
+</span><a name="line-408"></a><span>    </span><span class="hs-comment">-- , timestamped</span><span>
+</span><a name="line-409"></a><span>    </span><span class="hs-comment">-- , timestampedR -- timer</span><span>
+</span><a name="line-410"></a><span>
+</span><a name="line-411"></a><span>    </span><span class="hs-comment">-- ** Reordering Elements</span><span>
+</span><a name="line-412"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#reverse"><span class="hs-identifier hs-var">reverse</span></a><span>
+</span><a name="line-413"></a><span>    </span><span class="hs-comment">-- , reverse'</span><span>
+</span><a name="line-414"></a><span>
+</span><a name="line-415"></a><span>    </span><span class="hs-comment">-- ** Trimming</span><span>
+</span><a name="line-416"></a><span>    </span><span class="hs-comment">-- | Take or remove elements from one or both ends of a stream.</span><span>
+</span><a name="line-417"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#take"><span class="hs-identifier hs-var">take</span></a><span>
+</span><a name="line-418"></a><span>    </span><span class="hs-comment">-- , takeEnd</span><span>
+</span><a name="line-419"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#takeWhile"><span class="hs-identifier hs-var">takeWhile</span></a><span>
+</span><a name="line-420"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#takeWhileM"><span class="hs-identifier hs-var">takeWhileM</span></a><span>
+</span><a name="line-421"></a><span>    </span><span class="hs-comment">-- , takeWhileEnd</span><span>
+</span><a name="line-422"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#drop"><span class="hs-identifier hs-var">drop</span></a><span>
+</span><a name="line-423"></a><span>    </span><span class="hs-comment">-- , dropEnd</span><span>
+</span><a name="line-424"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#dropWhile"><span class="hs-identifier hs-var">dropWhile</span></a><span>
+</span><a name="line-425"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#dropWhileM"><span class="hs-identifier hs-var">dropWhileM</span></a><span>
+</span><a name="line-426"></a><span>    </span><span class="hs-comment">-- , dropWhileEnd</span><span>
+</span><a name="line-427"></a><span>    </span><span class="hs-comment">-- , dropAround</span><span>
+</span><a name="line-428"></a><span>
+</span><a name="line-429"></a><span>    </span><span class="hs-comment">-- -- ** Breaking</span><span>
+</span><a name="line-430"></a><span>
+</span><a name="line-431"></a><span>    </span><span class="hs-comment">-- By chunks</span><span>
+</span><a name="line-432"></a><span>    </span><span class="hs-comment">-- , splitAt -- spanN</span><span>
+</span><a name="line-433"></a><span>    </span><span class="hs-comment">-- , splitIn -- sessionN</span><span>
+</span><a name="line-434"></a><span>
+</span><a name="line-435"></a><span>    </span><span class="hs-comment">-- By elements</span><span>
+</span><a name="line-436"></a><span>    </span><span class="hs-comment">-- , span  -- spanWhile</span><span>
+</span><a name="line-437"></a><span>    </span><span class="hs-comment">-- , break -- breakBefore</span><span>
+</span><a name="line-438"></a><span>    </span><span class="hs-comment">-- , breakAfter</span><span>
+</span><a name="line-439"></a><span>    </span><span class="hs-comment">-- , breakOn</span><span>
+</span><a name="line-440"></a><span>    </span><span class="hs-comment">-- , breakAround</span><span>
+</span><a name="line-441"></a><span>    </span><span class="hs-comment">-- , spanBy</span><span>
+</span><a name="line-442"></a><span>    </span><span class="hs-comment">-- , spanByRolling</span><span>
+</span><a name="line-443"></a><span>
+</span><a name="line-444"></a><span>    </span><span class="hs-comment">-- By sequences</span><span>
+</span><a name="line-445"></a><span>    </span><span class="hs-comment">-- breakOnSeq/breakOnArray -- on a fixed sequence</span><span>
+</span><a name="line-446"></a><span>    </span><span class="hs-comment">-- breakOnStream -- on a stream</span><span>
+</span><a name="line-447"></a><span>
+</span><a name="line-448"></a><span>    </span><span class="hs-comment">-- ** Slicing</span><span>
+</span><a name="line-449"></a><span>    </span><span class="hs-comment">-- | Streams can be sliced into segments in space or in time. We use the</span><span>
+</span><a name="line-450"></a><span>    </span><span class="hs-comment">-- term @chunk@ to refer to a spatial length of the stream (spatial window)</span><span>
+</span><a name="line-451"></a><span>    </span><span class="hs-comment">-- and the term @session@ to refer to a length in time (time window).</span><span>
+</span><a name="line-452"></a><span>
+</span><a name="line-453"></a><span>    </span><span class="hs-comment">-- In imperative terms, grouped folding can be considered as a nested loop</span><span>
+</span><a name="line-454"></a><span>    </span><span class="hs-comment">-- where we loop over the stream to group elements and then loop over</span><span>
+</span><a name="line-455"></a><span>    </span><span class="hs-comment">-- individual groups to fold them to a single value that is yielded in the</span><span>
+</span><a name="line-456"></a><span>    </span><span class="hs-comment">-- output stream.</span><span>
+</span><a name="line-457"></a><span>
+</span><a name="line-458"></a><span>    </span><span class="hs-comment">-- , groupScan</span><span>
+</span><a name="line-459"></a><span>
+</span><a name="line-460"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#chunksOf"><span class="hs-identifier hs-var">chunksOf</span></a><span>
+</span><a name="line-461"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#intervalsOf"><span class="hs-identifier hs-var">intervalsOf</span></a><span>
+</span><a name="line-462"></a><span>
+</span><a name="line-463"></a><span>    </span><span class="hs-comment">-- ** Searching</span><span>
+</span><a name="line-464"></a><span>    </span><span class="hs-comment">-- | Finding the presence or location of an element, a sequence of elements</span><span>
+</span><a name="line-465"></a><span>    </span><span class="hs-comment">-- or another stream within a stream.</span><span>
+</span><a name="line-466"></a><span>
+</span><a name="line-467"></a><span>    </span><span class="hs-comment">-- -- ** Searching Elements</span><span>
+</span><a name="line-468"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#findIndices"><span class="hs-identifier hs-var">findIndices</span></a><span>
+</span><a name="line-469"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#elemIndices"><span class="hs-identifier hs-var">elemIndices</span></a><span>
+</span><a name="line-470"></a><span>
+</span><a name="line-471"></a><span>    </span><span class="hs-comment">-- -- *** Searching Sequences</span><span>
+</span><a name="line-472"></a><span>    </span><span class="hs-comment">-- , seqIndices -- search a sequence in the stream</span><span>
+</span><a name="line-473"></a><span>
+</span><a name="line-474"></a><span>    </span><span class="hs-comment">-- -- *** Searching Multiple Sequences</span><span>
+</span><a name="line-475"></a><span>    </span><span class="hs-comment">-- , seqIndices -- search a sequence in the stream</span><span>
+</span><a name="line-476"></a><span>
+</span><a name="line-477"></a><span>    </span><span class="hs-comment">-- -- ** Searching Streams</span><span>
+</span><a name="line-478"></a><span>    </span><span class="hs-comment">-- -- | Finding a stream within another stream.</span><span>
+</span><a name="line-479"></a><span>
+</span><a name="line-480"></a><span>    </span><span class="hs-comment">-- ** Splitting</span><span>
+</span><a name="line-481"></a><span>    </span><span class="hs-comment">-- | In general we can express splitting in terms of parser combinators.</span><span>
+</span><a name="line-482"></a><span>    </span><span class="hs-comment">-- These are some common use functions for convenience and efficiency.</span><span>
+</span><a name="line-483"></a><span>    </span><span class="hs-comment">-- While parsers can fail these functions are designed to transform a</span><span>
+</span><a name="line-484"></a><span>    </span><span class="hs-comment">-- stream without failure with a predefined behavior for all cases.</span><span>
+</span><a name="line-485"></a><span>    </span><span class="hs-comment">--</span><span>
+</span><a name="line-486"></a><span>    </span><span class="hs-comment">-- In general, there are three possible ways of combining stream segments</span><span>
+</span><a name="line-487"></a><span>    </span><span class="hs-comment">-- with a separator. The separator could be prefixed to each segment,</span><span>
+</span><a name="line-488"></a><span>    </span><span class="hs-comment">-- suffixed to each segment, or it could be infixed between segments.</span><span>
+</span><a name="line-489"></a><span>    </span><span class="hs-comment">-- 'intersperse' and 'intercalate' operations are examples of infixed</span><span>
+</span><a name="line-490"></a><span>    </span><span class="hs-comment">-- combining whereas 'unlines' is an example of suffixed combining. When we</span><span>
+</span><a name="line-491"></a><span>    </span><span class="hs-comment">-- split a stream with separators we can split in three different ways,</span><span>
+</span><a name="line-492"></a><span>    </span><span class="hs-comment">-- each being an opposite of the three ways of combining.</span><span>
+</span><a name="line-493"></a><span>    </span><span class="hs-comment">--</span><span>
+</span><a name="line-494"></a><span>    </span><span class="hs-comment">-- Splitting may keep the separator or drop it. Depending on how we split,</span><span>
+</span><a name="line-495"></a><span>    </span><span class="hs-comment">-- the separator may be kept attached to the stream segments in prefix or</span><span>
+</span><a name="line-496"></a><span>    </span><span class="hs-comment">-- suffix position or as a separate element in infix position. Combinators</span><span>
+</span><a name="line-497"></a><span>    </span><span class="hs-comment">-- like 'splitOn' that use @On@ in their names drop the separator and</span><span>
+</span><a name="line-498"></a><span>    </span><span class="hs-comment">-- combinators that use 'With' in their names keep the separator. When a</span><span>
+</span><a name="line-499"></a><span>    </span><span class="hs-comment">-- segment is missing it is considered as empty, therefore, we never</span><span>
+</span><a name="line-500"></a><span>    </span><span class="hs-comment">-- encounter an error in parsing.</span><span>
+</span><a name="line-501"></a><span>
+</span><a name="line-502"></a><span>    </span><span class="hs-comment">-- -- ** Splitting By Elements</span><span>
+</span><a name="line-503"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#splitOn"><span class="hs-identifier hs-var">splitOn</span></a><span>
+</span><a name="line-504"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#splitOnSuffix"><span class="hs-identifier hs-var">splitOnSuffix</span></a><span>
+</span><a name="line-505"></a><span>    </span><span class="hs-comment">-- , splitOnPrefix</span><span>
+</span><a name="line-506"></a><span>
+</span><a name="line-507"></a><span>    </span><span class="hs-comment">-- , splitBy</span><span>
+</span><a name="line-508"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#splitWithSuffix"><span class="hs-identifier hs-var">splitWithSuffix</span></a><span>
+</span><a name="line-509"></a><span>    </span><span class="hs-comment">-- , splitByPrefix</span><span>
+</span><a name="line-510"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#wordsBy"><span class="hs-identifier hs-var">wordsBy</span></a><span> </span><span class="hs-comment">-- strip, compact and split</span><span>
+</span><a name="line-511"></a><span>
+</span><a name="line-512"></a><span>    </span><span class="hs-comment">-- -- *** Splitting By Sequences</span><span>
+</span><a name="line-513"></a><span>    </span><span class="hs-comment">-- , splitOnSeq</span><span>
+</span><a name="line-514"></a><span>    </span><span class="hs-comment">-- , splitOnSuffixSeq</span><span>
+</span><a name="line-515"></a><span>    </span><span class="hs-comment">-- , splitOnPrefixSeq</span><span>
+</span><a name="line-516"></a><span>
+</span><a name="line-517"></a><span>    </span><span class="hs-comment">-- Keeping the delimiters</span><span>
+</span><a name="line-518"></a><span>    </span><span class="hs-comment">-- , splitBySeq</span><span>
+</span><a name="line-519"></a><span>    </span><span class="hs-comment">-- , splitBySeqSuffix</span><span>
+</span><a name="line-520"></a><span>    </span><span class="hs-comment">-- , splitBySeqPrefix</span><span>
+</span><a name="line-521"></a><span>    </span><span class="hs-comment">-- , wordsBySeq</span><span>
+</span><a name="line-522"></a><span>
+</span><a name="line-523"></a><span>    </span><span class="hs-comment">-- Splitting By Multiple Sequences</span><span>
+</span><a name="line-524"></a><span>    </span><span class="hs-comment">-- , splitOnAnySeq</span><span>
+</span><a name="line-525"></a><span>    </span><span class="hs-comment">-- , splitOnAnySuffixSeq</span><span>
+</span><a name="line-526"></a><span>    </span><span class="hs-comment">-- , splitOnAnyPrefixSeq</span><span>
+</span><a name="line-527"></a><span>
+</span><a name="line-528"></a><span>    </span><span class="hs-comment">-- -- ** Splitting By Streams</span><span>
+</span><a name="line-529"></a><span>    </span><span class="hs-comment">-- -- | Splitting a stream using another stream as separator.</span><span>
+</span><a name="line-530"></a><span>
+</span><a name="line-531"></a><span>    </span><span class="hs-comment">-- ** Grouping</span><span>
+</span><a name="line-532"></a><span>    </span><span class="hs-comment">-- | Splitting a stream by combining multiple contiguous elements into</span><span>
+</span><a name="line-533"></a><span>    </span><span class="hs-comment">-- groups using some criterion.</span><span>
+</span><a name="line-534"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#groups"><span class="hs-identifier hs-var">groups</span></a><span>
+</span><a name="line-535"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#groupsBy"><span class="hs-identifier hs-var">groupsBy</span></a><span>
+</span><a name="line-536"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#groupsByRolling"><span class="hs-identifier hs-var">groupsByRolling</span></a><span>
+</span><a name="line-537"></a><span>
+</span><a name="line-538"></a><span>    </span><span class="hs-comment">{-
+    -- * Windowed Classification
+    -- | Split the stream into windows or chunks in space or time. Each window
+    -- can be associated with a key, all events associated with a particular
+    -- key in the window can be folded to a single result. The stream is split
+    -- into windows of specified size, the window can be terminated early if
+    -- the closing flag is specified in the input stream.
+    --
+    -- The term &quot;chunk&quot; is used for a space window and the term &quot;session&quot; is
+    -- used for a time window.
+
+    -- ** Tumbling Windows
+    -- | A new window starts after the previous window is finished.
+    -- , classifyChunksOf
+    -- , classifySessionsOf
+
+    -- ** Keep Alive Windows
+    -- | The window size is extended if an event arrives within the specified
+    -- window size. This can represent sessions with idle or inactive timeout.
+    -- , classifyKeepAliveChunks
+    -- , classifyKeepAliveSessions
+
+    {-
+    -- ** Sliding Windows
+    -- | A new window starts after the specified slide from the previous
+    -- window. Therefore windows can overlap.
+    , classifySlidingChunks
+    , classifySlidingSessions
+    -}
+    -- ** Sliding Window Buffers
+    -- , slidingChunkBuffer
+    -- , slidingSessionBuffer
+    -}</span><span>
+</span><a name="line-571"></a><span>
+</span><a name="line-572"></a><span>    </span><span class="hs-comment">-- * Combining Streams</span><span>
+</span><a name="line-573"></a><span>    </span><span class="hs-comment">-- | New streams can be constructed by appending, merging or zipping</span><span>
+</span><a name="line-574"></a><span>    </span><span class="hs-comment">-- existing streams.</span><span>
+</span><a name="line-575"></a><span>
+</span><a name="line-576"></a><span>    </span><span class="hs-comment">-- ** Appending</span><span>
+</span><a name="line-577"></a><span>    </span><span class="hs-comment">-- | Streams form a 'Semigroup' and a 'Monoid' under the append</span><span>
+</span><a name="line-578"></a><span>    </span><span class="hs-comment">-- operation. Appending can be considered as a generalization of the `cons`</span><span>
+</span><a name="line-579"></a><span>    </span><span class="hs-comment">-- operation to consing a stream to a stream.</span><span>
+</span><a name="line-580"></a><span>    </span><span class="hs-comment">--</span><span>
+</span><a name="line-581"></a><span>    </span><span class="hs-comment">-- @</span><span>
+</span><a name="line-582"></a><span>    </span><span class="hs-comment">--</span><span>
+</span><a name="line-583"></a><span>    </span><span class="hs-comment">-- -------Stream m a------|-------Stream m a------|=&gt;----Stream m a---</span><span>
+</span><a name="line-584"></a><span>    </span><span class="hs-comment">--</span><span>
+</span><a name="line-585"></a><span>    </span><span class="hs-comment">-- @</span><span>
+</span><a name="line-586"></a><span>    </span><span class="hs-comment">--</span><span>
+</span><a name="line-587"></a><span>    </span><span class="hs-comment">-- @</span><span>
+</span><a name="line-588"></a><span>    </span><span class="hs-comment">-- &gt;&gt; S.toList $ S.fromList [1,2] \&lt;&gt; S.fromList [3,4]</span><span>
+</span><a name="line-589"></a><span>    </span><span class="hs-comment">-- [1,2,3,4]</span><span>
+</span><a name="line-590"></a><span>    </span><span class="hs-comment">-- &gt;&gt; S.toList $ fold $ [S.fromList [1,2], S.fromList [3,4]]</span><span>
+</span><a name="line-591"></a><span>    </span><span class="hs-comment">-- [1,2,3,4]</span><span>
+</span><a name="line-592"></a><span>    </span><span class="hs-comment">-- @</span><span>
+</span><a name="line-593"></a><span>
+</span><a name="line-594"></a><span>    </span><span class="hs-comment">-- ** Merging</span><span>
+</span><a name="line-595"></a><span>    </span><span class="hs-comment">-- | Streams form a commutative semigroup under the merge</span><span>
+</span><a name="line-596"></a><span>    </span><span class="hs-comment">-- operation. Merging can be considered as a generalization of inserting an</span><span>
+</span><a name="line-597"></a><span>    </span><span class="hs-comment">-- element in a stream to interleaving a stream with another stream.</span><span>
+</span><a name="line-598"></a><span>    </span><span class="hs-comment">--</span><span>
+</span><a name="line-599"></a><span>    </span><span class="hs-comment">-- @</span><span>
+</span><a name="line-600"></a><span>    </span><span class="hs-comment">--</span><span>
+</span><a name="line-601"></a><span>    </span><span class="hs-comment">-- -------Stream m a------|</span><span>
+</span><a name="line-602"></a><span>    </span><span class="hs-comment">--                        |=&gt;----Stream m a---</span><span>
+</span><a name="line-603"></a><span>    </span><span class="hs-comment">-- -------Stream m a------|</span><span>
+</span><a name="line-604"></a><span>    </span><span class="hs-comment">-- @</span><span>
+</span><a name="line-605"></a><span>    </span><span class="hs-comment">--</span><span>
+</span><a name="line-606"></a><span>
+</span><a name="line-607"></a><span>    </span><span class="hs-comment">-- , merge</span><span>
+</span><a name="line-608"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#mergeBy"><span class="hs-identifier hs-var">mergeBy</span></a><span>
+</span><a name="line-609"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#mergeByM"><span class="hs-identifier hs-var">mergeByM</span></a><span>
+</span><a name="line-610"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#mergeAsyncBy"><span class="hs-identifier hs-var">mergeAsyncBy</span></a><span>
+</span><a name="line-611"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#mergeAsyncByM"><span class="hs-identifier hs-var">mergeAsyncByM</span></a><span>
+</span><a name="line-612"></a><span>
+</span><a name="line-613"></a><span>    </span><span class="hs-comment">-- ** Zipping</span><span>
+</span><a name="line-614"></a><span>    </span><span class="hs-comment">-- |</span><span>
+</span><a name="line-615"></a><span>    </span><span class="hs-comment">-- @</span><span>
+</span><a name="line-616"></a><span>    </span><span class="hs-comment">--</span><span>
+</span><a name="line-617"></a><span>    </span><span class="hs-comment">-- -------Stream m a------|</span><span>
+</span><a name="line-618"></a><span>    </span><span class="hs-comment">--                        |=&gt;----Stream m c---</span><span>
+</span><a name="line-619"></a><span>    </span><span class="hs-comment">-- -------Stream m b------|</span><span>
+</span><a name="line-620"></a><span>    </span><span class="hs-comment">-- @</span><span>
+</span><a name="line-621"></a><span>    </span><span class="hs-comment">--</span><span>
+</span><a name="line-622"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Data.Stream.Zip.html#zipWith"><span class="hs-identifier hs-var">zipWith</span></a><span>
+</span><a name="line-623"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Data.Stream.Zip.html#zipWithM"><span class="hs-identifier hs-var">zipWithM</span></a><span>
+</span><a name="line-624"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Data.Stream.Zip.html#zipAsyncWith"><span class="hs-identifier hs-var">zipAsyncWith</span></a><span>
+</span><a name="line-625"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Data.Stream.Zip.html#zipAsyncWithM"><span class="hs-identifier hs-var">zipAsyncWithM</span></a><span>
+</span><a name="line-626"></a><span>
+</span><a name="line-627"></a><span>    </span><span class="hs-comment">{-
+    -- ** Folding Containers of Streams
+    -- | These are variants of standard 'Foldable' fold functions that use a
+    -- polymorphic stream sum operation (e.g. 'async' or 'wSerial') to fold a
+    -- finite container of streams. Note that these are just special cases of
+    -- the more general 'concatMapWith' operation.
+    --
+    , foldMapWith
+    , forEachWith
+    , foldWith
+    -}</span><span>
+</span><a name="line-638"></a><span>
+</span><a name="line-639"></a><span>    </span><span class="hs-comment">-- ** Folding Streams of Streams</span><span>
+</span><a name="line-640"></a><span>    </span><span class="hs-comment">-- | Stream operations like map and filter represent loop processing in</span><span>
+</span><a name="line-641"></a><span>    </span><span class="hs-comment">-- imperative programming terms. Similarly, the imperative concept of</span><span>
+</span><a name="line-642"></a><span>    </span><span class="hs-comment">-- nested loops are represented by streams of streams. The 'concatMap'</span><span>
+</span><a name="line-643"></a><span>    </span><span class="hs-comment">-- operation represents nested looping.</span><span>
+</span><a name="line-644"></a><span>    </span><span class="hs-comment">-- A 'concatMap' operation loops over the input stream and then for each</span><span>
+</span><a name="line-645"></a><span>    </span><span class="hs-comment">-- element of the input stream generates another stream and then loops over</span><span>
+</span><a name="line-646"></a><span>    </span><span class="hs-comment">-- that inner stream as well producing effects and generating a single</span><span>
+</span><a name="line-647"></a><span>    </span><span class="hs-comment">-- output stream.</span><span>
+</span><a name="line-648"></a><span>    </span><span class="hs-comment">-- The 'Monad' instances of different stream types provide a more</span><span>
+</span><a name="line-649"></a><span>    </span><span class="hs-comment">-- convenient way of writing nested loops. Note that the monad bind</span><span>
+</span><a name="line-650"></a><span>    </span><span class="hs-comment">-- operation is just @flip concatMap@.</span><span>
+</span><a name="line-651"></a><span>    </span><span class="hs-comment">--</span><span>
+</span><a name="line-652"></a><span>    </span><span class="hs-comment">-- One dimension loops are just a special case of nested loops.  For</span><span>
+</span><a name="line-653"></a><span>    </span><span class="hs-comment">-- example, 'concatMap' can degenerate to a simple map operation:</span><span>
+</span><a name="line-654"></a><span>    </span><span class="hs-comment">--</span><span>
+</span><a name="line-655"></a><span>    </span><span class="hs-comment">-- &gt; map f m = S.concatMap (\x -&gt; S.yield (f x)) m</span><span>
+</span><a name="line-656"></a><span>    </span><span class="hs-comment">--</span><span>
+</span><a name="line-657"></a><span>    </span><span class="hs-comment">-- Similarly, 'concatMap' can perform filtering by mapping an element to a</span><span>
+</span><a name="line-658"></a><span>    </span><span class="hs-comment">-- 'nil' stream:</span><span>
+</span><a name="line-659"></a><span>    </span><span class="hs-comment">--</span><span>
+</span><a name="line-660"></a><span>    </span><span class="hs-comment">-- &gt; filter p m = S.concatMap (\x -&gt; if p x then S.yield x else S.nil) m</span><span>
+</span><a name="line-661"></a><span>    </span><span class="hs-comment">--</span><span>
+</span><a name="line-662"></a><span>
+</span><a name="line-663"></a><span>    </span><span class="hs-comment">-- XXX add stateful concatMapWith</span><span>
+</span><a name="line-664"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#concatMapWith"><span class="hs-identifier hs-var">concatMapWith</span></a><span>
+</span><a name="line-665"></a><span>    </span><span class="hs-comment">--, bindWith</span><span>
+</span><a name="line-666"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#concatMap"><span class="hs-identifier hs-var">concatMap</span></a><span>
+</span><a name="line-667"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#concatMapM"><span class="hs-identifier hs-var">concatMapM</span></a><span>
+</span><a name="line-668"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#concatUnfold"><span class="hs-identifier hs-var">concatUnfold</span></a><span>
+</span><a name="line-669"></a><span>
+</span><a name="line-670"></a><span>    </span><span class="hs-comment">-- * Exceptions</span><span>
+</span><a name="line-671"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#before"><span class="hs-identifier hs-var">before</span></a><span>
+</span><a name="line-672"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#after"><span class="hs-identifier hs-var">after</span></a><span>
+</span><a name="line-673"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#bracket"><span class="hs-identifier hs-var">bracket</span></a><span>
+</span><a name="line-674"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#onException"><span class="hs-identifier hs-var">onException</span></a><span>
+</span><a name="line-675"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#finally"><span class="hs-identifier hs-var">finally</span></a><span>
+</span><a name="line-676"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#handle"><span class="hs-identifier hs-var">handle</span></a><span>
+</span><a name="line-677"></a><span>
+</span><a name="line-678"></a><span>    </span><span class="hs-comment">-- * Deprecated</span><span>
+</span><a name="line-679"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Data.Stream.StreamK.html#once"><span class="hs-identifier hs-var">once</span></a><span>
+</span><a name="line-680"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#each"><span class="hs-identifier hs-var">each</span></a><span>
+</span><a name="line-681"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#scanx"><span class="hs-identifier hs-var">scanx</span></a><span>
+</span><a name="line-682"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#foldx"><span class="hs-identifier hs-var">foldx</span></a><span>
+</span><a name="line-683"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#foldxM"><span class="hs-identifier hs-var">foldxM</span></a><span>
+</span><a name="line-684"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#foldr1"><span class="hs-identifier hs-var">foldr1</span></a><span>
+</span><a name="line-685"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#runStream"><span class="hs-identifier hs-var">runStream</span></a><span>
+</span><a name="line-686"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#runN"><span class="hs-identifier hs-var">runN</span></a><span>
+</span><a name="line-687"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#runWhile"><span class="hs-identifier hs-var">runWhile</span></a><span>
+</span><a name="line-688"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#fromHandle"><span class="hs-identifier hs-var">fromHandle</span></a><span>
+</span><a name="line-689"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Prelude.html#toHandle"><span class="hs-identifier hs-var">toHandle</span></a><span>
+</span><a name="line-690"></a><span>    </span><span class="hs-special">)</span><span>
+</span><a name="line-691"></a><span class="hs-keyword">where</span><span>
+</span><a name="line-692"></a><span>
+</span><a name="line-693"></a><span class="hs-keyword">import</span><span> </span><span class="hs-identifier">Prelude</span><span>
+</span><a name="line-694"></a><span>       </span><span class="hs-keyword">hiding</span><span> </span><span class="hs-special">(</span><span class="hs-identifier hs-var">filter</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-var">drop</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-var">dropWhile</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-var">take</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-var">takeWhile</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-var">zipWith</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-var">foldr</span><span class="hs-special">,</span><span>
+</span><a name="line-695"></a><span>               </span><span class="hs-identifier hs-var">foldl</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-var">map</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-var">mapM</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-var">mapM_</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-var">sequence</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-var">all</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-var">any</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-var">sum</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-var">product</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-var">elem</span><span class="hs-special">,</span><span>
+</span><a name="line-696"></a><span>               </span><span class="hs-identifier hs-var">notElem</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-var">maximum</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-var">minimum</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-var">head</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-var">last</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-var">tail</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-var">length</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-var">null</span><span class="hs-special">,</span><span>
+</span><a name="line-697"></a><span>               </span><span class="hs-identifier hs-var">reverse</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-var">iterate</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-var">init</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-var">and</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-var">or</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-var">lookup</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-var">foldr1</span><span class="hs-special">,</span><span> </span><span class="hs-special">(</span><span class="hs-operator hs-var">!!</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><a name="line-698"></a><span>               </span><span class="hs-identifier hs-var">scanl</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-var">scanl1</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-var">repeat</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-var">replicate</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-var">concatMap</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-var">span</span><span class="hs-special">)</span><span>
+</span><a name="line-699"></a><span>
+</span><a name="line-700"></a><span class="hs-keyword">import</span><span> </span><a href="Streamly.Internal.Prelude.html"><span class="hs-identifier">Streamly.Internal.Prelude</span></a><span>
+</span><a name="line-701"></a><span>
+</span><a name="line-702"></a><span class="hs-comment">-- $rightfolds</span><span>
+</span><a name="line-703"></a><span class="hs-comment">--</span><span>
+</span><a name="line-704"></a><span class="hs-comment">-- Let's take a closer look at the @foldr@ definition for lists, as given</span><span>
+</span><a name="line-705"></a><span class="hs-comment">-- earlier:</span><span>
+</span><a name="line-706"></a><span class="hs-comment">--</span><span>
+</span><a name="line-707"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-708"></a><span class="hs-comment">-- foldr f z (x:xs) = x \`f` foldr f z xs</span><span>
+</span><a name="line-709"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-710"></a><span class="hs-comment">--</span><span>
+</span><a name="line-711"></a><span class="hs-comment">-- @foldr@ invokes the fold step function @f@ as @f x (foldr f z xs)@. At each</span><span>
+</span><a name="line-712"></a><span class="hs-comment">-- invocation of @f@, @foldr@ gives us the next element in the input container</span><span>
+</span><a name="line-713"></a><span class="hs-comment">-- @x@ and a recursive expression @foldr f z xs@ representing the yet unbuilt</span><span>
+</span><a name="line-714"></a><span class="hs-comment">-- (lazy thunk) part of the output.</span><span>
+</span><a name="line-715"></a><span class="hs-comment">--</span><span>
+</span><a name="line-716"></a><span class="hs-comment">-- When @f x xs@ is lazy in @xs@ it can consume the input one element at a time</span><span>
+</span><a name="line-717"></a><span class="hs-comment">-- in FIFO order to build a lazy output expression. For example,</span><span>
+</span><a name="line-718"></a><span class="hs-comment">--</span><span>
+</span><a name="line-719"></a><span class="hs-comment">-- &gt; f x remaining = show x : remaining</span><span>
+</span><a name="line-720"></a><span class="hs-comment">--</span><span>
+</span><a name="line-721"></a><span class="hs-comment">-- @take 2 $ foldr f [] (1:2:undefined)@ would consume the input lazily on</span><span>
+</span><a name="line-722"></a><span class="hs-comment">-- demand, consuming only first two elements and resulting in [&quot;1&quot;, &quot;2&quot;]. @f@</span><span>
+</span><a name="line-723"></a><span class="hs-comment">-- can terminate recursion by not evaluating the @remaining@ part:</span><span>
+</span><a name="line-724"></a><span class="hs-comment">--</span><span>
+</span><a name="line-725"></a><span class="hs-comment">-- &gt; f 2 remaining = show 2 : []</span><span>
+</span><a name="line-726"></a><span class="hs-comment">-- &gt; f x remaining = show x : remaining</span><span>
+</span><a name="line-727"></a><span class="hs-comment">--</span><span>
+</span><a name="line-728"></a><span class="hs-comment">-- @f@ would terminate recursion whenever it sees element @2@ in the input.</span><span>
+</span><a name="line-729"></a><span class="hs-comment">-- Therefore, @take 2 $ foldr f [] (1:2:undefined)@ would work without any</span><span>
+</span><a name="line-730"></a><span class="hs-comment">-- problem.</span><span>
+</span><a name="line-731"></a><span class="hs-comment">--</span><span>
+</span><a name="line-732"></a><span class="hs-comment">-- On the other hand, if @f a b@ is strict in @b@ it would end up consuming the</span><span>
+</span><a name="line-733"></a><span class="hs-comment">-- whole input right away and expanding the recursive expression @b@ (i.e.</span><span>
+</span><a name="line-734"></a><span class="hs-comment">-- @foldr f z xs@) fully before it yields an output expression, resulting in</span><span>
+</span><a name="line-735"></a><span class="hs-comment">-- the following /right associated expression/:</span><span>
+</span><a name="line-736"></a><span class="hs-comment">--</span><span>
+</span><a name="line-737"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-738"></a><span class="hs-comment">-- foldr f z xs == x1 \`f` (x2 \`f` ...(xn \`f` z))</span><span>
+</span><a name="line-739"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-740"></a><span class="hs-comment">--</span><span>
+</span><a name="line-741"></a><span class="hs-comment">-- For example,</span><span>
+</span><a name="line-742"></a><span class="hs-comment">--</span><span>
+</span><a name="line-743"></a><span class="hs-comment">-- &gt; f x remaining = x + remaining</span><span>
+</span><a name="line-744"></a><span class="hs-comment">--</span><span>
+</span><a name="line-745"></a><span class="hs-comment">-- With this definition, @foldr f 0 [1..1000]@, would recurse completely until</span><span>
+</span><a name="line-746"></a><span class="hs-comment">-- it reaches the terminating case @... `f` (1000 `f` 0)@, and then</span><span>
+</span><a name="line-747"></a><span class="hs-comment">-- start reducing the whole expression from right to left, therefore, consuming</span><span>
+</span><a name="line-748"></a><span class="hs-comment">-- the input elements in LIFO order. Thus, such an evaluation would require</span><span>
+</span><a name="line-749"></a><span class="hs-comment">-- memory proportional to the size of input. Try out @foldr (+) 0 (map (\\x -&gt;</span><span>
+</span><a name="line-750"></a><span class="hs-comment">-- trace (show x) x) [1..10])@.</span><span>
+</span><a name="line-751"></a><span class="hs-comment">--</span><span>
+</span><a name="line-752"></a><span class="hs-comment">-- Notice the order of the arguments to the step function @f a b@. It follows</span><span>
+</span><a name="line-753"></a><span class="hs-comment">-- the order of @a@ and @b@ in the right associative recursive expression</span><span>
+</span><a name="line-754"></a><span class="hs-comment">-- generated by expanding @a \`f` b@.</span><span>
+</span><a name="line-755"></a><span class="hs-comment">--</span><span>
+</span><a name="line-756"></a><span class="hs-comment">-- A right fold is a pull fold, the step function is the puller, it can pull</span><span>
+</span><a name="line-757"></a><span class="hs-comment">-- more data from the input container by using its second argument in the</span><span>
+</span><a name="line-758"></a><span class="hs-comment">-- output expression or terminate pulling by not using it. As a corollary:</span><span>
+</span><a name="line-759"></a><span class="hs-comment">--</span><span>
+</span><a name="line-760"></a><span class="hs-comment">-- 1. a step function which is lazy in its second argument (usually functions</span><span>
+</span><a name="line-761"></a><span class="hs-comment">-- or constructors that build a lazy structure e.g. @(:)@) can pull lazily on</span><span>
+</span><a name="line-762"></a><span class="hs-comment">-- demand.</span><span>
+</span><a name="line-763"></a><span class="hs-comment">-- 2. a step function strict in its second argument (usually reducers e.g.</span><span>
+</span><a name="line-764"></a><span class="hs-comment">-- (+)) would end up pulling all of its input and buffer it in memory before</span><span>
+</span><a name="line-765"></a><span class="hs-comment">-- potentially reducing it.</span><span>
+</span><a name="line-766"></a><span class="hs-comment">--</span><span>
+</span><a name="line-767"></a><span class="hs-comment">-- A right fold is suitable for lazy reconstructions e.g.  transformation,</span><span>
+</span><a name="line-768"></a><span class="hs-comment">-- mapping, filtering of /right associated input structures/ (e.g. cons lists).</span><span>
+</span><a name="line-769"></a><span class="hs-comment">-- Whereas a left fold is suitable for reductions (e.g. summing a stream of</span><span>
+</span><a name="line-770"></a><span class="hs-comment">-- numbers) of right associated structures. Note that these roles will reverse</span><span>
+</span><a name="line-771"></a><span class="hs-comment">-- for left associated structures (e.g. snoc lists). Most of our observations</span><span>
+</span><a name="line-772"></a><span class="hs-comment">-- here assume right associated structures, lists being the canonical example.</span><span>
+</span><a name="line-773"></a><span class="hs-comment">--</span><span>
+</span><a name="line-774"></a><span class="hs-comment">-- 1. A lazy FIFO style pull using a right fold allows pulling a potentially</span><span>
+</span><a name="line-775"></a><span class="hs-comment">-- /infinite/ input stream lazily, perform transformations on it, and</span><span>
+</span><a name="line-776"></a><span class="hs-comment">-- reconstruct a new structure without having to buffer the whole structure. In</span><span>
+</span><a name="line-777"></a><span class="hs-comment">-- contrast, a left fold would buffer the entire structure before the</span><span>
+</span><a name="line-778"></a><span class="hs-comment">-- reconstructed structure can be consumed.</span><span>
+</span><a name="line-779"></a><span class="hs-comment">-- 2. Even if buffering the entire input structure is ok, we need to keep in</span><span>
+</span><a name="line-780"></a><span class="hs-comment">-- mind that a right fold reconstructs structures in a FIFO style, whereas a</span><span>
+</span><a name="line-781"></a><span class="hs-comment">-- left fold reconstructs in a LIFO style, thereby reversing the order of</span><span>
+</span><a name="line-782"></a><span class="hs-comment">-- elements..</span><span>
+</span><a name="line-783"></a><span class="hs-comment">-- 3. A right fold has termination control and therefore can terminate early</span><span>
+</span><a name="line-784"></a><span class="hs-comment">-- without going through the entire input, a left fold cannot terminate</span><span>
+</span><a name="line-785"></a><span class="hs-comment">-- without consuming all of its input.  For example, a right fold</span><span>
+</span><a name="line-786"></a><span class="hs-comment">-- implementation of 'or' can terminate as soon as it finds the first 'True'</span><span>
+</span><a name="line-787"></a><span class="hs-comment">-- element, whereas a left fold would necessarily go through the entire input</span><span>
+</span><a name="line-788"></a><span class="hs-comment">-- irrespective of that.</span><span>
+</span><a name="line-789"></a><span class="hs-comment">-- 4. Reduction (e.g. using (+) on a stream of numbers) using a right fold</span><span>
+</span><a name="line-790"></a><span class="hs-comment">-- occurs in a LIFO style, which means that the entire input gets buffered</span><span>
+</span><a name="line-791"></a><span class="hs-comment">-- before reduction starts. Whereas with a strict left fold reductions occur</span><span>
+</span><a name="line-792"></a><span class="hs-comment">-- incrementally in FIFO style. Therefore, a strict left fold is more suitable</span><span>
+</span><a name="line-793"></a><span class="hs-comment">-- for reductions.</span><span>
+</span><a name="line-794"></a><span class="hs-comment">--</span><span>
+</span><a name="line-795"></a><span>
+</span><a name="line-796"></a><span class="hs-comment">-- $leftfolds</span><span>
+</span><a name="line-797"></a><span class="hs-comment">--</span><span>
+</span><a name="line-798"></a><span class="hs-comment">-- Note that the observations below about the behavior of a left fold assume</span><span>
+</span><a name="line-799"></a><span class="hs-comment">-- that we are working on a right associated structure like cons lists and</span><span>
+</span><a name="line-800"></a><span class="hs-comment">-- streamly streams. If we are working on a left associated structure (e.g.</span><span>
+</span><a name="line-801"></a><span class="hs-comment">-- snoc lists) the roles of right and left folds would reverse.</span><span>
+</span><a name="line-802"></a><span class="hs-comment">--</span><span>
+</span><a name="line-803"></a><span class="hs-comment">-- Let's take a closer look at the @foldl@ definition for lists given above:</span><span>
+</span><a name="line-804"></a><span class="hs-comment">--</span><span>
+</span><a name="line-805"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-806"></a><span class="hs-comment">-- foldl f z (x:xs) = foldl f (z \`f` x) xs</span><span>
+</span><a name="line-807"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-808"></a><span class="hs-comment">--</span><span>
+</span><a name="line-809"></a><span class="hs-comment">-- @foldl@ calls itself recursively, in each call it invokes @f@ as @f z x@</span><span>
+</span><a name="line-810"></a><span class="hs-comment">-- providing it with the result accumulated till now @z@ (the state) and the</span><span>
+</span><a name="line-811"></a><span class="hs-comment">-- next element from the input container. First call to @f@ is supplied with</span><span>
+</span><a name="line-812"></a><span class="hs-comment">-- the initial value of the accumulator @z@ and each subsequent call uses the</span><span>
+</span><a name="line-813"></a><span class="hs-comment">-- output of the previous call to @f z x@.</span><span>
+</span><a name="line-814"></a><span class="hs-comment">--</span><span>
+</span><a name="line-815"></a><span class="hs-comment">-- &gt;&gt; foldl' (+) 0 [1,2,3]</span><span>
+</span><a name="line-816"></a><span class="hs-comment">-- &gt; 6</span><span>
+</span><a name="line-817"></a><span class="hs-comment">--</span><span>
+</span><a name="line-818"></a><span class="hs-comment">-- The recursive call at the head of the output expression is bound to be</span><span>
+</span><a name="line-819"></a><span class="hs-comment">-- evaluated until recursion terminates, therefore, a left fold always</span><span>
+</span><a name="line-820"></a><span class="hs-comment">-- /consumes the whole input container/. The following would result in an</span><span>
+</span><a name="line-821"></a><span class="hs-comment">-- error, even though the fold is not using the values at all:</span><span>
+</span><a name="line-822"></a><span class="hs-comment">--</span><span>
+</span><a name="line-823"></a><span class="hs-comment">-- &gt;&gt; foldl' (\_ _ -&gt; 0) 0 (1:undefined)</span><span>
+</span><a name="line-824"></a><span class="hs-comment">-- &gt; *** Exception: Prelude.undefined</span><span>
+</span><a name="line-825"></a><span class="hs-comment">--</span><span>
+</span><a name="line-826"></a><span class="hs-comment">-- As @foldl@ recurses, it builds the left associated expression shown below.</span><span>
+</span><a name="line-827"></a><span class="hs-comment">-- Notice, the order of the arguments to the step function @f b a@. It follows</span><span>
+</span><a name="line-828"></a><span class="hs-comment">-- the left associative recursive expression generated by expanding @b \`f` a@.</span><span>
+</span><a name="line-829"></a><span class="hs-comment">--</span><span>
+</span><a name="line-830"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-831"></a><span class="hs-comment">-- foldl f z xs == (((z \`f` x1) \`f` x2) ...) \`f` xn</span><span>
+</span><a name="line-832"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-833"></a><span class="hs-comment">--</span><span>
+</span><a name="line-834"></a><span class="hs-comment">--</span><span>
+</span><a name="line-835"></a><span class="hs-comment">-- The strict left fold @foldl'@ forces the reduction of its argument @z \`f`</span><span>
+</span><a name="line-836"></a><span class="hs-comment">-- x@ before using it, therefore it never builds the whole expression in</span><span>
+</span><a name="line-837"></a><span class="hs-comment">-- memory.  Thus, @z \`f` x1@ would get reduced to @z1@ and then @z1 \`f` x2@</span><span>
+</span><a name="line-838"></a><span class="hs-comment">-- would get reduced to @z2@ and so on, incrementally reducing the expression</span><span>
+</span><a name="line-839"></a><span class="hs-comment">-- from left to right as it recurses, consuming the input in FIFO order.  Try</span><span>
+</span><a name="line-840"></a><span class="hs-comment">-- out @foldl' (+) 0 (map (\\x -&gt; trace (show x) x) [1..10])@ to see how it</span><span>
+</span><a name="line-841"></a><span class="hs-comment">-- works. For example:</span><span>
+</span><a name="line-842"></a><span class="hs-comment">--</span><span>
+</span><a name="line-843"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-844"></a><span class="hs-comment">-- &gt; S.foldl' (+) 0 $ S.fromList [1,2,3,4]</span><span>
+</span><a name="line-845"></a><span class="hs-comment">-- 10</span><span>
+</span><a name="line-846"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-847"></a><span class="hs-comment">--</span><span>
+</span><a name="line-848"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-849"></a><span class="hs-comment">-- 0 + 1 = 1</span><span>
+</span><a name="line-850"></a><span class="hs-comment">-- 1 + 2 = 3</span><span>
+</span><a name="line-851"></a><span class="hs-comment">-- 3 + 3 = 6</span><span>
+</span><a name="line-852"></a><span class="hs-comment">-- 6 + 4 = 10</span><span>
+</span><a name="line-853"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-854"></a><span class="hs-comment">--</span><span>
+</span><a name="line-855"></a><span class="hs-comment">-- However, @foldl'@ evaluates the accumulator only to WHNF. It may further</span><span>
+</span><a name="line-856"></a><span class="hs-comment">-- help if the step function uses a strict data structure as accumulator to</span><span>
+</span><a name="line-857"></a><span class="hs-comment">-- improve performance and to keep the expression fully reduced at all times</span><span>
+</span><a name="line-858"></a><span class="hs-comment">-- during the fold.</span><span>
+</span><a name="line-859"></a><span class="hs-comment">--</span><span>
+</span><a name="line-860"></a><span class="hs-comment">-- A left fold can also build a new structure instead of reducing one if a</span><span>
+</span><a name="line-861"></a><span class="hs-comment">-- constructor is used as a fold step. However, it may not be very useful</span><span>
+</span><a name="line-862"></a><span class="hs-comment">-- because it will consume the whole input and construct the new structure in</span><span>
+</span><a name="line-863"></a><span class="hs-comment">-- memory before we can consume it. Thus the whole structure gets buffered in</span><span>
+</span><a name="line-864"></a><span class="hs-comment">-- memory. When the list constructor is used it would build a new list in</span><span>
+</span><a name="line-865"></a><span class="hs-comment">-- reverse (LIFO) order:</span><span>
+</span><a name="line-866"></a><span class="hs-comment">--</span><span>
+</span><a name="line-867"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-868"></a><span class="hs-comment">-- &gt; S.foldl' (flip (:)) [] $ S.fromList [1,2,3,4]</span><span>
+</span><a name="line-869"></a><span class="hs-comment">-- [4,3,2,1]</span><span>
+</span><a name="line-870"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-871"></a><span class="hs-comment">--</span><span>
+</span><a name="line-872"></a><span class="hs-comment">-- A left fold is a push fold. The producer pushes its contents to the step</span><span>
+</span><a name="line-873"></a><span class="hs-comment">-- function of the fold. The step function therefore has no control to stop the</span><span>
+</span><a name="line-874"></a><span class="hs-comment">-- input, it can only discard it if it does not need it. We can also consider a</span><span>
+</span><a name="line-875"></a><span class="hs-comment">-- left fold as a state machine where the state is store in the accumulator,</span><span>
+</span><a name="line-876"></a><span class="hs-comment">-- the state can be modified based on new inputs that are pushed to the fold.</span><span>
+</span><a name="line-877"></a><span class="hs-comment">--</span><span>
+</span><a name="line-878"></a><span class="hs-comment">-- In general, a strict left fold is a reducing fold, whereas a right fold is a</span><span>
+</span><a name="line-879"></a><span class="hs-comment">-- constructing fold. A strict left fold reduces in a FIFO order whereas it</span><span>
+</span><a name="line-880"></a><span class="hs-comment">-- constructs in a LIFO order, and vice-versa for the right fold. See the</span><span>
+</span><a name="line-881"></a><span class="hs-comment">-- documentation of 'foldrM' for a discussion on where a left or right fold is</span><span>
+</span><a name="line-882"></a><span class="hs-comment">-- suitable.</span><span>
+</span><a name="line-883"></a><span class="hs-comment">--</span><span>
+</span><a name="line-884"></a><span class="hs-comment">-- To perform a left fold lazily without having to consume all the input one</span><span>
+</span><a name="line-885"></a><span class="hs-comment">-- can use @scanl@ to stream the intermediate results of the fold and consume</span><span>
+</span><a name="line-886"></a><span class="hs-comment">-- the resulting stream lazily.</span><span>
+</span><a name="line-887"></a><span class="hs-comment">--</span><span>
+</span><a name="line-888"></a><span>
+</span><a name="line-889"></a><span class="hs-comment">-- $runningfolds</span><span>
+</span><a name="line-890"></a><span class="hs-comment">--</span><span>
+</span><a name="line-891"></a><span class="hs-comment">-- &quot;Streamly.Data.Fold&quot; module defines composable left folds which can be combined</span><span>
+</span><a name="line-892"></a><span class="hs-comment">-- together in many interesting ways. Those folds can be run using 'fold'.</span><span>
+</span><a name="line-893"></a><span class="hs-comment">-- The following two ways of folding are equivalent in functionality and</span><span>
+</span><a name="line-894"></a><span class="hs-comment">-- performance,</span><span>
+</span><a name="line-895"></a><span class="hs-comment">--</span><span>
+</span><a name="line-896"></a><span class="hs-comment">-- &gt;&gt;&gt; S.fold FL.sum (S.enumerateFromTo 1 100)</span><span>
+</span><a name="line-897"></a><span class="hs-comment">-- 5050</span><span>
+</span><a name="line-898"></a><span class="hs-comment">-- &gt;&gt;&gt; S.sum (S.enumerateFromTo 1 100)</span><span>
+</span><a name="line-899"></a><span class="hs-comment">-- 5050</span><span>
+</span><a name="line-900"></a><span class="hs-comment">--</span><span>
+</span><a name="line-901"></a><span class="hs-comment">-- However, left folds cannot terminate early even if it does not need to</span><span>
+</span><a name="line-902"></a><span class="hs-comment">-- consume more input to determine the result.  Therefore, the performance is</span><span>
+</span><a name="line-903"></a><span class="hs-comment">-- equivalent only for full folds like 'sum' and 'length'. For partial folds</span><span>
+</span><a name="line-904"></a><span class="hs-comment">-- like 'head' or 'any' the the folds defined in this module may be much more</span><span>
+</span><a name="line-905"></a><span class="hs-comment">-- efficient because they are implemented as right folds that terminate as soon</span><span>
+</span><a name="line-906"></a><span class="hs-comment">-- as we get the result. Note that when a full fold is composed with a partial</span><span>
+</span><a name="line-907"></a><span class="hs-comment">-- fold in parallel the performance is not impacted as we anyway have to</span><span>
+</span><a name="line-908"></a><span class="hs-comment">-- consume the whole stream due to the full fold.</span><span>
+</span><a name="line-909"></a><span class="hs-comment">--</span><span>
+</span><a name="line-910"></a><span class="hs-comment">-- &gt;&gt;&gt; S.head (1 `S.cons` undefined)</span><span>
+</span><a name="line-911"></a><span class="hs-comment">-- Just 1</span><span>
+</span><a name="line-912"></a><span class="hs-comment">-- &gt;&gt;&gt; S.fold FL.head (1 `S.cons` undefined)</span><span>
+</span><a name="line-913"></a><span class="hs-comment">-- *** Exception: Prelude.undefined</span><span>
+</span><a name="line-914"></a><span class="hs-comment">--</span><span>
+</span><a name="line-915"></a><span class="hs-comment">-- However, we can wrap the fold in a scan to convert it into a lazy stream of</span><span>
+</span><a name="line-916"></a><span class="hs-comment">-- fold steps. We can then terminate the stream whenever we want.  For example,</span><span>
+</span><a name="line-917"></a><span class="hs-comment">--</span><span>
+</span><a name="line-918"></a><span class="hs-comment">-- &gt;&gt;&gt; S.toList $ S.take 1 $ S.scan FL.head (1 `S.cons` undefined)</span><span>
+</span><a name="line-919"></a><span class="hs-comment">-- [Nothing]</span><span>
+</span><a name="line-920"></a><span class="hs-comment">--</span><span>
+</span><a name="line-921"></a><span class="hs-comment">-- The following example extracts the input stream up to a point where the</span><span>
+</span><a name="line-922"></a><span class="hs-comment">-- running average of elements is no more than 10:</span><span>
+</span><a name="line-923"></a><span class="hs-comment">--</span><span>
+</span><a name="line-924"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-925"></a><span class="hs-comment">-- &gt; S.toList</span><span>
+</span><a name="line-926"></a><span class="hs-comment">--   $ S.map (fromJust . fst)</span><span>
+</span><a name="line-927"></a><span class="hs-comment">--   $ S.takeWhile (\\(_,x) -&gt; x &lt;= 10)</span><span>
+</span><a name="line-928"></a><span class="hs-comment">--   $ S.postscan ((,) \&lt;$&gt; FL.last \&lt;*&gt; avg) (S.enumerateFromTo 1.0 100.0)</span><span>
+</span><a name="line-929"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-930"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-931"></a><span class="hs-comment">--  [1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0,9.0,10.0,11.0,12.0,13.0,14.0,15.0,16.0,17.0,18.0,19.0]</span><span>
+</span><a name="line-932"></a><span class="hs-comment">-- @</span><span>
+</span><a name="line-933"></a></pre></body></html>

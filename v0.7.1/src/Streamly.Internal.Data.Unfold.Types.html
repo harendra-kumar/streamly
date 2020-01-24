@@ -1,0 +1,32 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE CPP                       #-}</span><span>
+</span><a name="line-2"></a><span class="hs-pragma">{-# LANGUAGE ExistentialQuantification #-}</span><span>
+</span><a name="line-3"></a><span class="hs-pragma">{-# LANGUAGE FlexibleContexts          #-}</span><span>
+</span><a name="line-4"></a><span>
+</span><a name="line-5"></a><span class="hs-comment">-- |</span><span>
+</span><a name="line-6"></a><span class="hs-comment">-- Module      : Streamly.Internal.Data.Unfold.Types</span><span>
+</span><a name="line-7"></a><span class="hs-comment">-- Copyright   : (c) 2019 Composewell Technologies</span><span>
+</span><a name="line-8"></a><span class="hs-comment">-- License     : BSD3</span><span>
+</span><a name="line-9"></a><span class="hs-comment">-- Maintainer  : streamly@composewell.com</span><span>
+</span><a name="line-10"></a><span class="hs-comment">-- Stability   : experimental</span><span>
+</span><a name="line-11"></a><span class="hs-comment">-- Portability : GHC</span><span>
+</span><a name="line-12"></a><span>
+</span><a name="line-13"></a><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Streamly.Internal.Data.Unfold.Types</span><span>
+</span><a name="line-14"></a><span>    </span><span class="hs-special">(</span><span> </span><a href="Streamly.Internal.Data.Unfold.Types.html#Unfold"><span class="hs-identifier hs-type">Unfold</span></a><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><a name="line-15"></a><span>    </span><span class="hs-special">)</span><span>
+</span><a name="line-16"></a><span class="hs-keyword">where</span><span>
+</span><a name="line-17"></a><span>
+</span><a name="line-18"></a><span class="hs-keyword">import</span><span> </span><a href="Streamly.Internal.Data.Stream.StreamD.Type.html"><span class="hs-identifier">Streamly.Internal.Data.Stream.StreamD.Type</span></a><span> </span><span class="hs-special">(</span><a href="Streamly.Internal.Data.Stream.StreamD.Type.html#Step"><span class="hs-identifier hs-type">Step</span></a><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><a name="line-19"></a><span>
+</span><a name="line-20"></a><span class="hs-comment">------------------------------------------------------------------------------</span><span>
+</span><a name="line-21"></a><span class="hs-comment">-- Monadic Unfolds</span><span>
+</span><a name="line-22"></a><span class="hs-comment">------------------------------------------------------------------------------</span><span>
+</span><a name="line-23"></a><span>
+</span><a name="line-24"></a><span class="hs-comment">-- | An @Unfold m a b@ is a generator of a stream of values of type @b@ from a</span><span>
+</span><a name="line-25"></a><span class="hs-comment">-- seed of type 'a' in 'Monad' @m@.</span><span>
+</span><a name="line-26"></a><span class="hs-comment">--</span><span>
+</span><a name="line-27"></a><span class="hs-comment">-- @since 0.7.0</span><span>
+</span><a name="line-28"></a><span>
+</span><a name="line-29"></a><span class="hs-keyword">data</span><span> </span><a name="Unfold"><a href="Streamly.Internal.Data.Unfold.Types.html#Unfold"><span class="hs-identifier">Unfold</span></a></a><span> </span><a name="local-6989586621679160131"><a href="#local-6989586621679160131"><span class="hs-identifier">m</span></a></a><span> </span><a name="local-6989586621679160132"><a href="#local-6989586621679160132"><span class="hs-identifier">a</span></a></a><span> </span><a name="local-6989586621679160133"><a href="#local-6989586621679160133"><span class="hs-identifier">b</span></a></a><span> </span><span class="hs-glyph">=</span><span>
+</span><a name="line-30"></a><span>    </span><span class="hs-comment">-- | @Unfold step inject@</span><span>
+</span><a name="line-31"></a><span>    </span><span class="hs-keyword">forall</span><span> </span><a name="local-6989586621679160134"><a href="#local-6989586621679160134"><span class="hs-identifier">s</span></a></a><span class="hs-operator">.</span><span> </span><a name="Unfold"><a href="Streamly.Internal.Data.Unfold.Types.html#Unfold"><span class="hs-identifier">Unfold</span></a></a><span> </span><span class="hs-special">(</span><a href="#local-6989586621679160134"><span class="hs-identifier hs-type">s</span></a><span> </span><span class="hs-glyph">-&gt;</span><span> </span><a href="#local-6989586621679160131"><span class="hs-identifier hs-type">m</span></a><span> </span><span class="hs-special">(</span><a href="Streamly.Internal.Data.Stream.StreamD.Type.html#Step"><span class="hs-identifier hs-type">Step</span></a><span> </span><a href="#local-6989586621679160134"><span class="hs-identifier hs-type">s</span></a><span> </span><a href="#local-6989586621679160133"><span class="hs-identifier hs-type">b</span></a><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><a href="#local-6989586621679160132"><span class="hs-identifier hs-type">a</span></a><span> </span><span class="hs-glyph">-&gt;</span><span> </span><a href="#local-6989586621679160131"><span class="hs-identifier hs-type">m</span></a><span> </span><a href="#local-6989586621679160134"><span class="hs-identifier hs-type">s</span></a><span class="hs-special">)</span><span>
+</span><a name="line-32"></a></pre></body></html>

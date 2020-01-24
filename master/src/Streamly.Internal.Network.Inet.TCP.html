@@ -1,0 +1,992 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-cpp">#include &quot;inline.hs&quot;
+</span><span>
+</span><span id="line-3"></span><span class="hs-comment">-- |</span><span>
+</span><span id="line-4"></span><span class="hs-comment">-- Module      : Streamly.Internal.Network.Inet.TCP</span><span>
+</span><span id="line-5"></span><span class="hs-comment">-- Copyright   : (c) 2019 Composewell Technologies</span><span>
+</span><span id="line-6"></span><span class="hs-comment">--</span><span>
+</span><span id="line-7"></span><span class="hs-comment">-- License     : BSD3</span><span>
+</span><span id="line-8"></span><span class="hs-comment">-- Maintainer  : streamly@composewell.com</span><span>
+</span><span id="line-9"></span><span class="hs-comment">-- Stability   : experimental</span><span>
+</span><span id="line-10"></span><span class="hs-comment">-- Portability : GHC</span><span>
+</span><span id="line-11"></span><span class="hs-comment">--</span><span>
+</span><span id="line-12"></span><span class="hs-comment">-- Combinators to build Inet/TCP clients and servers.</span><span>
+</span><span id="line-13"></span><span>
+</span><span id="line-14"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Streamly.Internal.Network.Inet.TCP</span><span>
+</span><span id="line-15"></span><span>    </span><span class="hs-special">(</span><span>
+</span><span id="line-16"></span><span>    </span><span class="annot"><span class="hs-comment">-- * TCP Servers</span></span><span>
+</span><span id="line-17"></span><span>    </span><span class="annot"><span class="hs-comment">-- ** Unfolds</span></span><span>
+</span><span id="line-18"></span><span>      </span><span class="annot"><a href="Streamly.Internal.Network.Inet.TCP.html#acceptOnAddr"><span class="hs-identifier">acceptOnAddr</span></a></span><span>
+</span><span id="line-19"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Network.Inet.TCP.html#acceptOnAddrWith"><span class="hs-identifier">acceptOnAddrWith</span></a></span><span>
+</span><span id="line-20"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Network.Inet.TCP.html#acceptOnPort"><span class="hs-identifier">acceptOnPort</span></a></span><span>
+</span><span id="line-21"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Network.Inet.TCP.html#acceptOnPortWith"><span class="hs-identifier">acceptOnPortWith</span></a></span><span>
+</span><span id="line-22"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Network.Inet.TCP.html#acceptOnPortLocal"><span class="hs-identifier">acceptOnPortLocal</span></a></span><span>
+</span><span id="line-23"></span><span>
+</span><span id="line-24"></span><span>    </span><span class="annot"><span class="hs-comment">-- ** Streams</span></span><span>
+</span><span id="line-25"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Network.Inet.TCP.html#connectionsOnAddr"><span class="hs-identifier">connectionsOnAddr</span></a></span><span>
+</span><span id="line-26"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Network.Inet.TCP.html#connectionsOnAddrWith"><span class="hs-identifier">connectionsOnAddrWith</span></a></span><span>
+</span><span id="line-27"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Network.Inet.TCP.html#connectionsOnPort"><span class="hs-identifier">connectionsOnPort</span></a></span><span>
+</span><span id="line-28"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Network.Inet.TCP.html#connectionsOnLocalHost"><span class="hs-identifier">connectionsOnLocalHost</span></a></span><span>
+</span><span id="line-29"></span><span>
+</span><span id="line-30"></span><span>    </span><span class="annot"><span class="hs-comment">-- * TCP clients</span></span><span>
+</span><span id="line-31"></span><span>    </span><span class="annot"><span class="hs-comment">-- | IP Address based operations.</span></span><span>
+</span><span id="line-32"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Network.Inet.TCP.html#connect"><span class="hs-identifier">connect</span></a></span><span>
+</span><span id="line-33"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Network.Inet.TCP.html#withConnectionM"><span class="hs-identifier">withConnectionM</span></a></span><span>
+</span><span id="line-34"></span><span>
+</span><span id="line-35"></span><span>    </span><span class="annot"><span class="hs-comment">-- ** Unfolds</span></span><span>
+</span><span id="line-36"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Network.Inet.TCP.html#usingConnection"><span class="hs-identifier">usingConnection</span></a></span><span>
+</span><span id="line-37"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Network.Inet.TCP.html#read"><span class="hs-identifier">read</span></a></span><span>
+</span><span id="line-38"></span><span>
+</span><span id="line-39"></span><span>    </span><span class="annot"><span class="hs-comment">-- ** Streams</span></span><span>
+</span><span id="line-40"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Network.Inet.TCP.html#withConnection"><span class="hs-identifier">withConnection</span></a></span><span>
+</span><span id="line-41"></span><span>    </span><span class="annot"><span class="hs-comment">-- *** Source</span></span><span>
+</span><span id="line-42"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Network.Inet.TCP.html#toBytes"><span class="hs-identifier">toBytes</span></a></span><span>
+</span><span id="line-43"></span><span>    </span><span class="hs-comment">-- , readUtf8</span><span>
+</span><span id="line-44"></span><span>    </span><span class="hs-comment">-- , readLines</span><span>
+</span><span id="line-45"></span><span>    </span><span class="hs-comment">-- , readFrames</span><span>
+</span><span id="line-46"></span><span>    </span><span class="hs-comment">-- , readByChunks</span><span>
+</span><span id="line-47"></span><span>
+</span><span id="line-48"></span><span>    </span><span class="hs-comment">-- -- * Array Read</span><span>
+</span><span id="line-49"></span><span>    </span><span class="hs-comment">-- , readArrayUpto</span><span>
+</span><span id="line-50"></span><span>    </span><span class="hs-comment">-- , readArrayOf</span><span>
+</span><span id="line-51"></span><span>
+</span><span id="line-52"></span><span>    </span><span class="hs-comment">-- , readChunksUpto</span><span>
+</span><span id="line-53"></span><span>    </span><span class="hs-comment">-- , readChunksOf</span><span>
+</span><span id="line-54"></span><span>    </span><span class="hs-comment">-- , readChunks</span><span>
+</span><span id="line-55"></span><span>
+</span><span id="line-56"></span><span>    </span><span class="annot"><span class="hs-comment">-- *** Sink</span></span><span>
+</span><span id="line-57"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Network.Inet.TCP.html#write"><span class="hs-identifier">write</span></a></span><span>
+</span><span id="line-58"></span><span>    </span><span class="hs-comment">-- , writeUtf8</span><span>
+</span><span id="line-59"></span><span>    </span><span class="hs-comment">-- , writeUtf8ByLines</span><span>
+</span><span id="line-60"></span><span>    </span><span class="hs-comment">-- , writeByFrames</span><span>
+</span><span id="line-61"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Network.Inet.TCP.html#writeWithBufferOf"><span class="hs-identifier">writeWithBufferOf</span></a></span><span>
+</span><span id="line-62"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Network.Inet.TCP.html#fromBytes"><span class="hs-identifier">fromBytes</span></a></span><span>
+</span><span id="line-63"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Network.Inet.TCP.html#fromBytesWithBufferOf"><span class="hs-identifier">fromBytesWithBufferOf</span></a></span><span>
+</span><span id="line-64"></span><span>
+</span><span id="line-65"></span><span>    </span><span class="hs-comment">-- -- * Array Write</span><span>
+</span><span id="line-66"></span><span>    </span><span class="hs-comment">-- , writeArray</span><span>
+</span><span id="line-67"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Network.Inet.TCP.html#writeChunks"><span class="hs-identifier">writeChunks</span></a></span><span>
+</span><span id="line-68"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Network.Inet.TCP.html#fromChunks"><span class="hs-identifier">fromChunks</span></a></span><span>
+</span><span id="line-69"></span><span>
+</span><span id="line-70"></span><span>    </span><span class="annot"><span class="hs-comment">-- ** Transformation</span></span><span>
+</span><span id="line-71"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Network.Inet.TCP.html#transformBytesWith"><span class="hs-identifier">transformBytesWith</span></a></span><span>
+</span><span id="line-72"></span><span>    </span><span class="hs-comment">{-
+    -- ** Sink Servers
+
+    -- These abstractions can be applied to any setting where we need to do a
+    -- sink processing of multiple streams e.g. output from multiple processes
+    -- or data coming from multiple files.
+
+    -- handle connections concurrently using a specified fold
+    -- , handleConnections
+
+    -- handle frames concurrently using a specified fold
+    , handleFrames
+
+    -- merge frames from all connection into a single stream. Frames can be
+    -- created by a specified fold.
+    , mergeFrames
+
+    -- * UDP Servers
+    , datagrams
+    , datagramsOn
+    -}</span><span>
+</span><span id="line-93"></span><span>    </span><span class="hs-special">)</span><span>
+</span><span id="line-94"></span><span class="hs-keyword">where</span><span>
+</span><span id="line-95"></span><span>
+</span><span id="line-96"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Exception</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">onException</span></span><span class="hs-special">)</span><span>
+</span><span id="line-97"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad.Catch</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">MonadCatch</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">MonadMask</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">bracket</span></span><span class="hs-special">)</span><span>
+</span><span id="line-98"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad.IO.Class</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">MonadIO</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-99"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Word</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Word8</span></span><span class="hs-special">)</span><span>
+</span><span id="line-100"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Network.Socket</span></span><span>
+</span><span id="line-101"></span><span>       </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Socket</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">PortNumber</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">SocketOption</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">Family</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">SockAddr</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-102"></span><span>        </span><span class="annot"><span class="hs-identifier">SocketType</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">defaultProtocol</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">maxListenQueue</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">tupleToHostAddress</span></span><span class="hs-special">,</span><span>
+</span><span id="line-103"></span><span>        </span><span class="annot"><span class="hs-identifier">socket</span></span><span class="hs-special">)</span><span>
+</span><span id="line-104"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Prelude</span></span><span> </span><span class="hs-keyword">hiding</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">read</span></span><span class="hs-special">)</span><span>
+</span><span id="line-105"></span><span>
+</span><span id="line-106"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Array.Foreign.Types.html"><span class="hs-identifier">Streamly.Internal.Data.Array.Foreign.Types</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.Array.Foreign.Types.html#Array"><span class="hs-identifier">Array</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Array.Foreign.Mut.Types.html#defaultChunkSize"><span class="hs-identifier">defaultChunkSize</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Array.Foreign.Types.html#writeNUnsafe"><span class="hs-identifier">writeNUnsafe</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-107"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Fold.Types.html"><span class="hs-identifier">Streamly.Internal.Data.Fold.Types</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.Fold.Types.html#Fold"><span class="hs-identifier">Fold</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-108"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.SVar.html"><span class="hs-identifier">Streamly.Internal.Data.SVar</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.SVar.html#fork"><span class="hs-identifier">fork</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-109"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Serial.html"><span class="hs-identifier">Streamly.Internal.Data.Stream.Serial</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.Stream.Serial.html#SerialT"><span class="hs-identifier">SerialT</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-110"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.StreamK.Type.html"><span class="hs-identifier">Streamly.Internal.Data.Stream.StreamK.Type</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.Stream.StreamK.Type.html#IsStream"><span class="hs-identifier">IsStream</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-111"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Tuple.Strict.html"><span class="hs-identifier">Streamly.Internal.Data.Tuple.Strict</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.Tuple.Strict.html#Tuple%27"><span class="hs-identifier">Tuple'</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-112"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Unfold.Types.html"><span class="hs-identifier">Streamly.Internal.Data.Unfold.Types</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.Unfold.Types.html#Unfold"><span class="hs-identifier">Unfold</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-113"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Streamly.Internal.Network.Socket.html"><span class="hs-identifier">Streamly.Internal.Network.Socket</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Network.Socket.html#SockSpec"><span class="hs-identifier">SockSpec</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Network.Socket.html#accept"><span class="hs-identifier">accept</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Network.Socket.html#connections"><span class="hs-identifier">connections</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-114"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Streamly.Prelude.html"><span class="hs-identifier">Streamly.Prelude</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.SVar.html#MonadAsync"><span class="hs-identifier">MonadAsync</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-115"></span><span>
+</span><span id="line-116"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad.Catch</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">MC</span></span><span>
+</span><span id="line-117"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Network.Socket</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Net</span></span><span>
+</span><span id="line-118"></span><span>
+</span><span id="line-119"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Unfold.html"><span class="hs-identifier">Streamly.Internal.Data.Unfold</span></a></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">UF</span></span><span>
+</span><span id="line-120"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Array.Foreign.html"><span class="hs-identifier">Streamly.Internal.Data.Array.Foreign</span></a></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">A</span></span><span>
+</span><span id="line-121"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Array.Stream.Foreign.html"><span class="hs-identifier">Streamly.Internal.Data.Array.Stream.Foreign</span></a></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">AS</span></span><span>
+</span><span id="line-122"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Fold.Types.html"><span class="hs-identifier">Streamly.Internal.Data.Fold.Types</span></a></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">FL</span></span><span>
+</span><span id="line-123"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><a href="Streamly.Prelude.html"><span class="hs-identifier">Streamly.Prelude</span></a></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">S</span></span><span>
+</span><span id="line-124"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><a href="Streamly.Network.Socket.html"><span class="hs-identifier">Streamly.Network.Socket</span></a></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">SK</span></span><span>
+</span><span id="line-125"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><a href="Streamly.Internal.Network.Socket.html"><span class="hs-identifier">Streamly.Internal.Network.Socket</span></a></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">ISK</span></span><span>
+</span><span id="line-126"></span><span>
+</span><span id="line-127"></span><span class="hs-comment">-------------------------------------------------------------------------------</span><span>
+</span><span id="line-128"></span><span class="hs-comment">-- Accept (unfolds)</span><span>
+</span><span id="line-129"></span><span class="hs-comment">-------------------------------------------------------------------------------</span><span>
+</span><span id="line-130"></span><span>
+</span><span id="line-131"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Streamly.Internal.Network.Inet.TCP.html#acceptOnAddrWith"><span class="hs-pragma hs-type">acceptOnAddrWith</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-132"></span><span id="local-6989586621679398618"><span class="annot"><a href="Streamly.Internal.Network.Inet.TCP.html#acceptOnAddrWith"><span class="hs-identifier hs-type">acceptOnAddrWith</span></a></span><span>
+</span><span id="line-133"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadIO</span></span><span> </span><span class="annot"><a href="#local-6989586621679398618"><span class="hs-identifier hs-type">m</span></a></span><span>
+</span><span id="line-134"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">SocketOption</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span class="hs-special">)</span><span class="hs-special">]</span><span>
+</span><span id="line-135"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Unfold.Types.html#Unfold"><span class="hs-identifier hs-type">Unfold</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679398618"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">PortNumber</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Socket</span></span></span><span>
+</span><span id="line-136"></span><span id="acceptOnAddrWith"><span class="annot"><span class="annottext">acceptOnAddrWith :: [(SocketOption, Int)]
+-&gt; Unfold m ((Word8, Word8, Word8, Word8), PortNumber) Socket
+</span><a href="Streamly.Internal.Network.Inet.TCP.html#acceptOnAddrWith"><span class="hs-identifier hs-var hs-var">acceptOnAddrWith</span></a></span></span><span> </span><span id="local-6989586621679398435"><span class="annot"><span class="annottext">opts :: [(SocketOption, Int)]
+</span><a href="#local-6989586621679398435"><span class="hs-identifier hs-var">opts</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(((Word8, Word8, Word8, Word8), PortNumber)
+ -&gt; (Int, SockSpec, SockAddr))
+-&gt; Unfold m (Int, SockSpec, SockAddr) Socket
+-&gt; Unfold m ((Word8, Word8, Word8, Word8), PortNumber) Socket
+forall a c (m :: * -&gt; *) b.
+(a -&gt; c) -&gt; Unfold m c b -&gt; Unfold m a b
+</span><a href="Streamly.Internal.Data.Unfold.Types.html#lmap"><span class="hs-identifier hs-var">UF.lmap</span></a></span><span> </span><span class="annot"><span class="annottext">((Word8, Word8, Word8, Word8), PortNumber)
+-&gt; (Int, SockSpec, SockAddr)
+</span><a href="#local-6989586621679398433"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">Unfold m (Int, SockSpec, SockAddr) Socket
+forall (m :: * -&gt; *).
+MonadIO m =&gt;
+Unfold m (Int, SockSpec, SockAddr) Socket
+</span><a href="Streamly.Internal.Network.Socket.html#accept"><span class="hs-identifier hs-var">accept</span></a></span><span>
+</span><span id="line-137"></span><span>    </span><span class="hs-keyword">where</span><span>
+</span><span id="line-138"></span><span>    </span><span id="local-6989586621679398433"><span class="annot"><span class="annottext">f :: ((Word8, Word8, Word8, Word8), PortNumber)
+-&gt; (Int, SockSpec, SockAddr)
+</span><a href="#local-6989586621679398433"><span class="hs-identifier hs-var hs-var">f</span></a></span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679398432"><span class="annot"><span class="annottext">addr :: (Word8, Word8, Word8, Word8)
+</span><a href="#local-6989586621679398432"><span class="hs-identifier hs-var">addr</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679398431"><span class="annot"><span class="annottext">port :: PortNumber
+</span><a href="#local-6989586621679398431"><span class="hs-identifier hs-var">port</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-139"></span><span>        </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-identifier hs-var">maxListenQueue</span></span><span>
+</span><span id="line-140"></span><span>        </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$WSockSpec :: Family
+-&gt; SocketType
+-&gt; ProtocolNumber
+-&gt; [(SocketOption, Int)]
+-&gt; SockSpec
+</span><a href="Streamly.Internal.Network.Socket.html#%24WSockSpec"><span class="hs-identifier hs-type hs-type">SockSpec</span></a></span><span>
+</span><span id="line-141"></span><span>            </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">sockFamily :: Family
+</span><a href="Streamly.Internal.Network.Socket.html#sockFamily"><span class="hs-identifier hs-var">sockFamily</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Family
+</span><span class="hs-identifier hs-var">AF_INET</span></span><span>
+</span><span id="line-142"></span><span>            </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">sockType :: SocketType
+</span><a href="Streamly.Internal.Network.Socket.html#sockType"><span class="hs-identifier hs-var">sockType</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SocketType
+</span><span class="hs-identifier hs-var">Stream</span></span><span>
+</span><span id="line-143"></span><span>            </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">sockProto :: ProtocolNumber
+</span><a href="Streamly.Internal.Network.Socket.html#sockProto"><span class="hs-identifier hs-var">sockProto</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ProtocolNumber
+</span><span class="hs-identifier hs-var">defaultProtocol</span></span><span> </span><span class="hs-comment">-- TCP</span><span>
+</span><span id="line-144"></span><span>            </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">sockOpts :: [(SocketOption, Int)]
+</span><a href="Streamly.Internal.Network.Socket.html#sockOpts"><span class="hs-identifier hs-var">sockOpts</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[(SocketOption, Int)]
+</span><a href="#local-6989586621679398435"><span class="hs-identifier hs-var">opts</span></a></span><span>
+</span><span id="line-145"></span><span>            </span><span class="hs-special">}</span><span>
+</span><span id="line-146"></span><span>        </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">PortNumber -&gt; HostAddress -&gt; SockAddr
+</span><span class="hs-identifier hs-var">SockAddrInet</span></span><span> </span><span class="annot"><span class="annottext">PortNumber
+</span><a href="#local-6989586621679398431"><span class="hs-identifier hs-var">port</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(Word8, Word8, Word8, Word8) -&gt; HostAddress
+</span><span class="hs-identifier hs-var">tupleToHostAddress</span></span><span> </span><span class="annot"><span class="annottext">(Word8, Word8, Word8, Word8)
+</span><a href="#local-6989586621679398432"><span class="hs-identifier hs-var">addr</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-147"></span><span>        </span><span class="hs-special">)</span><span>
+</span><span id="line-148"></span><span>
+</span><span id="line-149"></span><span class="hs-comment">-- | Unfold a tuple @(ipAddr, port)@ into a stream of connected TCP sockets.</span><span>
+</span><span id="line-150"></span><span class="hs-comment">-- @ipAddr@ is the local IP address and @port@ is the local port on which</span><span>
+</span><span id="line-151"></span><span class="hs-comment">-- connections are accepted.</span><span>
+</span><span id="line-152"></span><span class="hs-comment">--</span><span>
+</span><span id="line-153"></span><span class="hs-comment">-- @since 0.7.0</span><span>
+</span><span id="line-154"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Streamly.Internal.Network.Inet.TCP.html#acceptOnAddr"><span class="hs-pragma hs-type">acceptOnAddr</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-155"></span><span id="local-6989586621679398611"><span class="annot"><a href="Streamly.Internal.Network.Inet.TCP.html#acceptOnAddr"><span class="hs-identifier hs-type">acceptOnAddr</span></a></span><span>
+</span><span id="line-156"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadIO</span></span><span> </span><span class="annot"><a href="#local-6989586621679398611"><span class="hs-identifier hs-type">m</span></a></span><span>
+</span><span id="line-157"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Unfold.Types.html#Unfold"><span class="hs-identifier hs-type">Unfold</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679398611"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">PortNumber</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Socket</span></span></span><span>
+</span><span id="line-158"></span><span id="acceptOnAddr"><span class="annot"><span class="annottext">acceptOnAddr :: Unfold m ((Word8, Word8, Word8, Word8), PortNumber) Socket
+</span><a href="Streamly.Internal.Network.Inet.TCP.html#acceptOnAddr"><span class="hs-identifier hs-var hs-var">acceptOnAddr</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[(SocketOption, Int)]
+-&gt; Unfold m ((Word8, Word8, Word8, Word8), PortNumber) Socket
+forall (m :: * -&gt; *).
+MonadIO m =&gt;
+[(SocketOption, Int)]
+-&gt; Unfold m ((Word8, Word8, Word8, Word8), PortNumber) Socket
+</span><a href="Streamly.Internal.Network.Inet.TCP.html#acceptOnAddrWith"><span class="hs-identifier hs-var">acceptOnAddrWith</span></a></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-159"></span><span>
+</span><span id="line-160"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Streamly.Internal.Network.Inet.TCP.html#acceptOnPortWith"><span class="hs-pragma hs-type">acceptOnPortWith</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-161"></span><span id="local-6989586621679398421"><span class="annot"><a href="Streamly.Internal.Network.Inet.TCP.html#acceptOnPortWith"><span class="hs-identifier hs-type">acceptOnPortWith</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadIO</span></span><span> </span><span class="annot"><a href="#local-6989586621679398421"><span class="hs-identifier hs-type">m</span></a></span><span>
+</span><span id="line-162"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">SocketOption</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span class="hs-special">)</span><span class="hs-special">]</span><span>
+</span><span id="line-163"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Unfold.Types.html#Unfold"><span class="hs-identifier hs-type">Unfold</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679398421"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">PortNumber</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Socket</span></span></span><span>
+</span><span id="line-164"></span><span id="acceptOnPortWith"><span class="annot"><span class="annottext">acceptOnPortWith :: [(SocketOption, Int)] -&gt; Unfold m PortNumber Socket
+</span><a href="Streamly.Internal.Network.Inet.TCP.html#acceptOnPortWith"><span class="hs-identifier hs-var hs-var">acceptOnPortWith</span></a></span></span><span> </span><span id="local-6989586621679398420"><span class="annot"><span class="annottext">opts :: [(SocketOption, Int)]
+</span><a href="#local-6989586621679398420"><span class="hs-identifier hs-var">opts</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Unfold m ((Word8, Word8, Word8, Word8), PortNumber) Socket
+-&gt; (Word8, Word8, Word8, Word8) -&gt; Unfold m PortNumber Socket
+forall (m :: * -&gt; *) a b c. Unfold m (a, b) c -&gt; a -&gt; Unfold m b c
+</span><a href="Streamly.Internal.Data.Unfold.html#supplyFirst"><span class="hs-identifier hs-var">UF.supplyFirst</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[(SocketOption, Int)]
+-&gt; Unfold m ((Word8, Word8, Word8, Word8), PortNumber) Socket
+forall (m :: * -&gt; *).
+MonadIO m =&gt;
+[(SocketOption, Int)]
+-&gt; Unfold m ((Word8, Word8, Word8, Word8), PortNumber) Socket
+</span><a href="Streamly.Internal.Network.Inet.TCP.html#acceptOnAddrWith"><span class="hs-identifier hs-var">acceptOnAddrWith</span></a></span><span> </span><span class="annot"><span class="annottext">[(SocketOption, Int)]
+</span><a href="#local-6989586621679398420"><span class="hs-identifier hs-var">opts</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-number">0</span></span><span class="hs-special">,</span><span class="annot"><span class="hs-number">0</span></span><span class="hs-special">,</span><span class="annot"><span class="hs-number">0</span></span><span class="hs-special">,</span><span class="annot"><span class="hs-number">0</span></span><span class="hs-special">)</span><span>
+</span><span id="line-165"></span><span>
+</span><span id="line-166"></span><span class="hs-comment">-- | Like 'acceptOnAddr' but binds on the IPv4 address @0.0.0.0@ i.e.  on all</span><span>
+</span><span id="line-167"></span><span class="hs-comment">-- IPv4 addresses/interfaces of the machine and listens for TCP connections on</span><span>
+</span><span id="line-168"></span><span class="hs-comment">-- the specified port.</span><span>
+</span><span id="line-169"></span><span class="hs-comment">--</span><span>
+</span><span id="line-170"></span><span class="hs-comment">-- &gt; acceptOnPort = UF.supplyFirst acceptOnAddr (0,0,0,0)</span><span>
+</span><span id="line-171"></span><span class="hs-comment">--</span><span>
+</span><span id="line-172"></span><span class="hs-comment">-- @since 0.7.0</span><span>
+</span><span id="line-173"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Streamly.Internal.Network.Inet.TCP.html#acceptOnPort"><span class="hs-pragma hs-type">acceptOnPort</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-174"></span><span id="local-6989586621679398418"><span class="annot"><a href="Streamly.Internal.Network.Inet.TCP.html#acceptOnPort"><span class="hs-identifier hs-type">acceptOnPort</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadIO</span></span><span> </span><span class="annot"><a href="#local-6989586621679398418"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Unfold.Types.html#Unfold"><span class="hs-identifier hs-type">Unfold</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679398418"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">PortNumber</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Socket</span></span></span><span>
+</span><span id="line-175"></span><span id="acceptOnPort"><span class="annot"><span class="annottext">acceptOnPort :: Unfold m PortNumber Socket
+</span><a href="Streamly.Internal.Network.Inet.TCP.html#acceptOnPort"><span class="hs-identifier hs-var hs-var">acceptOnPort</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Unfold m ((Word8, Word8, Word8, Word8), PortNumber) Socket
+-&gt; (Word8, Word8, Word8, Word8) -&gt; Unfold m PortNumber Socket
+forall (m :: * -&gt; *) a b c. Unfold m (a, b) c -&gt; a -&gt; Unfold m b c
+</span><a href="Streamly.Internal.Data.Unfold.html#supplyFirst"><span class="hs-identifier hs-var">UF.supplyFirst</span></a></span><span> </span><span class="annot"><span class="annottext">Unfold m ((Word8, Word8, Word8, Word8), PortNumber) Socket
+forall (m :: * -&gt; *).
+MonadIO m =&gt;
+Unfold m ((Word8, Word8, Word8, Word8), PortNumber) Socket
+</span><a href="Streamly.Internal.Network.Inet.TCP.html#acceptOnAddr"><span class="hs-identifier hs-var">acceptOnAddr</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-number">0</span></span><span class="hs-special">,</span><span class="annot"><span class="hs-number">0</span></span><span class="hs-special">,</span><span class="annot"><span class="hs-number">0</span></span><span class="hs-special">,</span><span class="annot"><span class="hs-number">0</span></span><span class="hs-special">)</span><span>
+</span><span id="line-176"></span><span>
+</span><span id="line-177"></span><span class="hs-comment">-- | Like 'acceptOnAddr' but binds on the localhost IPv4 address @127.0.0.1@.</span><span>
+</span><span id="line-178"></span><span class="hs-comment">-- The server can only be accessed from the local host, it cannot be accessed</span><span>
+</span><span id="line-179"></span><span class="hs-comment">-- from other hosts on the network.</span><span>
+</span><span id="line-180"></span><span class="hs-comment">--</span><span>
+</span><span id="line-181"></span><span class="hs-comment">-- &gt; acceptOnPortLocal = UF.supplyFirst acceptOnAddr (127,0,0,1)</span><span>
+</span><span id="line-182"></span><span class="hs-comment">--</span><span>
+</span><span id="line-183"></span><span class="hs-comment">-- @since 0.7.0</span><span>
+</span><span id="line-184"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Streamly.Internal.Network.Inet.TCP.html#acceptOnPortLocal"><span class="hs-pragma hs-type">acceptOnPortLocal</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-185"></span><span id="local-6989586621679398417"><span class="annot"><a href="Streamly.Internal.Network.Inet.TCP.html#acceptOnPortLocal"><span class="hs-identifier hs-type">acceptOnPortLocal</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadIO</span></span><span> </span><span class="annot"><a href="#local-6989586621679398417"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Unfold.Types.html#Unfold"><span class="hs-identifier hs-type">Unfold</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679398417"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">PortNumber</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Socket</span></span></span><span>
+</span><span id="line-186"></span><span id="acceptOnPortLocal"><span class="annot"><span class="annottext">acceptOnPortLocal :: Unfold m PortNumber Socket
+</span><a href="Streamly.Internal.Network.Inet.TCP.html#acceptOnPortLocal"><span class="hs-identifier hs-var hs-var">acceptOnPortLocal</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Unfold m ((Word8, Word8, Word8, Word8), PortNumber) Socket
+-&gt; (Word8, Word8, Word8, Word8) -&gt; Unfold m PortNumber Socket
+forall (m :: * -&gt; *) a b c. Unfold m (a, b) c -&gt; a -&gt; Unfold m b c
+</span><a href="Streamly.Internal.Data.Unfold.html#supplyFirst"><span class="hs-identifier hs-var">UF.supplyFirst</span></a></span><span> </span><span class="annot"><span class="annottext">Unfold m ((Word8, Word8, Word8, Word8), PortNumber) Socket
+forall (m :: * -&gt; *).
+MonadIO m =&gt;
+Unfold m ((Word8, Word8, Word8, Word8), PortNumber) Socket
+</span><a href="Streamly.Internal.Network.Inet.TCP.html#acceptOnAddr"><span class="hs-identifier hs-var">acceptOnAddr</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-number">127</span></span><span class="hs-special">,</span><span class="annot"><span class="hs-number">0</span></span><span class="hs-special">,</span><span class="annot"><span class="hs-number">0</span></span><span class="hs-special">,</span><span class="annot"><span class="hs-number">1</span></span><span class="hs-special">)</span><span>
+</span><span id="line-187"></span><span>
+</span><span id="line-188"></span><span class="hs-comment">-------------------------------------------------------------------------------</span><span>
+</span><span id="line-189"></span><span class="hs-comment">-- Accept (streams)</span><span>
+</span><span id="line-190"></span><span class="hs-comment">-------------------------------------------------------------------------------</span><span>
+</span><span id="line-191"></span><span>
+</span><span id="line-192"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Streamly.Internal.Network.Inet.TCP.html#connectionsOnAddrWith"><span class="hs-pragma hs-type">connectionsOnAddrWith</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-193"></span><span id="local-6989586621679398604"><span class="annot"><a href="Streamly.Internal.Network.Inet.TCP.html#connectionsOnAddrWith"><span class="hs-identifier hs-type">connectionsOnAddrWith</span></a></span><span>
+</span><span id="line-194"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.SVar.html#MonadAsync"><span class="hs-identifier hs-type">MonadAsync</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679398604"><span class="hs-identifier hs-type">m</span></a></span><span>
+</span><span id="line-195"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">SocketOption</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span class="hs-special">)</span><span class="hs-special">]</span><span>
+</span><span id="line-196"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span class="hs-special">)</span><span>
+</span><span id="line-197"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">PortNumber</span></span><span>
+</span><span id="line-198"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Serial.html#SerialT"><span class="hs-identifier hs-type">SerialT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679398604"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Socket</span></span></span><span>
+</span><span id="line-199"></span><span id="connectionsOnAddrWith"><span class="annot"><span class="annottext">connectionsOnAddrWith :: [(SocketOption, Int)]
+-&gt; (Word8, Word8, Word8, Word8) -&gt; PortNumber -&gt; SerialT m Socket
+</span><a href="Streamly.Internal.Network.Inet.TCP.html#connectionsOnAddrWith"><span class="hs-identifier hs-var hs-var">connectionsOnAddrWith</span></a></span></span><span> </span><span id="local-6989586621679398416"><span class="annot"><span class="annottext">opts :: [(SocketOption, Int)]
+</span><a href="#local-6989586621679398416"><span class="hs-identifier hs-var">opts</span></a></span></span><span> </span><span id="local-6989586621679398415"><span class="annot"><span class="annottext">addr :: (Word8, Word8, Word8, Word8)
+</span><a href="#local-6989586621679398415"><span class="hs-identifier hs-var">addr</span></a></span></span><span> </span><span id="local-6989586621679398414"><span class="annot"><span class="annottext">port :: PortNumber
+</span><a href="#local-6989586621679398414"><span class="hs-identifier hs-var">port</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-200"></span><span>    </span><span class="annot"><span class="annottext">Int -&gt; SockSpec -&gt; SockAddr -&gt; SerialT m Socket
+forall (m :: * -&gt; *).
+MonadAsync m =&gt;
+Int -&gt; SockSpec -&gt; SockAddr -&gt; SerialT m Socket
+</span><a href="Streamly.Internal.Network.Socket.html#connections"><span class="hs-identifier hs-var">connections</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-identifier hs-var">maxListenQueue</span></span><span> </span><span class="annot"><span class="annottext">$WSockSpec :: Family
+-&gt; SocketType
+-&gt; ProtocolNumber
+-&gt; [(SocketOption, Int)]
+-&gt; SockSpec
+</span><a href="Streamly.Internal.Network.Socket.html#%24WSockSpec"><span class="hs-identifier hs-type hs-type">SockSpec</span></a></span><span>
+</span><span id="line-201"></span><span>        </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">sockFamily :: Family
+</span><a href="Streamly.Internal.Network.Socket.html#sockFamily"><span class="hs-identifier hs-var">sockFamily</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Family
+</span><span class="hs-identifier hs-var">AF_INET</span></span><span>
+</span><span id="line-202"></span><span>        </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">sockType :: SocketType
+</span><a href="Streamly.Internal.Network.Socket.html#sockType"><span class="hs-identifier hs-var">sockType</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SocketType
+</span><span class="hs-identifier hs-var">Stream</span></span><span>
+</span><span id="line-203"></span><span>        </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">sockProto :: ProtocolNumber
+</span><a href="Streamly.Internal.Network.Socket.html#sockProto"><span class="hs-identifier hs-var">sockProto</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ProtocolNumber
+</span><span class="hs-identifier hs-var">defaultProtocol</span></span><span>
+</span><span id="line-204"></span><span>        </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">sockOpts :: [(SocketOption, Int)]
+</span><a href="Streamly.Internal.Network.Socket.html#sockOpts"><span class="hs-identifier hs-var">sockOpts</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[(SocketOption, Int)]
+</span><a href="#local-6989586621679398416"><span class="hs-identifier hs-var">opts</span></a></span><span>
+</span><span id="line-205"></span><span>        </span><span class="hs-special">}</span><span>
+</span><span id="line-206"></span><span>        </span><span class="hs-special">(</span><span class="annot"><span class="annottext">PortNumber -&gt; HostAddress -&gt; SockAddr
+</span><span class="hs-identifier hs-var">SockAddrInet</span></span><span> </span><span class="annot"><span class="annottext">PortNumber
+</span><a href="#local-6989586621679398414"><span class="hs-identifier hs-var">port</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(Word8, Word8, Word8, Word8) -&gt; HostAddress
+</span><span class="hs-identifier hs-var">tupleToHostAddress</span></span><span> </span><span class="annot"><span class="annottext">(Word8, Word8, Word8, Word8)
+</span><a href="#local-6989586621679398415"><span class="hs-identifier hs-var">addr</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-207"></span><span>
+</span><span id="line-208"></span><span class="hs-comment">-- | Like 'connections' but binds on the specified IPv4 address of the machine</span><span>
+</span><span id="line-209"></span><span class="hs-comment">-- and listens for TCP connections on the specified port.</span><span>
+</span><span id="line-210"></span><span class="hs-comment">--</span><span>
+</span><span id="line-211"></span><span class="hs-comment">-- /Internal/</span><span>
+</span><span id="line-212"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Streamly.Internal.Network.Inet.TCP.html#connectionsOnAddr"><span class="hs-pragma hs-type">connectionsOnAddr</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-213"></span><span id="local-6989586621679398602"><span class="annot"><a href="Streamly.Internal.Network.Inet.TCP.html#connectionsOnAddr"><span class="hs-identifier hs-type">connectionsOnAddr</span></a></span><span>
+</span><span id="line-214"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.SVar.html#MonadAsync"><span class="hs-identifier hs-type">MonadAsync</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679398602"><span class="hs-identifier hs-type">m</span></a></span><span>
+</span><span id="line-215"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span class="hs-special">)</span><span>
+</span><span id="line-216"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">PortNumber</span></span><span>
+</span><span id="line-217"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Serial.html#SerialT"><span class="hs-identifier hs-type">SerialT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679398602"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Socket</span></span></span><span>
+</span><span id="line-218"></span><span id="connectionsOnAddr"><span class="annot"><span class="annottext">connectionsOnAddr :: (Word8, Word8, Word8, Word8) -&gt; PortNumber -&gt; SerialT m Socket
+</span><a href="Streamly.Internal.Network.Inet.TCP.html#connectionsOnAddr"><span class="hs-identifier hs-var hs-var">connectionsOnAddr</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[(SocketOption, Int)]
+-&gt; (Word8, Word8, Word8, Word8) -&gt; PortNumber -&gt; SerialT m Socket
+forall (m :: * -&gt; *).
+MonadAsync m =&gt;
+[(SocketOption, Int)]
+-&gt; (Word8, Word8, Word8, Word8) -&gt; PortNumber -&gt; SerialT m Socket
+</span><a href="Streamly.Internal.Network.Inet.TCP.html#connectionsOnAddrWith"><span class="hs-identifier hs-var">connectionsOnAddrWith</span></a></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-219"></span><span>
+</span><span id="line-220"></span><span class="hs-comment">-- | Like 'connections' but binds on the IPv4 address @0.0.0.0@ i.e.  on all</span><span>
+</span><span id="line-221"></span><span class="hs-comment">-- IPv4 addresses/interfaces of the machine and listens for TCP connections on</span><span>
+</span><span id="line-222"></span><span class="hs-comment">-- the specified port.</span><span>
+</span><span id="line-223"></span><span class="hs-comment">--</span><span>
+</span><span id="line-224"></span><span class="hs-comment">-- &gt; connectionsOnPort = connectionsOnAddr (0,0,0,0)</span><span>
+</span><span id="line-225"></span><span class="hs-comment">--</span><span>
+</span><span id="line-226"></span><span class="hs-comment">-- /Internal/</span><span>
+</span><span id="line-227"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Streamly.Internal.Network.Inet.TCP.html#connectionsOnPort"><span class="hs-pragma hs-type">connectionsOnPort</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-228"></span><span id="local-6989586621679398413"><span class="annot"><a href="Streamly.Internal.Network.Inet.TCP.html#connectionsOnPort"><span class="hs-identifier hs-type">connectionsOnPort</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.SVar.html#MonadAsync"><span class="hs-identifier hs-type">MonadAsync</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679398413"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">PortNumber</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Serial.html#SerialT"><span class="hs-identifier hs-type">SerialT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679398413"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Socket</span></span></span><span>
+</span><span id="line-229"></span><span id="connectionsOnPort"><span class="annot"><span class="annottext">connectionsOnPort :: PortNumber -&gt; SerialT m Socket
+</span><a href="Streamly.Internal.Network.Inet.TCP.html#connectionsOnPort"><span class="hs-identifier hs-var hs-var">connectionsOnPort</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Word8, Word8, Word8, Word8) -&gt; PortNumber -&gt; SerialT m Socket
+forall (m :: * -&gt; *).
+MonadAsync m =&gt;
+(Word8, Word8, Word8, Word8) -&gt; PortNumber -&gt; SerialT m Socket
+</span><a href="Streamly.Internal.Network.Inet.TCP.html#connectionsOnAddr"><span class="hs-identifier hs-var">connectionsOnAddr</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-number">0</span></span><span class="hs-special">,</span><span class="annot"><span class="hs-number">0</span></span><span class="hs-special">,</span><span class="annot"><span class="hs-number">0</span></span><span class="hs-special">,</span><span class="annot"><span class="hs-number">0</span></span><span class="hs-special">)</span><span>
+</span><span id="line-230"></span><span>
+</span><span id="line-231"></span><span class="hs-comment">-- | Like 'connections' but binds on the localhost IPv4 address @127.0.0.1@.</span><span>
+</span><span id="line-232"></span><span class="hs-comment">-- The server can only be accessed from the local host, it cannot be accessed</span><span>
+</span><span id="line-233"></span><span class="hs-comment">-- from other hosts on the network.</span><span>
+</span><span id="line-234"></span><span class="hs-comment">--</span><span>
+</span><span id="line-235"></span><span class="hs-comment">-- &gt; connectionsOnLocalHost = connectionsOnAddr (127,0,0,1)</span><span>
+</span><span id="line-236"></span><span class="hs-comment">--</span><span>
+</span><span id="line-237"></span><span class="hs-comment">-- /Internal/</span><span>
+</span><span id="line-238"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Streamly.Internal.Network.Inet.TCP.html#connectionsOnLocalHost"><span class="hs-pragma hs-type">connectionsOnLocalHost</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-239"></span><span id="local-6989586621679398412"><span class="annot"><a href="Streamly.Internal.Network.Inet.TCP.html#connectionsOnLocalHost"><span class="hs-identifier hs-type">connectionsOnLocalHost</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.SVar.html#MonadAsync"><span class="hs-identifier hs-type">MonadAsync</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679398412"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">PortNumber</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Serial.html#SerialT"><span class="hs-identifier hs-type">SerialT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679398412"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Socket</span></span></span><span>
+</span><span id="line-240"></span><span id="connectionsOnLocalHost"><span class="annot"><span class="annottext">connectionsOnLocalHost :: PortNumber -&gt; SerialT m Socket
+</span><a href="Streamly.Internal.Network.Inet.TCP.html#connectionsOnLocalHost"><span class="hs-identifier hs-var hs-var">connectionsOnLocalHost</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Word8, Word8, Word8, Word8) -&gt; PortNumber -&gt; SerialT m Socket
+forall (m :: * -&gt; *).
+MonadAsync m =&gt;
+(Word8, Word8, Word8, Word8) -&gt; PortNumber -&gt; SerialT m Socket
+</span><a href="Streamly.Internal.Network.Inet.TCP.html#connectionsOnAddr"><span class="hs-identifier hs-var">connectionsOnAddr</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-number">127</span></span><span class="hs-special">,</span><span class="annot"><span class="hs-number">0</span></span><span class="hs-special">,</span><span class="annot"><span class="hs-number">0</span></span><span class="hs-special">,</span><span class="annot"><span class="hs-number">1</span></span><span class="hs-special">)</span><span>
+</span><span id="line-241"></span><span>
+</span><span id="line-242"></span><span class="hs-comment">-------------------------------------------------------------------------------</span><span>
+</span><span id="line-243"></span><span class="hs-comment">-- TCP Clients</span><span>
+</span><span id="line-244"></span><span class="hs-comment">-------------------------------------------------------------------------------</span><span>
+</span><span id="line-245"></span><span>
+</span><span id="line-246"></span><span class="hs-comment">-- | Connect to the specified IP address and port number. Returns a connected</span><span>
+</span><span id="line-247"></span><span class="hs-comment">-- socket or throws an exception.</span><span>
+</span><span id="line-248"></span><span class="hs-comment">--</span><span>
+</span><span id="line-249"></span><span class="hs-comment">-- @since 0.7.0</span><span>
+</span><span id="line-250"></span><span class="annot"><a href="Streamly.Internal.Network.Inet.TCP.html#connect"><span class="hs-identifier hs-type">connect</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">PortNumber</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Socket</span></span><span>
+</span><span id="line-251"></span><span id="connect"><span class="annot"><span class="annottext">connect :: (Word8, Word8, Word8, Word8) -&gt; PortNumber -&gt; IO Socket
+</span><a href="Streamly.Internal.Network.Inet.TCP.html#connect"><span class="hs-identifier hs-var hs-var">connect</span></a></span></span><span> </span><span id="local-6989586621679398411"><span class="annot"><span class="annottext">addr :: (Word8, Word8, Word8, Word8)
+</span><a href="#local-6989586621679398411"><span class="hs-identifier hs-var">addr</span></a></span></span><span> </span><span id="local-6989586621679398410"><span class="annot"><span class="annottext">port :: PortNumber
+</span><a href="#local-6989586621679398410"><span class="hs-identifier hs-var">port</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-252"></span><span>    </span><span id="local-6989586621679398409"><span class="annot"><span class="annottext">Socket
+</span><a href="#local-6989586621679398409"><span class="hs-identifier hs-var">sock</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Family -&gt; SocketType -&gt; ProtocolNumber -&gt; IO Socket
+</span><span class="hs-identifier hs-var">socket</span></span><span> </span><span class="annot"><span class="annottext">Family
+</span><span class="hs-identifier hs-var">AF_INET</span></span><span> </span><span class="annot"><span class="annottext">SocketType
+</span><span class="hs-identifier hs-var">Stream</span></span><span> </span><span class="annot"><span class="annottext">ProtocolNumber
+</span><span class="hs-identifier hs-var">defaultProtocol</span></span><span>
+</span><span id="line-253"></span><span>    </span><span class="annot"><span class="annottext">Socket -&gt; SockAddr -&gt; IO ()
+</span><span class="hs-identifier hs-var">Net.connect</span></span><span> </span><span class="annot"><span class="annottext">Socket
+</span><a href="#local-6989586621679398409"><span class="hs-identifier hs-var">sock</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">PortNumber -&gt; HostAddress -&gt; SockAddr
+</span><span class="hs-identifier hs-var">SockAddrInet</span></span><span> </span><span class="annot"><span class="annottext">PortNumber
+</span><a href="#local-6989586621679398410"><span class="hs-identifier hs-var">port</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(Word8, Word8, Word8, Word8) -&gt; HostAddress
+</span><span class="hs-identifier hs-var">Net.tupleToHostAddress</span></span><span> </span><span class="annot"><span class="annottext">(Word8, Word8, Word8, Word8)
+</span><a href="#local-6989586621679398411"><span class="hs-identifier hs-var">addr</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-254"></span><span>        </span><span class="annot"><span class="annottext">IO () -&gt; IO () -&gt; IO ()
+forall a b. IO a -&gt; IO b -&gt; IO a
+</span><span class="hs-operator hs-var">`onException`</span></span><span> </span><span class="annot"><span class="annottext">Socket -&gt; IO ()
+</span><span class="hs-identifier hs-var">Net.close</span></span><span> </span><span class="annot"><span class="annottext">Socket
+</span><a href="#local-6989586621679398409"><span class="hs-identifier hs-var">sock</span></a></span><span>
+</span><span id="line-255"></span><span>    </span><span class="annot"><span class="annottext">Socket -&gt; IO Socket
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">Socket
+</span><a href="#local-6989586621679398409"><span class="hs-identifier hs-var">sock</span></a></span><span>
+</span><span id="line-256"></span><span>
+</span><span id="line-257"></span><span class="hs-comment">-- | Connect to a remote host using IP address and port and run the supplied</span><span>
+</span><span id="line-258"></span><span class="hs-comment">-- action on the resulting socket.  'withConnectionM' makes sure that the</span><span>
+</span><span id="line-259"></span><span class="hs-comment">-- socket is closed on normal termination or in case of an exception.  If</span><span>
+</span><span id="line-260"></span><span class="hs-comment">-- closing the socket raises an exception, then this exception will be raised</span><span>
+</span><span id="line-261"></span><span class="hs-comment">-- by 'withConnectionM'.</span><span>
+</span><span id="line-262"></span><span class="hs-comment">--</span><span>
+</span><span id="line-263"></span><span class="hs-comment">-- /Internal/</span><span>
+</span><span id="line-264"></span><span class="hs-pragma">{-# INLINABLE</span><span> </span><span class="annot"><a href="Streamly.Internal.Network.Inet.TCP.html#withConnectionM"><span class="hs-pragma hs-type">withConnectionM</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-265"></span><span id="local-6989586621679398406"><span class="annot"><a href="Streamly.Internal.Network.Inet.TCP.html#withConnectionM"><span class="hs-identifier hs-type">withConnectionM</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">MonadMask</span></span><span> </span><span class="annot"><a href="#local-6989586621679398406"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadIO</span></span><span> </span><span class="annot"><a href="#local-6989586621679398406"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-266"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">PortNumber</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Socket</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679398406"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679398406"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
+</span><span id="line-267"></span><span id="withConnectionM"><span class="annot"><span class="annottext">withConnectionM :: (Word8, Word8, Word8, Word8)
+-&gt; PortNumber -&gt; (Socket -&gt; m ()) -&gt; m ()
+</span><a href="Streamly.Internal.Network.Inet.TCP.html#withConnectionM"><span class="hs-identifier hs-var hs-var">withConnectionM</span></a></span></span><span> </span><span id="local-6989586621679398405"><span class="annot"><span class="annottext">addr :: (Word8, Word8, Word8, Word8)
+</span><a href="#local-6989586621679398405"><span class="hs-identifier hs-var">addr</span></a></span></span><span> </span><span id="local-6989586621679398404"><span class="annot"><span class="annottext">port :: PortNumber
+</span><a href="#local-6989586621679398404"><span class="hs-identifier hs-var">port</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-268"></span><span>    </span><span class="annot"><span class="annottext">m Socket -&gt; (Socket -&gt; m ()) -&gt; (Socket -&gt; m ()) -&gt; m ()
+forall (m :: * -&gt; *) a c b.
+MonadMask m =&gt;
+m a -&gt; (a -&gt; m c) -&gt; (a -&gt; m b) -&gt; m b
+</span><span class="hs-identifier hs-var">bracket</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">IO Socket -&gt; m Socket
+forall (m :: * -&gt; *) a. MonadIO m =&gt; IO a -&gt; m a
+</span><span class="hs-identifier hs-var">liftIO</span></span><span> </span><span class="annot"><span class="annottext">(IO Socket -&gt; m Socket) -&gt; IO Socket -&gt; m Socket
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">(Word8, Word8, Word8, Word8) -&gt; PortNumber -&gt; IO Socket
+</span><a href="Streamly.Internal.Network.Inet.TCP.html#connect"><span class="hs-identifier hs-var">connect</span></a></span><span> </span><span class="annot"><span class="annottext">(Word8, Word8, Word8, Word8)
+</span><a href="#local-6989586621679398405"><span class="hs-identifier hs-var">addr</span></a></span><span> </span><span class="annot"><span class="annottext">PortNumber
+</span><a href="#local-6989586621679398404"><span class="hs-identifier hs-var">port</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">IO () -&gt; m ()
+forall (m :: * -&gt; *) a. MonadIO m =&gt; IO a -&gt; m a
+</span><span class="hs-identifier hs-var">liftIO</span></span><span> </span><span class="annot"><span class="annottext">(IO () -&gt; m ()) -&gt; (Socket -&gt; IO ()) -&gt; Socket -&gt; m ()
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Socket -&gt; IO ()
+</span><span class="hs-identifier hs-var">Net.close</span></span><span class="hs-special">)</span><span>
+</span><span id="line-269"></span><span>
+</span><span id="line-270"></span><span class="hs-comment">-------------------------------------------------------------------------------</span><span>
+</span><span id="line-271"></span><span class="hs-comment">-- Connect (unfolds)</span><span>
+</span><span id="line-272"></span><span class="hs-comment">-------------------------------------------------------------------------------</span><span>
+</span><span id="line-273"></span><span>
+</span><span id="line-274"></span><span class="hs-comment">-- | Transform an 'Unfold' from a 'Socket' to an unfold from a remote IP</span><span>
+</span><span id="line-275"></span><span class="hs-comment">-- address and port. The resulting unfold opens a socket, uses it using the</span><span>
+</span><span id="line-276"></span><span class="hs-comment">-- supplied unfold and then makes sure that the socket is closed on normal</span><span>
+</span><span id="line-277"></span><span class="hs-comment">-- termination or in case of an exception.  If closing the socket raises an</span><span>
+</span><span id="line-278"></span><span class="hs-comment">-- exception, then this exception will be raised by 'usingConnection'.</span><span>
+</span><span id="line-279"></span><span class="hs-comment">--</span><span>
+</span><span id="line-280"></span><span class="hs-comment">-- /Internal/</span><span>
+</span><span id="line-281"></span><span class="hs-pragma">{-# INLINABLE</span><span> </span><span class="annot"><a href="Streamly.Internal.Network.Inet.TCP.html#usingConnection"><span class="hs-pragma hs-type">usingConnection</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-282"></span><span id="local-6989586621679398558"><span id="local-6989586621679398559"><span class="annot"><a href="Streamly.Internal.Network.Inet.TCP.html#usingConnection"><span class="hs-identifier hs-type">usingConnection</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">MonadCatch</span></span><span> </span><span class="annot"><a href="#local-6989586621679398559"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.SVar.html#MonadAsync"><span class="hs-identifier hs-type">MonadAsync</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679398559"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-283"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Unfold.Types.html#Unfold"><span class="hs-identifier hs-type">Unfold</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679398559"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Socket</span></span><span> </span><span class="annot"><a href="#local-6989586621679398558"><span class="hs-identifier hs-type">a</span></a></span><span>
+</span><span id="line-284"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Unfold.Types.html#Unfold"><span class="hs-identifier hs-type">Unfold</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679398559"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">PortNumber</span></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679398558"><span class="hs-identifier hs-type">a</span></a></span></span></span><span>
+</span><span id="line-285"></span><span id="usingConnection"><span class="annot"><span class="annottext">usingConnection :: Unfold m Socket a
+-&gt; Unfold m ((Word8, Word8, Word8, Word8), PortNumber) a
+</span><a href="Streamly.Internal.Network.Inet.TCP.html#usingConnection"><span class="hs-identifier hs-var hs-var">usingConnection</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-286"></span><span>    </span><span class="annot"><span class="annottext">(((Word8, Word8, Word8, Word8), PortNumber) -&gt; m Socket)
+-&gt; (Socket -&gt; m ())
+-&gt; Unfold m Socket a
+-&gt; Unfold m ((Word8, Word8, Word8, Word8), PortNumber) a
+forall (m :: * -&gt; *) a c d b.
+(MonadAsync m, MonadCatch m) =&gt;
+(a -&gt; m c) -&gt; (c -&gt; m d) -&gt; Unfold m c b -&gt; Unfold m a b
+</span><a href="Streamly.Internal.Data.Unfold.html#bracket"><span class="hs-identifier hs-var">UF.bracket</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span class="hs-special">(</span><span id="local-6989586621679398400"><span class="annot"><span class="annottext">addr :: (Word8, Word8, Word8, Word8)
+</span><a href="#local-6989586621679398400"><span class="hs-identifier hs-var">addr</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679398399"><span class="annot"><span class="annottext">port :: PortNumber
+</span><a href="#local-6989586621679398399"><span class="hs-identifier hs-var">port</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">IO Socket -&gt; m Socket
+forall (m :: * -&gt; *) a. MonadIO m =&gt; IO a -&gt; m a
+</span><span class="hs-identifier hs-var">liftIO</span></span><span> </span><span class="annot"><span class="annottext">(IO Socket -&gt; m Socket) -&gt; IO Socket -&gt; m Socket
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">(Word8, Word8, Word8, Word8) -&gt; PortNumber -&gt; IO Socket
+</span><a href="Streamly.Internal.Network.Inet.TCP.html#connect"><span class="hs-identifier hs-var">connect</span></a></span><span> </span><span class="annot"><span class="annottext">(Word8, Word8, Word8, Word8)
+</span><a href="#local-6989586621679398400"><span class="hs-identifier hs-var">addr</span></a></span><span> </span><span class="annot"><span class="annottext">PortNumber
+</span><a href="#local-6989586621679398399"><span class="hs-identifier hs-var">port</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-287"></span><span>               </span><span class="hs-special">(</span><span class="annot"><span class="annottext">IO () -&gt; m ()
+forall (m :: * -&gt; *) a. MonadIO m =&gt; IO a -&gt; m a
+</span><span class="hs-identifier hs-var">liftIO</span></span><span> </span><span class="annot"><span class="annottext">(IO () -&gt; m ()) -&gt; (Socket -&gt; IO ()) -&gt; Socket -&gt; m ()
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Socket -&gt; IO ()
+</span><span class="hs-identifier hs-var">Net.close</span></span><span class="hs-special">)</span><span>
+</span><span id="line-288"></span><span>
+</span><span id="line-289"></span><span class="hs-comment">-------------------------------------------------------------------------------</span><span>
+</span><span id="line-290"></span><span class="hs-comment">-- Connect (streams)</span><span>
+</span><span id="line-291"></span><span class="hs-comment">-------------------------------------------------------------------------------</span><span>
+</span><span id="line-292"></span><span>
+</span><span id="line-293"></span><span class="hs-comment">-- | @'withConnection' addr port act@ opens a connection to the specified IPv4</span><span>
+</span><span id="line-294"></span><span class="hs-comment">-- host address and port and passes the resulting socket handle to the</span><span>
+</span><span id="line-295"></span><span class="hs-comment">-- computation @act@.  The handle will be closed on exit from 'withConnection',</span><span>
+</span><span id="line-296"></span><span class="hs-comment">-- whether by normal termination or by raising an exception.  If closing the</span><span>
+</span><span id="line-297"></span><span class="hs-comment">-- handle raises an exception, then this exception will be raised by</span><span>
+</span><span id="line-298"></span><span class="hs-comment">-- 'withConnection' rather than any exception raised by 'act'.</span><span>
+</span><span id="line-299"></span><span class="hs-comment">--</span><span>
+</span><span id="line-300"></span><span class="hs-comment">-- /Internal/</span><span>
+</span><span id="line-301"></span><span class="hs-pragma">{-# INLINABLE</span><span> </span><span class="annot"><a href="Streamly.Internal.Network.Inet.TCP.html#withConnection"><span class="hs-pragma hs-type">withConnection</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-302"></span><span id="local-6989586621679398546"><span id="local-6989586621679398547"><span id="local-6989586621679398548"><span class="annot"><a href="Streamly.Internal.Network.Inet.TCP.html#withConnection"><span class="hs-identifier hs-type">withConnection</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.Stream.StreamK.Type.html#IsStream"><span class="hs-identifier hs-type">IsStream</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679398548"><span class="hs-identifier hs-type">t</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadCatch</span></span><span> </span><span class="annot"><a href="#local-6989586621679398547"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.SVar.html#MonadAsync"><span class="hs-identifier hs-type">MonadAsync</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679398547"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-303"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">PortNumber</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Socket</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679398548"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679398547"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679398546"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679398548"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679398547"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679398546"><span class="hs-identifier hs-type">a</span></a></span></span></span></span><span>
+</span><span id="line-304"></span><span id="withConnection"><span class="annot"><span class="annottext">withConnection :: (Word8, Word8, Word8, Word8)
+-&gt; PortNumber -&gt; (Socket -&gt; t m a) -&gt; t m a
+</span><a href="Streamly.Internal.Network.Inet.TCP.html#withConnection"><span class="hs-identifier hs-var hs-var">withConnection</span></a></span></span><span> </span><span id="local-6989586621679398398"><span class="annot"><span class="annottext">addr :: (Word8, Word8, Word8, Word8)
+</span><a href="#local-6989586621679398398"><span class="hs-identifier hs-var">addr</span></a></span></span><span> </span><span id="local-6989586621679398397"><span class="annot"><span class="annottext">port :: PortNumber
+</span><a href="#local-6989586621679398397"><span class="hs-identifier hs-var">port</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-305"></span><span>    </span><span class="annot"><span class="annottext">m Socket -&gt; (Socket -&gt; m ()) -&gt; (Socket -&gt; t m a) -&gt; t m a
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) (m :: * -&gt; *) b c a.
+(IsStream t, MonadAsync m, MonadCatch m) =&gt;
+m b -&gt; (b -&gt; m c) -&gt; (b -&gt; t m a) -&gt; t m a
+</span><a href="Streamly.Internal.Data.Stream.IsStream.Exception.html#bracket"><span class="hs-identifier hs-var">S.bracket</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">IO Socket -&gt; m Socket
+forall (m :: * -&gt; *) a. MonadIO m =&gt; IO a -&gt; m a
+</span><span class="hs-identifier hs-var">liftIO</span></span><span> </span><span class="annot"><span class="annottext">(IO Socket -&gt; m Socket) -&gt; IO Socket -&gt; m Socket
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">(Word8, Word8, Word8, Word8) -&gt; PortNumber -&gt; IO Socket
+</span><a href="Streamly.Internal.Network.Inet.TCP.html#connect"><span class="hs-identifier hs-var">connect</span></a></span><span> </span><span class="annot"><span class="annottext">(Word8, Word8, Word8, Word8)
+</span><a href="#local-6989586621679398398"><span class="hs-identifier hs-var">addr</span></a></span><span> </span><span class="annot"><span class="annottext">PortNumber
+</span><a href="#local-6989586621679398397"><span class="hs-identifier hs-var">port</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">IO () -&gt; m ()
+forall (m :: * -&gt; *) a. MonadIO m =&gt; IO a -&gt; m a
+</span><span class="hs-identifier hs-var">liftIO</span></span><span> </span><span class="annot"><span class="annottext">(IO () -&gt; m ()) -&gt; (Socket -&gt; IO ()) -&gt; Socket -&gt; m ()
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Socket -&gt; IO ()
+</span><span class="hs-identifier hs-var">Net.close</span></span><span class="hs-special">)</span><span>
+</span><span id="line-306"></span><span>
+</span><span id="line-307"></span><span class="hs-comment">-------------------------------------------------------------------------------</span><span>
+</span><span id="line-308"></span><span class="hs-comment">-- Read Addr to Stream</span><span>
+</span><span id="line-309"></span><span class="hs-comment">-------------------------------------------------------------------------------</span><span>
+</span><span id="line-310"></span><span>
+</span><span id="line-311"></span><span class="hs-comment">-- | Read a stream from the supplied IPv4 host address and port number.</span><span>
+</span><span id="line-312"></span><span class="hs-comment">--</span><span>
+</span><span id="line-313"></span><span class="hs-comment">-- @since 0.7.0</span><span>
+</span><span id="line-314"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Streamly.Internal.Network.Inet.TCP.html#read"><span class="hs-pragma hs-type">read</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-315"></span><span id="local-6989586621679398395"><span class="annot"><a href="Streamly.Internal.Network.Inet.TCP.html#read"><span class="hs-identifier hs-type">read</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">MonadCatch</span></span><span> </span><span class="annot"><a href="#local-6989586621679398395"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.SVar.html#MonadAsync"><span class="hs-identifier hs-type">MonadAsync</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679398395"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-316"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Unfold.Types.html#Unfold"><span class="hs-identifier hs-type">Unfold</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679398395"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">PortNumber</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span></span><span>
+</span><span id="line-317"></span><span id="read"><span class="annot"><span class="annottext">read :: Unfold m ((Word8, Word8, Word8, Word8), PortNumber) Word8
+</span><a href="Streamly.Internal.Network.Inet.TCP.html#read"><span class="hs-identifier hs-var hs-var">read</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Unfold m ((Word8, Word8, Word8, Word8), PortNumber) (Array Word8)
+-&gt; Unfold m (Array Word8) Word8
+-&gt; Unfold m ((Word8, Word8, Word8, Word8), PortNumber) Word8
+forall (m :: * -&gt; *) a b c.
+Monad m =&gt;
+Unfold m a b -&gt; Unfold m b c -&gt; Unfold m a c
+</span><a href="Streamly.Internal.Data.Unfold.html#concat"><span class="hs-identifier hs-var">UF.concat</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Unfold m Socket (Array Word8)
+-&gt; Unfold
+     m ((Word8, Word8, Word8, Word8), PortNumber) (Array Word8)
+forall (m :: * -&gt; *) a.
+(MonadCatch m, MonadAsync m) =&gt;
+Unfold m Socket a
+-&gt; Unfold m ((Word8, Word8, Word8, Word8), PortNumber) a
+</span><a href="Streamly.Internal.Network.Inet.TCP.html#usingConnection"><span class="hs-identifier hs-var">usingConnection</span></a></span><span> </span><span class="annot"><span class="annottext">Unfold m Socket (Array Word8)
+forall (m :: * -&gt; *). MonadIO m =&gt; Unfold m Socket (Array Word8)
+</span><a href="Streamly.Internal.Network.Socket.html#readChunks"><span class="hs-identifier hs-var">ISK.readChunks</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Unfold m (Array Word8) Word8
+forall (m :: * -&gt; *) a.
+(Monad m, Storable a) =&gt;
+Unfold m (Array a) a
+</span><a href="Streamly.Internal.Data.Array.Foreign.html#read"><span class="hs-identifier hs-var">A.read</span></a></span><span>
+</span><span id="line-318"></span><span>
+</span><span id="line-319"></span><span class="hs-comment">-- | Read a stream from the supplied IPv4 host address and port number.</span><span>
+</span><span id="line-320"></span><span class="hs-comment">--</span><span>
+</span><span id="line-321"></span><span class="hs-comment">-- @since 0.7.0</span><span>
+</span><span id="line-322"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Streamly.Internal.Network.Inet.TCP.html#toBytes"><span class="hs-pragma hs-type">toBytes</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-323"></span><span id="local-6989586621679398390"><span id="local-6989586621679398391"><span class="annot"><a href="Streamly.Internal.Network.Inet.TCP.html#toBytes"><span class="hs-identifier hs-type">toBytes</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.Stream.StreamK.Type.html#IsStream"><span class="hs-identifier hs-type">IsStream</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679398391"><span class="hs-identifier hs-type">t</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadCatch</span></span><span> </span><span class="annot"><a href="#local-6989586621679398390"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.SVar.html#MonadAsync"><span class="hs-identifier hs-type">MonadAsync</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679398390"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-324"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">PortNumber</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679398391"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679398390"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span></span></span><span>
+</span><span id="line-325"></span><span id="toBytes"><span class="annot"><span class="annottext">toBytes :: (Word8, Word8, Word8, Word8) -&gt; PortNumber -&gt; t m Word8
+</span><a href="Streamly.Internal.Network.Inet.TCP.html#toBytes"><span class="hs-identifier hs-var hs-var">toBytes</span></a></span></span><span> </span><span id="local-6989586621679398389"><span class="annot"><span class="annottext">addr :: (Word8, Word8, Word8, Word8)
+</span><a href="#local-6989586621679398389"><span class="hs-identifier hs-var">addr</span></a></span></span><span> </span><span id="local-6989586621679398388"><span class="annot"><span class="annottext">port :: PortNumber
+</span><a href="#local-6989586621679398388"><span class="hs-identifier hs-var">port</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">t m (Array Word8) -&gt; t m Word8
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) (m :: * -&gt; *) a.
+(IsStream t, MonadIO m, Storable a) =&gt;
+t m (Array a) -&gt; t m a
+</span><a href="Streamly.Internal.Data.Array.Stream.Foreign.html#concat"><span class="hs-identifier hs-var">AS.concat</span></a></span><span> </span><span class="annot"><span class="annottext">(t m (Array Word8) -&gt; t m Word8) -&gt; t m (Array Word8) -&gt; t m Word8
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">(Word8, Word8, Word8, Word8)
+-&gt; PortNumber -&gt; (Socket -&gt; t m (Array Word8)) -&gt; t m (Array Word8)
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) (m :: * -&gt; *) a.
+(IsStream t, MonadCatch m, MonadAsync m) =&gt;
+(Word8, Word8, Word8, Word8)
+-&gt; PortNumber -&gt; (Socket -&gt; t m a) -&gt; t m a
+</span><a href="Streamly.Internal.Network.Inet.TCP.html#withConnection"><span class="hs-identifier hs-var">withConnection</span></a></span><span> </span><span class="annot"><span class="annottext">(Word8, Word8, Word8, Word8)
+</span><a href="#local-6989586621679398389"><span class="hs-identifier hs-var">addr</span></a></span><span> </span><span class="annot"><span class="annottext">PortNumber
+</span><a href="#local-6989586621679398388"><span class="hs-identifier hs-var">port</span></a></span><span> </span><span class="annot"><span class="annottext">Socket -&gt; t m (Array Word8)
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) (m :: * -&gt; *).
+(IsStream t, MonadIO m) =&gt;
+Socket -&gt; t m (Array Word8)
+</span><a href="Streamly.Internal.Network.Socket.html#toChunks"><span class="hs-identifier hs-var">ISK.toChunks</span></a></span><span>
+</span><span id="line-326"></span><span>
+</span><span id="line-327"></span><span class="hs-comment">-------------------------------------------------------------------------------</span><span>
+</span><span id="line-328"></span><span class="hs-comment">-- Writing</span><span>
+</span><span id="line-329"></span><span class="hs-comment">-------------------------------------------------------------------------------</span><span>
+</span><span id="line-330"></span><span>
+</span><span id="line-331"></span><span class="hs-comment">-- | Write a stream of arrays to the supplied IPv4 host address and port</span><span>
+</span><span id="line-332"></span><span class="hs-comment">-- number.</span><span>
+</span><span id="line-333"></span><span class="hs-comment">--</span><span>
+</span><span id="line-334"></span><span class="hs-comment">-- @since 0.7.0</span><span>
+</span><span id="line-335"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Streamly.Internal.Network.Inet.TCP.html#fromChunks"><span class="hs-pragma hs-type">fromChunks</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-336"></span><span id="local-6989586621679398502"><span class="annot"><a href="Streamly.Internal.Network.Inet.TCP.html#fromChunks"><span class="hs-identifier hs-type">fromChunks</span></a></span><span>
+</span><span id="line-337"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">MonadCatch</span></span><span> </span><span class="annot"><a href="#local-6989586621679398502"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.SVar.html#MonadAsync"><span class="hs-identifier hs-type">MonadAsync</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679398502"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-338"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span class="hs-special">)</span><span>
+</span><span id="line-339"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">PortNumber</span></span><span>
+</span><span id="line-340"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Serial.html#SerialT"><span class="hs-identifier hs-type">SerialT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679398502"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.Array.Foreign.Types.html#Array"><span class="hs-identifier hs-type">Array</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span class="hs-special">)</span><span>
+</span><span id="line-341"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679398502"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
+</span><span id="line-342"></span><span id="fromChunks"><span class="annot"><span class="annottext">fromChunks :: (Word8, Word8, Word8, Word8)
+-&gt; PortNumber -&gt; SerialT m (Array Word8) -&gt; m ()
+</span><a href="Streamly.Internal.Network.Inet.TCP.html#fromChunks"><span class="hs-identifier hs-var hs-var">fromChunks</span></a></span></span><span> </span><span id="local-6989586621679398385"><span class="annot"><span class="annottext">addr :: (Word8, Word8, Word8, Word8)
+</span><a href="#local-6989586621679398385"><span class="hs-identifier hs-var">addr</span></a></span></span><span> </span><span id="local-6989586621679398384"><span class="annot"><span class="annottext">port :: PortNumber
+</span><a href="#local-6989586621679398384"><span class="hs-identifier hs-var">port</span></a></span></span><span> </span><span id="local-6989586621679398383"><span class="annot"><span class="annottext">xs :: SerialT m (Array Word8)
+</span><a href="#local-6989586621679398383"><span class="hs-identifier hs-var">xs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-343"></span><span>    </span><span class="annot"><span class="annottext">SerialT m () -&gt; m ()
+forall (m :: * -&gt; *) a. Monad m =&gt; SerialT m a -&gt; m ()
+</span><a href="Streamly.Internal.Data.Stream.IsStream.Eliminate.html#drain"><span class="hs-identifier hs-var">S.drain</span></a></span><span> </span><span class="annot"><span class="annottext">(SerialT m () -&gt; m ()) -&gt; SerialT m () -&gt; m ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">(Word8, Word8, Word8, Word8)
+-&gt; PortNumber -&gt; (Socket -&gt; SerialT m ()) -&gt; SerialT m ()
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) (m :: * -&gt; *) a.
+(IsStream t, MonadCatch m, MonadAsync m) =&gt;
+(Word8, Word8, Word8, Word8)
+-&gt; PortNumber -&gt; (Socket -&gt; t m a) -&gt; t m a
+</span><a href="Streamly.Internal.Network.Inet.TCP.html#withConnection"><span class="hs-identifier hs-var">withConnection</span></a></span><span> </span><span class="annot"><span class="annottext">(Word8, Word8, Word8, Word8)
+</span><a href="#local-6989586621679398385"><span class="hs-identifier hs-var">addr</span></a></span><span> </span><span class="annot"><span class="annottext">PortNumber
+</span><a href="#local-6989586621679398384"><span class="hs-identifier hs-var">port</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621679398381"><span class="annot"><span class="annottext">sk :: Socket
+</span><a href="#local-6989586621679398381"><span class="hs-identifier hs-var">sk</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">m () -&gt; SerialT m ()
+forall (m :: * -&gt; *) (t :: (* -&gt; *) -&gt; * -&gt; *) a.
+(Monad m, IsStream t) =&gt;
+m a -&gt; t m a
+</span><a href="Streamly.Internal.Data.Stream.IsStream.Common.html#yieldM"><span class="hs-identifier hs-var">S.yieldM</span></a></span><span> </span><span class="annot"><span class="annottext">(m () -&gt; SerialT m ()) -&gt; m () -&gt; SerialT m ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Socket -&gt; SerialT m (Array Word8) -&gt; m ()
+forall (m :: * -&gt; *) a.
+(MonadIO m, Storable a) =&gt;
+Socket -&gt; SerialT m (Array a) -&gt; m ()
+</span><a href="Streamly.Internal.Network.Socket.html#fromChunks"><span class="hs-identifier hs-var">ISK.fromChunks</span></a></span><span> </span><span class="annot"><span class="annottext">Socket
+</span><a href="#local-6989586621679398381"><span class="hs-identifier hs-var">sk</span></a></span><span> </span><span class="annot"><span class="annottext">SerialT m (Array Word8)
+</span><a href="#local-6989586621679398383"><span class="hs-identifier hs-var">xs</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-344"></span><span>
+</span><span id="line-345"></span><span class="hs-comment">-- | Write a stream of arrays to the supplied IPv4 host address and port</span><span>
+</span><span id="line-346"></span><span class="hs-comment">-- number.</span><span>
+</span><span id="line-347"></span><span class="hs-comment">--</span><span>
+</span><span id="line-348"></span><span class="hs-comment">-- @since 0.7.0</span><span>
+</span><span id="line-349"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Streamly.Internal.Network.Inet.TCP.html#writeChunks"><span class="hs-pragma hs-type">writeChunks</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-350"></span><span id="local-6989586621679398491"><span class="annot"><a href="Streamly.Internal.Network.Inet.TCP.html#writeChunks"><span class="hs-identifier hs-type">writeChunks</span></a></span><span>
+</span><span id="line-351"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.SVar.html#MonadAsync"><span class="hs-identifier hs-type">MonadAsync</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679398491"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadCatch</span></span><span> </span><span class="annot"><a href="#local-6989586621679398491"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-352"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span class="hs-special">)</span><span>
+</span><span id="line-353"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">PortNumber</span></span><span>
+</span><span id="line-354"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Fold.Types.html#Fold"><span class="hs-identifier hs-type">Fold</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679398491"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.Array.Foreign.Types.html#Array"><span class="hs-identifier hs-type">Array</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
+</span><span id="line-355"></span><span id="writeChunks"><span class="annot"><span class="annottext">writeChunks :: (Word8, Word8, Word8, Word8)
+-&gt; PortNumber -&gt; Fold m (Array Word8) ()
+</span><a href="Streamly.Internal.Network.Inet.TCP.html#writeChunks"><span class="hs-identifier hs-var hs-var">writeChunks</span></a></span></span><span> </span><span id="local-6989586621679398378"><span class="annot"><span class="annottext">addr :: (Word8, Word8, Word8, Word8)
+</span><a href="#local-6989586621679398378"><span class="hs-identifier hs-var">addr</span></a></span></span><span> </span><span id="local-6989586621679398377"><span class="annot"><span class="annottext">port :: PortNumber
+</span><a href="#local-6989586621679398377"><span class="hs-identifier hs-var">port</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Tuple' (Fold m (Array Word8) ()) Socket
+ -&gt; Array Word8
+ -&gt; m (Step (Tuple' (Fold m (Array Word8) ()) Socket) ()))
+-&gt; m (Step (Tuple' (Fold m (Array Word8) ()) Socket) ())
+-&gt; (Tuple' (Fold m (Array Word8) ()) Socket -&gt; m ())
+-&gt; Fold m (Array Word8) ()
+forall (m :: * -&gt; *) a b s.
+(s -&gt; a -&gt; m (Step s b))
+-&gt; m (Step s b) -&gt; (s -&gt; m b) -&gt; Fold m a b
+</span><a href="Streamly.Internal.Data.Fold.Types.html#Fold"><span class="hs-identifier hs-var">Fold</span></a></span><span> </span><span class="annot"><span class="annottext">Tuple' (Fold m (Array Word8) ()) Socket
+-&gt; Array Word8
+-&gt; m (Step (Tuple' (Fold m (Array Word8) ()) Socket) ())
+forall (m :: * -&gt; *) a b b.
+(MonadCatch m, MonadIO m) =&gt;
+Tuple' (Fold m a b) Socket
+-&gt; a -&gt; m (Step (Tuple' (Fold m a b) Socket) b)
+</span><a href="#local-6989586621679398375"><span class="hs-identifier hs-var">step</span></a></span><span> </span><span class="annot"><span class="annottext">m (Step (Tuple' (Fold m (Array Word8) ()) Socket) ())
+forall b. m (Step (Tuple' (Fold m (Array Word8) ()) Socket) b)
+</span><a href="#local-6989586621679398374"><span class="hs-identifier hs-var">initial</span></a></span><span> </span><span class="annot"><span class="annottext">Tuple' (Fold m (Array Word8) ()) Socket -&gt; m ()
+forall (m :: * -&gt; *) a b.
+MonadIO m =&gt;
+Tuple' (Fold m a b) Socket -&gt; m b
+</span><a href="#local-6989586621679398373"><span class="hs-identifier hs-var">extract</span></a></span><span>
+</span><span id="line-356"></span><span>    </span><span class="hs-keyword">where</span><span>
+</span><span id="line-357"></span><span>    </span><span id="local-6989586621679398374"><span class="annot"><span class="annottext">initial :: m (Step (Tuple' (Fold m (Array Word8) ()) Socket) b)
+</span><a href="#local-6989586621679398374"><span class="hs-identifier hs-var hs-var">initial</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-358"></span><span>        </span><span id="local-6989586621679398372"><span class="annot"><span class="annottext">Socket
+</span><a href="#local-6989586621679398372"><span class="hs-identifier hs-var">skt</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IO Socket -&gt; m Socket
+forall (m :: * -&gt; *) a. MonadIO m =&gt; IO a -&gt; m a
+</span><span class="hs-identifier hs-var">liftIO</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(Word8, Word8, Word8, Word8) -&gt; PortNumber -&gt; IO Socket
+</span><a href="Streamly.Internal.Network.Inet.TCP.html#connect"><span class="hs-identifier hs-var">connect</span></a></span><span> </span><span class="annot"><span class="annottext">(Word8, Word8, Word8, Word8)
+</span><a href="#local-6989586621679398378"><span class="hs-identifier hs-var">addr</span></a></span><span> </span><span class="annot"><span class="annottext">PortNumber
+</span><a href="#local-6989586621679398377"><span class="hs-identifier hs-var">port</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-359"></span><span>        </span><span id="local-6989586621679398371"><span class="annot"><span class="annottext">Fold m (Array Word8) ()
+</span><a href="#local-6989586621679398371"><span class="hs-identifier hs-var">fld</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Fold m (Array Word8) () -&gt; m (Fold m (Array Word8) ())
+forall (m :: * -&gt; *) a b. Monad m =&gt; Fold m a b -&gt; m (Fold m a b)
+</span><a href="Streamly.Internal.Data.Fold.Types.html#initialize"><span class="hs-identifier hs-var">FL.initialize</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Socket -&gt; Fold m (Array Word8) ()
+forall (m :: * -&gt; *) a.
+(MonadIO m, Storable a) =&gt;
+Socket -&gt; Fold m (Array a) ()
+</span><a href="Streamly.Internal.Network.Socket.html#writeChunks"><span class="hs-identifier hs-var">SK.writeChunks</span></a></span><span> </span><span class="annot"><span class="annottext">Socket
+</span><a href="#local-6989586621679398372"><span class="hs-identifier hs-var">skt</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">m (Fold m (Array Word8) ()) -&gt; m () -&gt; m (Fold m (Array Word8) ())
+forall (m :: * -&gt; *) a b. MonadCatch m =&gt; m a -&gt; m b -&gt; m a
+</span><span class="hs-operator hs-var">`MC.onException`</span></span><span> </span><span class="annot"><span class="annottext">IO () -&gt; m ()
+forall (m :: * -&gt; *) a. MonadIO m =&gt; IO a -&gt; m a
+</span><span class="hs-identifier hs-var">liftIO</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Socket -&gt; IO ()
+</span><span class="hs-identifier hs-var">Net.close</span></span><span> </span><span class="annot"><span class="annottext">Socket
+</span><a href="#local-6989586621679398372"><span class="hs-identifier hs-var">skt</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-360"></span><span>        </span><span class="annot"><span class="annottext">Step (Tuple' (Fold m (Array Word8) ()) Socket) b
+-&gt; m (Step (Tuple' (Fold m (Array Word8) ()) Socket) b)
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">(Step (Tuple' (Fold m (Array Word8) ()) Socket) b
+ -&gt; m (Step (Tuple' (Fold m (Array Word8) ()) Socket) b))
+-&gt; Step (Tuple' (Fold m (Array Word8) ()) Socket) b
+-&gt; m (Step (Tuple' (Fold m (Array Word8) ()) Socket) b)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Tuple' (Fold m (Array Word8) ()) Socket
+-&gt; Step (Tuple' (Fold m (Array Word8) ()) Socket) b
+forall s b. s -&gt; Step s b
+</span><a href="Streamly.Internal.Data.Fold.Types.html#Partial"><span class="hs-identifier hs-var">FL.Partial</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Fold m (Array Word8) ()
+-&gt; Socket -&gt; Tuple' (Fold m (Array Word8) ()) Socket
+forall a b. a -&gt; b -&gt; Tuple' a b
+</span><a href="Streamly.Internal.Data.Tuple.Strict.html#Tuple%27"><span class="hs-identifier hs-var">Tuple'</span></a></span><span> </span><span class="annot"><span class="annottext">Fold m (Array Word8) ()
+</span><a href="#local-6989586621679398371"><span class="hs-identifier hs-var">fld</span></a></span><span> </span><span class="annot"><span class="annottext">Socket
+</span><a href="#local-6989586621679398372"><span class="hs-identifier hs-var">skt</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-361"></span><span>    </span><span id="local-6989586621679398375"><span class="annot"><span class="annottext">step :: Tuple' (Fold m a b) Socket
+-&gt; a -&gt; m (Step (Tuple' (Fold m a b) Socket) b)
+</span><a href="#local-6989586621679398375"><span class="hs-identifier hs-var hs-var">step</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.Tuple.Strict.html#Tuple%27"><span class="hs-identifier hs-type">Tuple'</span></a></span><span> </span><span id="local-6989586621679398365"><span class="annot"><span class="annottext">fld :: Fold m a b
+</span><a href="#local-6989586621679398365"><span class="hs-identifier hs-var">fld</span></a></span></span><span> </span><span id="local-6989586621679398364"><span class="annot"><span class="annottext">skt :: Socket
+</span><a href="#local-6989586621679398364"><span class="hs-identifier hs-var">skt</span></a></span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621679398363"><span class="annot"><span class="annottext">x :: a
+</span><a href="#local-6989586621679398363"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-362"></span><span>        </span><span id="local-6989586621679398362"><span class="annot"><span class="annottext">Fold m a b
+</span><a href="#local-6989586621679398362"><span class="hs-identifier hs-var">r</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Fold m a b -&gt; a -&gt; m (Fold m a b)
+forall (m :: * -&gt; *) a b.
+Monad m =&gt;
+Fold m a b -&gt; a -&gt; m (Fold m a b)
+</span><a href="Streamly.Internal.Data.Fold.Types.html#runStep"><span class="hs-identifier hs-var">FL.runStep</span></a></span><span> </span><span class="annot"><span class="annottext">Fold m a b
+</span><a href="#local-6989586621679398365"><span class="hs-identifier hs-var">fld</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679398363"><span class="hs-identifier hs-var">x</span></a></span><span> </span><span class="annot"><span class="annottext">m (Fold m a b) -&gt; m () -&gt; m (Fold m a b)
+forall (m :: * -&gt; *) a b. MonadCatch m =&gt; m a -&gt; m b -&gt; m a
+</span><span class="hs-operator hs-var">`MC.onException`</span></span><span> </span><span class="annot"><span class="annottext">IO () -&gt; m ()
+forall (m :: * -&gt; *) a. MonadIO m =&gt; IO a -&gt; m a
+</span><span class="hs-identifier hs-var">liftIO</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Socket -&gt; IO ()
+</span><span class="hs-identifier hs-var">Net.close</span></span><span> </span><span class="annot"><span class="annottext">Socket
+</span><a href="#local-6989586621679398364"><span class="hs-identifier hs-var">skt</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-363"></span><span>        </span><span class="annot"><span class="annottext">Step (Tuple' (Fold m a b) Socket) b
+-&gt; m (Step (Tuple' (Fold m a b) Socket) b)
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">(Step (Tuple' (Fold m a b) Socket) b
+ -&gt; m (Step (Tuple' (Fold m a b) Socket) b))
+-&gt; Step (Tuple' (Fold m a b) Socket) b
+-&gt; m (Step (Tuple' (Fold m a b) Socket) b)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Tuple' (Fold m a b) Socket -&gt; Step (Tuple' (Fold m a b) Socket) b
+forall s b. s -&gt; Step s b
+</span><a href="Streamly.Internal.Data.Fold.Types.html#Partial"><span class="hs-identifier hs-var">FL.Partial</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Fold m a b -&gt; Socket -&gt; Tuple' (Fold m a b) Socket
+forall a b. a -&gt; b -&gt; Tuple' a b
+</span><a href="Streamly.Internal.Data.Tuple.Strict.html#Tuple%27"><span class="hs-identifier hs-var">Tuple'</span></a></span><span> </span><span class="annot"><span class="annottext">Fold m a b
+</span><a href="#local-6989586621679398362"><span class="hs-identifier hs-var">r</span></a></span><span> </span><span class="annot"><span class="annottext">Socket
+</span><a href="#local-6989586621679398364"><span class="hs-identifier hs-var">skt</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-364"></span><span>    </span><span id="local-6989586621679398373"><span class="annot"><span class="annottext">extract :: Tuple' (Fold m a b) Socket -&gt; m b
+</span><a href="#local-6989586621679398373"><span class="hs-identifier hs-var hs-var">extract</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.Tuple.Strict.html#Tuple%27"><span class="hs-identifier hs-type">Tuple'</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.Fold.Types.html#Fold"><span class="hs-identifier hs-type">Fold</span></a></span><span> </span><span class="hs-identifier">_</span><span> </span><span id="local-6989586621679398360"><span class="annot"><span class="annottext">initial1 :: m (Step s b)
+</span><a href="#local-6989586621679398360"><span class="hs-identifier hs-var">initial1</span></a></span></span><span> </span><span id="local-6989586621679398359"><span class="annot"><span class="annottext">extract1 :: s -&gt; m b
+</span><a href="#local-6989586621679398359"><span class="hs-identifier hs-var">extract1</span></a></span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621679398358"><span class="annot"><span class="annottext">skt :: Socket
+</span><a href="#local-6989586621679398358"><span class="hs-identifier hs-var">skt</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-365"></span><span>        </span><span class="annot"><span class="annottext">IO () -&gt; m ()
+forall (m :: * -&gt; *) a. MonadIO m =&gt; IO a -&gt; m a
+</span><span class="hs-identifier hs-var">liftIO</span></span><span> </span><span class="annot"><span class="annottext">(IO () -&gt; m ()) -&gt; IO () -&gt; m ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Socket -&gt; IO ()
+</span><span class="hs-identifier hs-var">Net.close</span></span><span> </span><span class="annot"><span class="annottext">Socket
+</span><a href="#local-6989586621679398358"><span class="hs-identifier hs-var">skt</span></a></span><span>
+</span><span id="line-366"></span><span>        </span><span id="local-6989586621679398357"><span class="annot"><span class="annottext">Step s b
+</span><a href="#local-6989586621679398357"><span class="hs-identifier hs-var">res</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">m (Step s b)
+</span><a href="#local-6989586621679398360"><span class="hs-identifier hs-var">initial1</span></a></span><span>
+</span><span id="line-367"></span><span>        </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">Step s b
+</span><a href="#local-6989586621679398357"><span class="hs-identifier hs-var">res</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-368"></span><span>            </span><span class="annot"><a href="Streamly.Internal.Data.Fold.Types.html#Partial"><span class="hs-identifier hs-type">FL.Partial</span></a></span><span> </span><span id="local-6989586621679398356"><span class="annot"><span class="annottext">fs :: s
+</span><a href="#local-6989586621679398356"><span class="hs-identifier hs-var">fs</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">s -&gt; m b
+</span><a href="#local-6989586621679398359"><span class="hs-identifier hs-var">extract1</span></a></span><span> </span><span class="annot"><span class="annottext">s
+</span><a href="#local-6989586621679398356"><span class="hs-identifier hs-var">fs</span></a></span><span>
+</span><span id="line-369"></span><span>            </span><span class="annot"><a href="Streamly.Internal.Data.Fold.Types.html#Done"><span class="hs-identifier hs-type">FL.Done</span></a></span><span> </span><span id="local-6989586621679398354"><span class="annot"><span class="annottext">fb :: b
+</span><a href="#local-6989586621679398354"><span class="hs-identifier hs-var">fb</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">b -&gt; m b
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">b
+</span><a href="#local-6989586621679398354"><span class="hs-identifier hs-var">fb</span></a></span><span>
+</span><span id="line-370"></span><span>
+</span><span id="line-371"></span><span class="hs-comment">-- | Like 'write' but provides control over the write buffer. Output will</span><span>
+</span><span id="line-372"></span><span class="hs-comment">-- be written to the IO device as soon as we collect the specified number of</span><span>
+</span><span id="line-373"></span><span class="hs-comment">-- input elements.</span><span>
+</span><span id="line-374"></span><span class="hs-comment">--</span><span>
+</span><span id="line-375"></span><span class="hs-comment">-- @since 0.7.0</span><span>
+</span><span id="line-376"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Streamly.Internal.Network.Inet.TCP.html#fromBytesWithBufferOf"><span class="hs-pragma hs-type">fromBytesWithBufferOf</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-377"></span><span id="local-6989586621679398489"><span class="annot"><a href="Streamly.Internal.Network.Inet.TCP.html#fromBytesWithBufferOf"><span class="hs-identifier hs-type">fromBytesWithBufferOf</span></a></span><span>
+</span><span id="line-378"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">MonadCatch</span></span><span> </span><span class="annot"><a href="#local-6989586621679398489"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.SVar.html#MonadAsync"><span class="hs-identifier hs-type">MonadAsync</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679398489"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-379"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span>
+</span><span id="line-380"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span class="hs-special">)</span><span>
+</span><span id="line-381"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">PortNumber</span></span><span>
+</span><span id="line-382"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Serial.html#SerialT"><span class="hs-identifier hs-type">SerialT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679398489"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span>
+</span><span id="line-383"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679398489"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
+</span><span id="line-384"></span><span id="fromBytesWithBufferOf"><span class="annot"><span class="annottext">fromBytesWithBufferOf :: Int
+-&gt; (Word8, Word8, Word8, Word8)
+-&gt; PortNumber
+-&gt; SerialT m Word8
+-&gt; m ()
+</span><a href="Streamly.Internal.Network.Inet.TCP.html#fromBytesWithBufferOf"><span class="hs-identifier hs-var hs-var">fromBytesWithBufferOf</span></a></span></span><span> </span><span id="local-6989586621679398353"><span class="annot"><span class="annottext">n :: Int
+</span><a href="#local-6989586621679398353"><span class="hs-identifier hs-var">n</span></a></span></span><span> </span><span id="local-6989586621679398352"><span class="annot"><span class="annottext">addr :: (Word8, Word8, Word8, Word8)
+</span><a href="#local-6989586621679398352"><span class="hs-identifier hs-var">addr</span></a></span></span><span> </span><span id="local-6989586621679398351"><span class="annot"><span class="annottext">port :: PortNumber
+</span><a href="#local-6989586621679398351"><span class="hs-identifier hs-var">port</span></a></span></span><span> </span><span id="local-6989586621679398350"><span class="annot"><span class="annottext">m :: SerialT m Word8
+</span><a href="#local-6989586621679398350"><span class="hs-identifier hs-var">m</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Word8, Word8, Word8, Word8)
+-&gt; PortNumber -&gt; SerialT m (Array Word8) -&gt; m ()
+forall (m :: * -&gt; *).
+(MonadCatch m, MonadAsync m) =&gt;
+(Word8, Word8, Word8, Word8)
+-&gt; PortNumber -&gt; SerialT m (Array Word8) -&gt; m ()
+</span><a href="Streamly.Internal.Network.Inet.TCP.html#fromChunks"><span class="hs-identifier hs-var">fromChunks</span></a></span><span> </span><span class="annot"><span class="annottext">(Word8, Word8, Word8, Word8)
+</span><a href="#local-6989586621679398352"><span class="hs-identifier hs-var">addr</span></a></span><span> </span><span class="annot"><span class="annottext">PortNumber
+</span><a href="#local-6989586621679398351"><span class="hs-identifier hs-var">port</span></a></span><span> </span><span class="annot"><span class="annottext">(SerialT m (Array Word8) -&gt; m ())
+-&gt; SerialT m (Array Word8) -&gt; m ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Int -&gt; SerialT m Word8 -&gt; SerialT m (Array Word8)
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) (m :: * -&gt; *) a.
+(IsStream t, MonadIO m, Storable a) =&gt;
+Int -&gt; t m a -&gt; t m (Array a)
+</span><a href="Streamly.Internal.Data.Array.Stream.Foreign.html#arraysOf"><span class="hs-identifier hs-var">AS.arraysOf</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679398353"><span class="hs-identifier hs-var">n</span></a></span><span> </span><span class="annot"><span class="annottext">SerialT m Word8
+</span><a href="#local-6989586621679398350"><span class="hs-identifier hs-var">m</span></a></span><span>
+</span><span id="line-385"></span><span>
+</span><span id="line-386"></span><span class="hs-comment">-- | Like 'write' but provides control over the write buffer. Output will</span><span>
+</span><span id="line-387"></span><span class="hs-comment">-- be written to the IO device as soon as we collect the specified number of</span><span>
+</span><span id="line-388"></span><span class="hs-comment">-- input elements.</span><span>
+</span><span id="line-389"></span><span class="hs-comment">--</span><span>
+</span><span id="line-390"></span><span class="hs-comment">-- @since 0.7.0</span><span>
+</span><span id="line-391"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Streamly.Internal.Network.Inet.TCP.html#writeWithBufferOf"><span class="hs-pragma hs-type">writeWithBufferOf</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-392"></span><span id="local-6989586621679398487"><span class="annot"><a href="Streamly.Internal.Network.Inet.TCP.html#writeWithBufferOf"><span class="hs-identifier hs-type">writeWithBufferOf</span></a></span><span>
+</span><span id="line-393"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.SVar.html#MonadAsync"><span class="hs-identifier hs-type">MonadAsync</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679398487"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadCatch</span></span><span> </span><span class="annot"><a href="#local-6989586621679398487"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-394"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span>
+</span><span id="line-395"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span class="hs-special">)</span><span>
+</span><span id="line-396"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">PortNumber</span></span><span>
+</span><span id="line-397"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Fold.Types.html#Fold"><span class="hs-identifier hs-type">Fold</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679398487"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
+</span><span id="line-398"></span><span id="writeWithBufferOf"><span class="annot"><span class="annottext">writeWithBufferOf :: Int
+-&gt; (Word8, Word8, Word8, Word8) -&gt; PortNumber -&gt; Fold m Word8 ()
+</span><a href="Streamly.Internal.Network.Inet.TCP.html#writeWithBufferOf"><span class="hs-identifier hs-var hs-var">writeWithBufferOf</span></a></span></span><span> </span><span id="local-6989586621679398348"><span class="annot"><span class="annottext">n :: Int
+</span><a href="#local-6989586621679398348"><span class="hs-identifier hs-var">n</span></a></span></span><span> </span><span id="local-6989586621679398347"><span class="annot"><span class="annottext">addr :: (Word8, Word8, Word8, Word8)
+</span><a href="#local-6989586621679398347"><span class="hs-identifier hs-var">addr</span></a></span></span><span> </span><span id="local-6989586621679398346"><span class="annot"><span class="annottext">port :: PortNumber
+</span><a href="#local-6989586621679398346"><span class="hs-identifier hs-var">port</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-399"></span><span>    </span><span class="annot"><span class="annottext">Int
+-&gt; Fold m Word8 (Array Word8)
+-&gt; Fold m (Array Word8) ()
+-&gt; Fold m Word8 ()
+forall (m :: * -&gt; *) a b c.
+Monad m =&gt;
+Int -&gt; Fold m a b -&gt; Fold m b c -&gt; Fold m a c
+</span><a href="Streamly.Internal.Data.Fold.Types.html#chunksOf"><span class="hs-identifier hs-var">FL.chunksOf</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679398348"><span class="hs-identifier hs-var">n</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; Fold m Word8 (Array Word8)
+forall (m :: * -&gt; *) a.
+(MonadIO m, Storable a) =&gt;
+Int -&gt; Fold m a (Array a)
+</span><a href="Streamly.Internal.Data.Array.Foreign.Types.html#writeNUnsafe"><span class="hs-identifier hs-var">writeNUnsafe</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679398348"><span class="hs-identifier hs-var">n</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(Word8, Word8, Word8, Word8)
+-&gt; PortNumber -&gt; Fold m (Array Word8) ()
+forall (m :: * -&gt; *).
+(MonadAsync m, MonadCatch m) =&gt;
+(Word8, Word8, Word8, Word8)
+-&gt; PortNumber -&gt; Fold m (Array Word8) ()
+</span><a href="Streamly.Internal.Network.Inet.TCP.html#writeChunks"><span class="hs-identifier hs-var">writeChunks</span></a></span><span> </span><span class="annot"><span class="annottext">(Word8, Word8, Word8, Word8)
+</span><a href="#local-6989586621679398347"><span class="hs-identifier hs-var">addr</span></a></span><span> </span><span class="annot"><span class="annottext">PortNumber
+</span><a href="#local-6989586621679398346"><span class="hs-identifier hs-var">port</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-400"></span><span>
+</span><span id="line-401"></span><span class="hs-comment">-- | Write a stream to the supplied IPv4 host address and port number.</span><span>
+</span><span id="line-402"></span><span class="hs-comment">--</span><span>
+</span><span id="line-403"></span><span class="hs-comment">-- @since 0.7.0</span><span>
+</span><span id="line-404"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Streamly.Internal.Network.Inet.TCP.html#fromBytes"><span class="hs-pragma hs-type">fromBytes</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-405"></span><span id="local-6989586621679398344"><span class="annot"><a href="Streamly.Internal.Network.Inet.TCP.html#fromBytes"><span class="hs-identifier hs-type">fromBytes</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">MonadCatch</span></span><span> </span><span class="annot"><a href="#local-6989586621679398344"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.SVar.html#MonadAsync"><span class="hs-identifier hs-type">MonadAsync</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679398344"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-406"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">PortNumber</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Serial.html#SerialT"><span class="hs-identifier hs-type">SerialT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679398344"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679398344"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
+</span><span id="line-407"></span><span id="fromBytes"><span class="annot"><span class="annottext">fromBytes :: (Word8, Word8, Word8, Word8)
+-&gt; PortNumber -&gt; SerialT m Word8 -&gt; m ()
+</span><a href="Streamly.Internal.Network.Inet.TCP.html#fromBytes"><span class="hs-identifier hs-var hs-var">fromBytes</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int
+-&gt; (Word8, Word8, Word8, Word8)
+-&gt; PortNumber
+-&gt; SerialT m Word8
+-&gt; m ()
+forall (m :: * -&gt; *).
+(MonadCatch m, MonadAsync m) =&gt;
+Int
+-&gt; (Word8, Word8, Word8, Word8)
+-&gt; PortNumber
+-&gt; SerialT m Word8
+-&gt; m ()
+</span><a href="Streamly.Internal.Network.Inet.TCP.html#fromBytesWithBufferOf"><span class="hs-identifier hs-var">fromBytesWithBufferOf</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="Streamly.Internal.Data.Array.Foreign.Mut.Types.html#defaultChunkSize"><span class="hs-identifier hs-var">defaultChunkSize</span></a></span><span>
+</span><span id="line-408"></span><span>
+</span><span id="line-409"></span><span class="hs-comment">-- | Write a stream to the supplied IPv4 host address and port number.</span><span>
+</span><span id="line-410"></span><span class="hs-comment">--</span><span>
+</span><span id="line-411"></span><span class="hs-comment">-- @since 0.7.0</span><span>
+</span><span id="line-412"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Streamly.Internal.Network.Inet.TCP.html#write"><span class="hs-pragma hs-type">write</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-413"></span><span id="local-6989586621679398343"><span class="annot"><a href="Streamly.Internal.Network.Inet.TCP.html#write"><span class="hs-identifier hs-type">write</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.SVar.html#MonadAsync"><span class="hs-identifier hs-type">MonadAsync</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679398343"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadCatch</span></span><span> </span><span class="annot"><a href="#local-6989586621679398343"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-414"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">PortNumber</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Fold.Types.html#Fold"><span class="hs-identifier hs-type">Fold</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679398343"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
+</span><span id="line-415"></span><span id="write"><span class="annot"><span class="annottext">write :: (Word8, Word8, Word8, Word8) -&gt; PortNumber -&gt; Fold m Word8 ()
+</span><a href="Streamly.Internal.Network.Inet.TCP.html#write"><span class="hs-identifier hs-var hs-var">write</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int
+-&gt; (Word8, Word8, Word8, Word8) -&gt; PortNumber -&gt; Fold m Word8 ()
+forall (m :: * -&gt; *).
+(MonadAsync m, MonadCatch m) =&gt;
+Int
+-&gt; (Word8, Word8, Word8, Word8) -&gt; PortNumber -&gt; Fold m Word8 ()
+</span><a href="Streamly.Internal.Network.Inet.TCP.html#writeWithBufferOf"><span class="hs-identifier hs-var">writeWithBufferOf</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="Streamly.Internal.Data.Array.Foreign.Mut.Types.html#defaultChunkSize"><span class="hs-identifier hs-var">defaultChunkSize</span></a></span><span>
+</span><span id="line-416"></span><span>
+</span><span id="line-417"></span><span class="hs-comment">-------------------------------------------------------------------------------</span><span>
+</span><span id="line-418"></span><span class="hs-comment">-- Transformations</span><span>
+</span><span id="line-419"></span><span class="hs-comment">-------------------------------------------------------------------------------</span><span>
+</span><span id="line-420"></span><span>
+</span><span id="line-421"></span><span class="hs-pragma">{-# INLINABLE</span><span> </span><span class="annot"><a href="Streamly.Internal.Network.Inet.TCP.html#withInputConnect"><span class="hs-pragma hs-type">withInputConnect</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-422"></span><span id="local-6989586621679398472"><span id="local-6989586621679398473"><span id="local-6989586621679398474"><span class="annot"><a href="Streamly.Internal.Network.Inet.TCP.html#withInputConnect"><span class="hs-identifier hs-type">withInputConnect</span></a></span><span>
+</span><span id="line-423"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.Stream.StreamK.Type.html#IsStream"><span class="hs-identifier hs-type">IsStream</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679398474"><span class="hs-identifier hs-type">t</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadCatch</span></span><span> </span><span class="annot"><a href="#local-6989586621679398473"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.SVar.html#MonadAsync"><span class="hs-identifier hs-type">MonadAsync</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679398473"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-424"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span class="hs-special">)</span><span>
+</span><span id="line-425"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">PortNumber</span></span><span>
+</span><span id="line-426"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Serial.html#SerialT"><span class="hs-identifier hs-type">SerialT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679398473"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span>
+</span><span id="line-427"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Socket</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679398474"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679398473"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679398472"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-428"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679398474"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679398473"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679398472"><span class="hs-identifier hs-type">a</span></a></span></span></span></span><span>
+</span><span id="line-429"></span><span id="withInputConnect"><span class="annot"><span class="annottext">withInputConnect :: (Word8, Word8, Word8, Word8)
+-&gt; PortNumber -&gt; SerialT m Word8 -&gt; (Socket -&gt; t m a) -&gt; t m a
+</span><a href="Streamly.Internal.Network.Inet.TCP.html#withInputConnect"><span class="hs-identifier hs-var hs-var">withInputConnect</span></a></span></span><span> </span><span id="local-6989586621679398341"><span class="annot"><span class="annottext">addr :: (Word8, Word8, Word8, Word8)
+</span><a href="#local-6989586621679398341"><span class="hs-identifier hs-var">addr</span></a></span></span><span> </span><span id="local-6989586621679398340"><span class="annot"><span class="annottext">port :: PortNumber
+</span><a href="#local-6989586621679398340"><span class="hs-identifier hs-var">port</span></a></span></span><span> </span><span id="local-6989586621679398339"><span class="annot"><span class="annottext">input :: SerialT m Word8
+</span><a href="#local-6989586621679398339"><span class="hs-identifier hs-var">input</span></a></span></span><span> </span><span id="local-6989586621679398338"><span class="annot"><span class="annottext">f :: Socket -&gt; t m a
+</span><a href="#local-6989586621679398338"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">m (Socket, ThreadId)
+-&gt; ((Socket, ThreadId) -&gt; m ())
+-&gt; ((Socket, ThreadId) -&gt; t m a)
+-&gt; t m a
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) (m :: * -&gt; *) b c a.
+(IsStream t, MonadAsync m, MonadCatch m) =&gt;
+m b -&gt; (b -&gt; m c) -&gt; (b -&gt; t m a) -&gt; t m a
+</span><a href="Streamly.Internal.Data.Stream.IsStream.Exception.html#bracket"><span class="hs-identifier hs-var">S.bracket</span></a></span><span> </span><span class="annot"><span class="annottext">m (Socket, ThreadId)
+</span><a href="#local-6989586621679398337"><span class="hs-identifier hs-var">pre</span></a></span><span> </span><span class="annot"><span class="annottext">(Socket, ThreadId) -&gt; m ()
+forall (m :: * -&gt; *) b. MonadIO m =&gt; (Socket, b) -&gt; m ()
+</span><a href="#local-6989586621679398336"><span class="hs-identifier hs-var">post</span></a></span><span> </span><span class="annot"><span class="annottext">(Socket, ThreadId) -&gt; t m a
+forall b. (Socket, b) -&gt; t m a
+</span><a href="#local-6989586621679398335"><span class="hs-identifier hs-var">handler</span></a></span><span>
+</span><span id="line-430"></span><span>
+</span><span id="line-431"></span><span>    </span><span class="hs-keyword">where</span><span>
+</span><span id="line-432"></span><span>
+</span><span id="line-433"></span><span>    </span><span id="local-6989586621679398337"><span class="annot"><span class="annottext">pre :: m (Socket, ThreadId)
+</span><a href="#local-6989586621679398337"><span class="hs-identifier hs-var hs-var">pre</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-434"></span><span>        </span><span id="local-6989586621679398334"><span class="annot"><span class="annottext">Socket
+</span><a href="#local-6989586621679398334"><span class="hs-identifier hs-var">sk</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IO Socket -&gt; m Socket
+forall (m :: * -&gt; *) a. MonadIO m =&gt; IO a -&gt; m a
+</span><span class="hs-identifier hs-var">liftIO</span></span><span> </span><span class="annot"><span class="annottext">(IO Socket -&gt; m Socket) -&gt; IO Socket -&gt; m Socket
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">(Word8, Word8, Word8, Word8) -&gt; PortNumber -&gt; IO Socket
+</span><a href="Streamly.Internal.Network.Inet.TCP.html#connect"><span class="hs-identifier hs-var">connect</span></a></span><span> </span><span class="annot"><span class="annottext">(Word8, Word8, Word8, Word8)
+</span><a href="#local-6989586621679398341"><span class="hs-identifier hs-var">addr</span></a></span><span> </span><span class="annot"><span class="annottext">PortNumber
+</span><a href="#local-6989586621679398340"><span class="hs-identifier hs-var">port</span></a></span><span>
+</span><span id="line-435"></span><span>        </span><span id="local-6989586621679398333"><span class="annot"><span class="annottext">ThreadId
+</span><a href="#local-6989586621679398333"><span class="hs-identifier hs-var">tid</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">m () -&gt; m ThreadId
+forall (m :: * -&gt; *). MonadBaseControl IO m =&gt; m () -&gt; m ThreadId
+</span><a href="Streamly.Internal.Data.SVar.html#fork"><span class="hs-identifier hs-var">fork</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Socket -&gt; SerialT m Word8 -&gt; m ()
+forall (m :: * -&gt; *).
+MonadIO m =&gt;
+Socket -&gt; SerialT m Word8 -&gt; m ()
+</span><a href="Streamly.Internal.Network.Socket.html#fromBytes"><span class="hs-identifier hs-var">ISK.fromBytes</span></a></span><span> </span><span class="annot"><span class="annottext">Socket
+</span><a href="#local-6989586621679398334"><span class="hs-identifier hs-var">sk</span></a></span><span> </span><span class="annot"><span class="annottext">SerialT m Word8
+</span><a href="#local-6989586621679398339"><span class="hs-identifier hs-var">input</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-436"></span><span>        </span><span class="annot"><span class="annottext">(Socket, ThreadId) -&gt; m (Socket, ThreadId)
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Socket
+</span><a href="#local-6989586621679398334"><span class="hs-identifier hs-var">sk</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">ThreadId
+</span><a href="#local-6989586621679398333"><span class="hs-identifier hs-var">tid</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-437"></span><span>
+</span><span id="line-438"></span><span>    </span><span id="local-6989586621679398335"><span class="annot"><span class="annottext">handler :: (Socket, b) -&gt; t m a
+</span><a href="#local-6989586621679398335"><span class="hs-identifier hs-var hs-var">handler</span></a></span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679398331"><span class="annot"><span class="annottext">sk :: Socket
+</span><a href="#local-6989586621679398331"><span class="hs-identifier hs-var">sk</span></a></span></span><span class="hs-special">,</span><span> </span><span class="hs-identifier">_</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Socket -&gt; t m a
+</span><a href="#local-6989586621679398338"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">Socket
+</span><a href="#local-6989586621679398331"><span class="hs-identifier hs-var">sk</span></a></span><span>
+</span><span id="line-439"></span><span>
+</span><span id="line-440"></span><span>    </span><span class="hs-comment">-- XXX kill the thread immediately?</span><span>
+</span><span id="line-441"></span><span>    </span><span id="local-6989586621679398336"><span class="annot"><span class="annottext">post :: (Socket, b) -&gt; m ()
+</span><a href="#local-6989586621679398336"><span class="hs-identifier hs-var hs-var">post</span></a></span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679398330"><span class="annot"><span class="annottext">sk :: Socket
+</span><a href="#local-6989586621679398330"><span class="hs-identifier hs-var">sk</span></a></span></span><span class="hs-special">,</span><span> </span><span class="hs-identifier">_</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IO () -&gt; m ()
+forall (m :: * -&gt; *) a. MonadIO m =&gt; IO a -&gt; m a
+</span><span class="hs-identifier hs-var">liftIO</span></span><span> </span><span class="annot"><span class="annottext">(IO () -&gt; m ()) -&gt; IO () -&gt; m ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Socket -&gt; IO ()
+</span><span class="hs-identifier hs-var">Net.close</span></span><span> </span><span class="annot"><span class="annottext">Socket
+</span><a href="#local-6989586621679398330"><span class="hs-identifier hs-var">sk</span></a></span><span>
+</span><span id="line-442"></span><span>
+</span><span id="line-443"></span><span class="hs-comment">-- | Send an input stream to a remote host and produce the output stream from</span><span>
+</span><span id="line-444"></span><span class="hs-comment">-- the host. The server host just acts as a transformation function on the</span><span>
+</span><span id="line-445"></span><span class="hs-comment">-- input stream.  Both sending and receiving happen asynchronously.</span><span>
+</span><span id="line-446"></span><span class="hs-comment">--</span><span>
+</span><span id="line-447"></span><span class="hs-comment">-- /Internal/</span><span>
+</span><span id="line-448"></span><span class="hs-comment">--</span><span>
+</span><span id="line-449"></span><span class="hs-pragma">{-# INLINABLE</span><span> </span><span class="annot"><a href="Streamly.Internal.Network.Inet.TCP.html#transformBytesWith"><span class="hs-pragma hs-type">transformBytesWith</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-450"></span><span id="local-6989586621679398328"><span id="local-6989586621679398329"><span class="annot"><a href="Streamly.Internal.Network.Inet.TCP.html#transformBytesWith"><span class="hs-identifier hs-type">transformBytesWith</span></a></span><span>
+</span><span id="line-451"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.Stream.StreamK.Type.html#IsStream"><span class="hs-identifier hs-type">IsStream</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679398329"><span class="hs-identifier hs-type">t</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.SVar.html#MonadAsync"><span class="hs-identifier hs-type">MonadAsync</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679398328"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadCatch</span></span><span> </span><span class="annot"><a href="#local-6989586621679398328"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-452"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span class="hs-special">)</span><span>
+</span><span id="line-453"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">PortNumber</span></span><span>
+</span><span id="line-454"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Serial.html#SerialT"><span class="hs-identifier hs-type">SerialT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679398328"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span>
+</span><span id="line-455"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679398329"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679398328"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span></span></span><span>
+</span><span id="line-456"></span><span id="transformBytesWith"><span class="annot"><span class="annottext">transformBytesWith :: (Word8, Word8, Word8, Word8)
+-&gt; PortNumber -&gt; SerialT m Word8 -&gt; t m Word8
+</span><a href="Streamly.Internal.Network.Inet.TCP.html#transformBytesWith"><span class="hs-identifier hs-var hs-var">transformBytesWith</span></a></span></span><span> </span><span id="local-6989586621679398327"><span class="annot"><span class="annottext">addr :: (Word8, Word8, Word8, Word8)
+</span><a href="#local-6989586621679398327"><span class="hs-identifier hs-var">addr</span></a></span></span><span> </span><span id="local-6989586621679398326"><span class="annot"><span class="annottext">port :: PortNumber
+</span><a href="#local-6989586621679398326"><span class="hs-identifier hs-var">port</span></a></span></span><span> </span><span id="local-6989586621679398325"><span class="annot"><span class="annottext">input :: SerialT m Word8
+</span><a href="#local-6989586621679398325"><span class="hs-identifier hs-var">input</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-457"></span><span>    </span><span class="annot"><span class="annottext">(Word8, Word8, Word8, Word8)
+-&gt; PortNumber
+-&gt; SerialT m Word8
+-&gt; (Socket -&gt; t m Word8)
+-&gt; t m Word8
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) (m :: * -&gt; *) a.
+(IsStream t, MonadCatch m, MonadAsync m) =&gt;
+(Word8, Word8, Word8, Word8)
+-&gt; PortNumber -&gt; SerialT m Word8 -&gt; (Socket -&gt; t m a) -&gt; t m a
+</span><a href="Streamly.Internal.Network.Inet.TCP.html#withInputConnect"><span class="hs-identifier hs-var">withInputConnect</span></a></span><span> </span><span class="annot"><span class="annottext">(Word8, Word8, Word8, Word8)
+</span><a href="#local-6989586621679398327"><span class="hs-identifier hs-var">addr</span></a></span><span> </span><span class="annot"><span class="annottext">PortNumber
+</span><a href="#local-6989586621679398326"><span class="hs-identifier hs-var">port</span></a></span><span> </span><span class="annot"><span class="annottext">SerialT m Word8
+</span><a href="#local-6989586621679398325"><span class="hs-identifier hs-var">input</span></a></span><span> </span><span class="annot"><span class="annottext">Socket -&gt; t m Word8
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) (m :: * -&gt; *).
+(IsStream t, MonadIO m) =&gt;
+Socket -&gt; t m Word8
+</span><a href="Streamly.Internal.Network.Socket.html#toBytes"><span class="hs-identifier hs-var">ISK.toBytes</span></a></span><span>
+</span><span id="line-458"></span></pre></body></html>

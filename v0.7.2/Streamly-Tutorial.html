@@ -1,0 +1,971 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /><title>Streamly.Tutorial</title><link href="ocean.css" rel="stylesheet" type="text/css" title="Ocean" /><link rel="stylesheet" type="text/css" href="quick-jump.css" /><script src="haddock-bundle.min.js" async="async" type="text/javascript"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-AMS-MML_HTMLorMML" type="text/javascript"></script></head><body><div id="package-header"><ul class="links" id="page-menu"><li><a href="src/Streamly.Tutorial.html">Source</a></li><li><a href="index.html">Contents</a></li><li><a href="doc-index.html">Index</a></li></ul><p class="caption">streamly-v0.7.2: Beautiful Streaming, Concurrent and Reactive Composition</p></div><div id="content"><div id="module-header"><table class="info"><tr><th valign="top">Copyright</th><td>(c) 2017 Harendra Kumar</td></tr><tr><th>License</th><td>BSD3</td></tr><tr><th>Maintainer</th><td>streamly@composewell.com</td></tr><tr><th>Safe Haskell</th><td>None</td></tr><tr><th>Language</th><td>Haskell2010</td></tr></table><p class="caption">Streamly.Tutorial</p></div><div id="table-of-contents"><p class="caption">Contents</p><ul><li><a href="#g:1">Stream Types</a></li><li><a href="#g:2">Concurrent Streams</a></li><li><a href="#g:3">Combining Streams</a></li><li><a href="#g:4">Imports and Supporting Code</a></li><li><a href="#g:5">Generating Streams</a></li><li><a href="#g:6">Generating Streams Concurrently</a></li><li><a href="#g:7">Eliminating Streams</a></li><li><a href="#g:8">Concurrent Pipeline Stages</a></li><li><a href="#g:9">Transforming Streams</a></li><li><a href="#g:10">Mapping Concurrently</a></li><li><a href="#g:11">Merging Streams</a><ul><li><a href="#g:12">Semigroup Style</a><ul><li><a href="#g:13">Deep Serial Composition (<code>Serial</code>)</a></li><li><a href="#g:14">Wide Serial Composition (<code>WSerial</code>)</a></li><li><a href="#g:15">Deep Speculative Composition (<code>Ahead</code>)</a></li><li><a href="#g:16">Deep Asynchronous Composition (<code>Async</code>)</a></li><li><a href="#g:17">Wide Asynchronous Composition (<code>WAsync</code>)</a></li><li><a href="#g:18">Parallel Asynchronous Composition (<code>Parallel</code>)</a></li></ul></li><li><a href="#g:19">Monoid Style</a></li></ul></li><li><a href="#g:20">Nesting Streams</a><ul><li><a href="#g:21">Monad</a><ul><li><a href="#g:22">Deep Serial Nesting (<code>Serial</code>)</a></li><li><a href="#g:23">Wide Serial Nesting (<code>WSerial</code>)</a></li><li><a href="#g:24">Deep Speculative Nesting (<code>Ahead</code>)</a></li><li><a href="#g:25">Deep Asynchronous Nesting (<code>Async</code>)</a></li><li><a href="#g:26">Wide Asynchronous Nesting (<code>WAsync</code>)</a></li><li><a href="#g:27">Parallel Asynchronous Nesting (<code>Parallel</code>)</a></li><li><a href="#g:28">Exercise</a></li></ul></li><li><a href="#g:29">Applicative</a></li><li><a href="#g:30">Functor</a></li></ul></li><li><a href="#g:31">Zipping Streams</a><ul><li><a href="#g:32">Serial Zipping</a></li><li><a href="#g:33">Parallel Zipping</a></li></ul></li><li><a href="#g:34">Monad transformers</a></li><li><a href="#g:35">Concurrent Programming</a></li><li><a href="#g:36">Reactive Programming</a></li><li><a href="#g:37">Writing Concurrent Programs</a></li><li><a href="#g:38">Performance</a></li><li><a href="#g:39">Interoperation with Streaming Libraries</a></li><li><a href="#g:40">Comparison with Existing Packages</a></li><li><a href="#g:41">Where to go next?</a></li></ul></div><div id="description"><p class="caption">Description</p><div class="doc"><p>Streamly is a general computing framework based on concurrent data flow
+ programming. The IO monad and pure lists are a special case of streamly. On
+ one hand, streamly extends the lists of pure values to lists of monadic
+ actions, on the other hand it extends the IO monad with concurrent
+ non-determinism. In simple imperative terms we can say that streamly extends
+ the IO monad with <code>for</code> loops and nested <code>for</code> loops with concurrency
+ support. Hopefully, this analogy becomes clearer once you go through this
+ tutorial.</p><p>Streaming in general enables writing modular, composable and scalable
+ applications with ease, and concurrency allows you to make them scale and
+ perform well.  Streamly enables writing scalable concurrent applications
+ without being aware of threads or synchronization. No explicit thread
+ control is needed. Where applicable, concurrency rate is automatically
+ controlled based on the demand by the consumer. However, combinators can be
+ used to fine tune the concurrency control.</p><p>Streaming and concurrency together enable expressing reactive applications
+ conveniently. See the <code>CirclingSquare</code> example in the examples directory for
+ a simple SDL based FRP example. To summarize, streamly provides a unified
+ computing framework for streaming, non-determinism and functional reactive
+ programming in an elegant and simple API that is a natural extension of pure
+ lists to monadic streams.</p><p>In this tutorial we will go over the basic concepts and how to use the
+ library.  Before you go through this tutorial we recommend that you take a
+ look at:</p><ul><li>The quick overview in the package <a href="README.md">README file</a>.</li><li>The overview of streams and folds in the <a href="Streamly.html">Streamly</a> module.</li></ul><p>Once you finish this tutorial, see the last section for further reading
+ resources.</p></div></div><div id="synopsis"><details id="syn"><summary>Synopsis</summary><ul class="details-toggle" data-details-id="syn"></ul></details></div><div id="interface"><a href="#g:1" id="g:1"><h1>Stream Types</h1></a><div class="doc"><p>The monadic stream API offered by Streamly is very close to the Haskell
+ <a href="https://hackage.haskell.org/package/base-4.12.0.0/docs/Prelude.html">Prelude</a> pure lists' API, it can be considered as a natural extension of
+ lists to monadic actions. Streamly streams provide concurrent composition
+ and merging of streams. It can be considered as a concurrent list
+ transformer.</p><p>The basic stream type is <code><a href="Streamly-Internal-Data-Stream-Serial.html#t:Serial" title="Streamly.Internal.Data.Stream.Serial">Serial</a></code>, it represents a sequence of IO actions,
+ and is a <code><a href="https://hackage.haskell.org/package/base-4.12.0.0/docs/Control-Monad.html#t:Monad" title="Control.Monad">Monad</a></code>.  The <code><a href="Streamly-Internal-Data-Stream-Serial.html#t:Serial" title="Streamly.Internal.Data.Stream.Serial">Serial</a></code> monad is almost a drop in replacement for
+ the <code><a href="https://hackage.haskell.org/package/base-4.12.0.0/docs/System-IO.html#t:IO" title="System.IO">IO</a></code> monad, IO monad is a special case of the <code><a href="Streamly-Internal-Data-Stream-Serial.html#t:Serial" title="Streamly.Internal.Data.Stream.Serial">Serial</a></code> monad; IO monad
+ represents a single IO action whereas the <code><a href="Streamly-Internal-Data-Stream-Serial.html#t:Serial" title="Streamly.Internal.Data.Stream.Serial">Serial</a></code> monad represents a series
+ of IO actions.  The only change you need to make to go from <code><a href="https://hackage.haskell.org/package/base-4.12.0.0/docs/System-IO.html#t:IO" title="System.IO">IO</a></code> to <code><a href="Streamly-Internal-Data-Stream-Serial.html#t:Serial" title="Streamly.Internal.Data.Stream.Serial">Serial</a></code>
+ is to use <code><a href="Streamly-Internal-Prelude.html#v:drain" title="Streamly.Internal.Prelude">drain</a></code> to run the monad and to prefix the IO actions with
+ either <code><a href="Streamly-Internal-Prelude.html#v:yieldM" title="Streamly.Internal.Prelude">yieldM</a></code> or <code><a href="https://hackage.haskell.org/package/base-4.12.0.0/docs/Control-Monad-IO-Class.html#v:liftIO" title="Control.Monad.IO.Class">liftIO</a></code>.  If you use liftIO you can switch from <code><a href="Streamly-Internal-Data-Stream-Serial.html#t:Serial" title="Streamly.Internal.Data.Stream.Serial">Serial</a></code>
+ to IO monad by simply removing the <code><a href="Streamly-Internal-Prelude.html#v:drain" title="Streamly.Internal.Prelude">drain</a></code> function; no other changes
+ are needed unless you have used some stream specific composition or
+ combinators.</p><p>Similarly, the <code><a href="Streamly-Internal-Data-Stream-Serial.html#t:Serial" title="Streamly.Internal.Data.Stream.Serial">Serial</a></code> type is almost a drop in replacement for pure lists,
+ pure lists are a special case of monadic streams. If you use <code><a href="Streamly-Internal-Data-Stream-StreamK-Type.html#v:nil" title="Streamly.Internal.Data.Stream.StreamK.Type">nil</a></code> in place
+ of '[]' and <code><a href="Streamly-Internal-Data-Stream-StreamK-Type.html#v:-124-:" title="Streamly.Internal.Data.Stream.StreamK.Type">|:</a></code> in place <code>:</code> you can replace a list with a <code><a href="Streamly-Internal-Data-Stream-Serial.html#t:Serial" title="Streamly.Internal.Data.Stream.Serial">Serial</a></code> stream.
+ The only difference is that the elements must be monadic type and to operate
+ on the streams we must use the corresponding functions from
+ <a href="Streamly-Prelude.html">Streamly.Prelude</a> instead of using the base <a href="https://hackage.haskell.org/package/base-4.12.0.0/docs/Prelude.html">Prelude</a>.</p></div><a href="#g:2" id="g:2"><h1>Concurrent Streams</h1></a><div class="doc"><p>Many stream operations can be done concurrently:</p><ul><li>Streams can be generated concurrently.</li><li>Streams can be merged concurrently.</li><li>Multiple stages in a streaming pipeline can run concurrently.</li><li>Streams can be mapped and zipped concurrently.</li><li>In monadic composition they combine like a list transformer,
+   providing concurrent non-determinism.</li></ul><p>There are three basic concurrent stream styles, <code><a href="Streamly-Internal-Data-Stream-Ahead.html#t:Ahead" title="Streamly.Internal.Data.Stream.Ahead">Ahead</a></code>, <code><a href="Streamly-Internal-Data-Stream-Async.html#t:Async" title="Streamly.Internal.Data.Stream.Async">Async</a></code>, and
+ <code><a href="Streamly-Internal-Data-Stream-Parallel.html#t:Parallel" title="Streamly.Internal.Data.Stream.Parallel">Parallel</a></code>. The <code><a href="Streamly-Internal-Data-Stream-Ahead.html#t:Ahead" title="Streamly.Internal.Data.Stream.Ahead">Ahead</a></code> style streams are similar to <code><a href="Streamly-Internal-Data-Stream-Serial.html#t:Serial" title="Streamly.Internal.Data.Stream.Serial">Serial</a></code> except that
+ they can speculatively execute multiple stream actions concurrently in
+ advance. <code><a href="Streamly-Internal-Data-Stream-Ahead.html#t:Ahead" title="Streamly.Internal.Data.Stream.Ahead">Ahead</a></code> would return exactly the same stream as <code><a href="Streamly-Internal-Data-Stream-Serial.html#t:Serial" title="Streamly.Internal.Data.Stream.Serial">Serial</a></code> except
+ that it may execute the actions concurrently. The <code><a href="Streamly-Internal-Data-Stream-Async.html#t:Async" title="Streamly.Internal.Data.Stream.Async">Async</a></code> style streams,
+ like <code><a href="Streamly-Internal-Data-Stream-Ahead.html#t:Ahead" title="Streamly.Internal.Data.Stream.Ahead">Ahead</a></code>, speculatively execute multiple stream actions in advance but
+ return the results in their finishing order rather than in the stream
+ traversal order.  <code><a href="Streamly-Internal-Data-Stream-Parallel.html#t:Parallel" title="Streamly.Internal.Data.Stream.Parallel">Parallel</a></code> is like <code><a href="Streamly-Internal-Data-Stream-Async.html#t:Async" title="Streamly.Internal.Data.Stream.Async">Async</a></code> except that it provides
+ unbounded parallelism instead of controlled parallelism.</p><p>For easy reference, we can classify the stream types based on <em>execution order</em>,
+ <em>consumption order</em>, and <em>bounded or unbounded</em> concurrency.
+ Execution could be serial (i.e. synchronous) or asynchronous. In serial
+ execution we execute the next action in the stream only after the previous
+ one has finished executing. In asynchronous execution multiple actions in
+ the stream can be executed asynchronously i.e. the next action can start
+ executing even before the first one has finished. Consumption order
+ determines the order in which the outputs generated by the composition are
+ consumed.  Consumption could be serial or asynchronous. In serial
+ consumption, the outputs are consumed in the traversal order, in
+ asynchronous consumption the outputs are consumed as they arrive i.e. first
+ come first serve order.</p><table><thead><tr><th> Type       </th><th> Execution    </th><th> Consumption  </th><th> Concurrency  </th></tr></thead><tbody><tr><td> <code><a href="Streamly-Internal-Data-Stream-Serial.html#t:Serial" title="Streamly.Internal.Data.Stream.Serial">Serial</a></code>   </td><td> Serial       </td><td> Serial       </td><td> None         </td></tr><tr><td> <code><a href="Streamly-Internal-Data-Stream-Ahead.html#t:Ahead" title="Streamly.Internal.Data.Stream.Ahead">Ahead</a></code>    </td><td> Asynchronous </td><td> Serial       </td><td> bounded      </td></tr><tr><td> <code><a href="Streamly-Internal-Data-Stream-Async.html#t:Async" title="Streamly.Internal.Data.Stream.Async">Async</a></code>    </td><td> Asynchronous </td><td> Asynchronous </td><td> bounded      </td></tr><tr><td> <code><a href="Streamly-Internal-Data-Stream-Parallel.html#t:Parallel" title="Streamly.Internal.Data.Stream.Parallel">Parallel</a></code> </td><td> Asynchronous </td><td> Asynchronous </td><td> unbounded    </td></tr></tbody></table><p>All these types can be freely inter-converted using type conversion
+ combinators or type annotations, without any cost, to achieve the desired
+ composition style.  To force a particular type of composition, we coerce the
+ stream type using the corresponding type adapting combinator from
+ <code><a href="Streamly-Internal-Data-Stream-Serial.html#v:serially" title="Streamly.Internal.Data.Stream.Serial">serially</a></code>, <code><a href="Streamly-Internal-Data-Stream-Ahead.html#v:aheadly" title="Streamly.Internal.Data.Stream.Ahead">aheadly</a></code>, <code><a href="Streamly-Internal-Data-Stream-Async.html#v:asyncly" title="Streamly.Internal.Data.Stream.Async">asyncly</a></code>, or <code><a href="Streamly-Internal-Data-Stream-Parallel.html#v:parallely" title="Streamly.Internal.Data.Stream.Parallel">parallely</a></code>.  The default stream type
+ is inferred as <code><a href="Streamly-Internal-Data-Stream-Serial.html#t:Serial" title="Streamly.Internal.Data.Stream.Serial">Serial</a></code> unless you change it by using one of the combinators
+ or by using a type annotation.</p></div><a href="#g:3" id="g:3"><h1>Combining Streams</h1></a><div class="doc"><p>Streams can be combined using <code><a href="Streamly.html#v:-60--62-" title="Streamly">&lt;&gt;</a></code> or <code><a href="https://hackage.haskell.org/package/base-4.12.0.0/docs/Data-Monoid.html#v:mappend" title="Data.Monoid">mappend</a></code> to form a
+ composite. Composite streams can be interpreted in a depth first or
+ breadth first manner using an appropriate type conversion before
+ consumption. Deep (e.g. <code><a href="Streamly-Internal-Data-Stream-Serial.html#t:Serial" title="Streamly.Internal.Data.Stream.Serial">Serial</a></code>) stream type variants traverse a
+ composite stream in a depth first manner, such that each stream is
+ traversed fully before traversing the next stream. Wide
+ (e.g. <code><a href="Streamly-Internal-Data-Stream-Serial.html#t:WSerial" title="Streamly.Internal.Data.Stream.Serial">WSerial</a></code>) stream types traverse it in a breadth first
+ manner, such that one element from each stream is traversed before
+ coming back to the first stream again.</p><p>Each stream type has a wide traversal variant prefixed by <code>W</code>. The wide
+ variant differs only in the Semigroup/Monoid, Applicative/Monad
+ compositions of the streams.
+ The following table summarizes the basic types and the corresponding wide
+ variants:</p><pre>+------------+-----------+
+| Deep       | Wide      |
++============+===========+
+| <code><a href="Streamly-Internal-Data-Stream-Serial.html#t:Serial" title="Streamly.Internal.Data.Stream.Serial">Serial</a></code>     | <code><a href="Streamly-Internal-Data-Stream-Serial.html#t:WSerial" title="Streamly.Internal.Data.Stream.Serial">WSerial</a></code>   |
++------------+-----------+
+| <code><a href="Streamly-Internal-Data-Stream-Ahead.html#t:Ahead" title="Streamly.Internal.Data.Stream.Ahead">Ahead</a></code>      | <code>WAhead</code>    |
++------------+-----------+
+| <code><a href="Streamly-Internal-Data-Stream-Async.html#t:Async" title="Streamly.Internal.Data.Stream.Async">Async</a></code>      | <code><a href="Streamly-Internal-Data-Stream-Async.html#t:WAsync" title="Streamly.Internal.Data.Stream.Async">WAsync</a></code>    |
++------------+-----------+
+</pre><p>Other than these types there are also <code><a href="Streamly-Internal-Data-Stream-Zip.html#t:ZipSerial" title="Streamly.Internal.Data.Stream.Zip">ZipSerial</a></code> and <code><a href="Streamly-Internal-Data-Stream-Zip.html#t:ZipAsync" title="Streamly.Internal.Data.Stream.Zip">ZipAsync</a></code> types that
+ zip streams serially or concurrently using <code><a href="https://hackage.haskell.org/package/base-4.12.0.0/docs/Control-Applicative.html#t:Applicative" title="Control.Applicative">Applicative</a></code> operation. These
+ types are not monads they are only applicatives and they do not differ in
+ <code><a href="Streamly.html#t:Semigroup" title="Streamly">Semigroup</a></code> composition.</p></div><a href="#g:4" id="g:4"><h1>Imports and Supporting Code</h1></a><div class="doc"><p>In most of example snippets we do not repeat the imports. Where imports are
+ not explicitly specified use the imports shown below.</p><pre>import <a href="Streamly.html">Streamly</a>
+import <a href="Streamly-Prelude.html">Streamly.Prelude</a> ((|:), nil)
+import qualified <a href="Streamly-Prelude.html">Streamly.Prelude</a> as S
+
+import Control.Concurrent
+import Control.Monad (forever)
+</pre><p>To illustrate concurrent vs serial composition aspects, we will use the
+ following <code>delay</code> function to introduce a sleep or delay specified in
+ seconds. After the delay it prints the number of seconds it slept.</p><pre>delay n = S.<code><a href="Streamly-Internal-Prelude.html#v:yieldM" title="Streamly.Internal.Prelude">yieldM</a></code> $ do
+ threadDelay (n * 1000000)
+ tid &lt;- myThreadId
+ putStrLn (show tid ++ &quot;: Delay &quot; ++ show n)
+</pre></div><a href="#g:5" id="g:5"><h1>Generating Streams</h1></a><div class="doc"><p>We will assume the following imports in this tutorial. Go ahead, fire up a
+ GHCi session and import these lines to start playing.</p><pre>&gt; import <a href="Streamly.html">Streamly</a>
+&gt; import <a href="Streamly-Prelude.html">Streamly.Prelude</a> ((|:))
+&gt; import qualified <a href="Streamly-Prelude.html">Streamly.Prelude</a> as S
+
+&gt; import Control.Concurrent
+</pre><p><code><a href="Streamly-Internal-Data-Stream-StreamK-Type.html#v:nil" title="Streamly.Internal.Data.Stream.StreamK.Type">nil</a></code> represents an empty stream and <code><a href="Streamly-Internal-Data-Stream-StreamK-Type.html#v:consM" title="Streamly.Internal.Data.Stream.StreamK.Type">consM</a></code> or its operator form <code><a href="Streamly-Internal-Data-Stream-StreamK-Type.html#v:-124-:" title="Streamly.Internal.Data.Stream.StreamK.Type">|:</a></code> adds
+ a monadic action at the head of the stream.</p><pre>&gt; S.<code><a href="Streamly-Internal-Prelude.html#v:toList" title="Streamly.Internal.Prelude">toList</a></code> S.<code><a href="Streamly-Internal-Data-Stream-StreamK-Type.html#v:nil" title="Streamly.Internal.Data.Stream.StreamK.Type">nil</a></code>
+[]
+&gt; S.<code><a href="Streamly-Internal-Prelude.html#v:toList" title="Streamly.Internal.Prelude">toList</a></code> $ <code><a href="https://hackage.haskell.org/package/base-4.12.0.0/docs/System-IO.html#v:getLine" title="System.IO">getLine</a></code> |: <code><a href="https://hackage.haskell.org/package/base-4.12.0.0/docs/System-IO.html#v:getLine" title="System.IO">getLine</a></code> |: S.<code><a href="Streamly-Internal-Data-Stream-StreamK-Type.html#v:nil" title="Streamly.Internal.Data.Stream.StreamK.Type">nil</a></code>
+hello
+world
+[&quot;hello&quot;,&quot;world&quot;]
+</pre><p>To create a singleton stream from a pure value use <code><a href="Streamly-Internal-Prelude.html#v:yield" title="Streamly.Internal.Prelude">yield</a></code> or <code><a href="https://hackage.haskell.org/package/base-4.12.0.0/docs/Control-Applicative.html#v:pure" title="Control.Applicative">pure</a></code> and to
+ create a singleton stream from a monadic action use <code><a href="Streamly-Internal-Prelude.html#v:yieldM" title="Streamly.Internal.Prelude">yieldM</a></code>. Note that in
+ case of Zip applicative streams &quot;pure&quot; repeats the value to generate an
+ infinite stream.</p><pre>&gt; S.<code><a href="Streamly-Internal-Prelude.html#v:toList" title="Streamly.Internal.Prelude">toList</a></code> $ <code><a href="https://hackage.haskell.org/package/base-4.12.0.0/docs/Control-Applicative.html#v:pure" title="Control.Applicative">pure</a></code> 1
+[1]
+&gt; S.<code><a href="Streamly-Internal-Prelude.html#v:toList" title="Streamly.Internal.Prelude">toList</a></code> $ S.<code><a href="Streamly-Internal-Prelude.html#v:yield" title="Streamly.Internal.Prelude">yield</a></code> 1
+[1]
+&gt; S.<code><a href="Streamly-Internal-Prelude.html#v:toList" title="Streamly.Internal.Prelude">toList</a></code> $ S.<code><a href="Streamly-Internal-Prelude.html#v:yieldM" title="Streamly.Internal.Prelude">yieldM</a></code> <code><a href="https://hackage.haskell.org/package/base-4.12.0.0/docs/System-IO.html#v:getLine" title="System.IO">getLine</a></code>
+hello
+[&quot;hello&quot;]
+</pre><p>To create a stream from pure values in a <code><a href="https://hackage.haskell.org/package/base-4.12.0.0/docs/Data-Foldable.html#t:Foldable" title="Data.Foldable">Foldable</a></code> container use
+ <code><a href="Streamly-Internal-Data-Stream-StreamK.html#v:fromFoldable" title="Streamly.Internal.Data.Stream.StreamK">fromFoldable</a></code> which is equivalent to a fold using <code><a href="Streamly-Internal-Data-Stream-StreamK-Type.html#v:cons" title="Streamly.Internal.Data.Stream.StreamK.Type">cons</a></code> and <code><a href="Streamly-Internal-Data-Stream-StreamK-Type.html#v:nil" title="Streamly.Internal.Data.Stream.StreamK.Type">nil</a></code>:</p><pre>&gt; S.<code><a href="Streamly-Internal-Prelude.html#v:toList" title="Streamly.Internal.Prelude">toList</a></code> $ S.<code><a href="Streamly-Internal-Data-Stream-StreamK.html#v:fromFoldable" title="Streamly.Internal.Data.Stream.StreamK">fromFoldable</a></code> [1..3]
+[1,2,3]
+&gt; S.<code><a href="Streamly-Internal-Prelude.html#v:toList" title="Streamly.Internal.Prelude">toList</a></code> $ <code><a href="https://hackage.haskell.org/package/base-4.12.0.0/docs/Data-Foldable.html#v:foldr" title="Data.Foldable">foldr</a></code> S.<code><a href="Streamly-Internal-Data-Stream-StreamK-Type.html#v:cons" title="Streamly.Internal.Data.Stream.StreamK.Type">cons</a></code> S.<code><a href="Streamly-Internal-Data-Stream-StreamK-Type.html#v:nil" title="Streamly.Internal.Data.Stream.StreamK.Type">nil</a></code> [1..3]
+[1,2,3]
+</pre><p>To create a stream from monadic actions in a <code><a href="https://hackage.haskell.org/package/base-4.12.0.0/docs/Data-Foldable.html#t:Foldable" title="Data.Foldable">Foldable</a></code> container just use a
+ right fold using <code><a href="Streamly-Internal-Data-Stream-StreamK-Type.html#v:consM" title="Streamly.Internal.Data.Stream.StreamK.Type">consM</a></code> and <code><a href="Streamly-Internal-Data-Stream-StreamK-Type.html#v:nil" title="Streamly.Internal.Data.Stream.StreamK.Type">nil</a></code>:</p><pre>&gt; S.<code><a href="Streamly-Internal-Prelude.html#v:drain" title="Streamly.Internal.Prelude">drain</a></code> $ <code><a href="https://hackage.haskell.org/package/base-4.12.0.0/docs/Data-Foldable.html#v:foldr" title="Data.Foldable">foldr</a></code> (<code><a href="Streamly-Internal-Data-Stream-StreamK-Type.html#v:-124-:" title="Streamly.Internal.Data.Stream.StreamK.Type">|:</a></code>) S.<code><a href="Streamly-Internal-Data-Stream-StreamK-Type.html#v:nil" title="Streamly.Internal.Data.Stream.StreamK.Type">nil</a></code> [<code><a href="https://hackage.haskell.org/package/base-4.12.0.0/docs/System-IO.html#v:putStr" title="System.IO">putStr</a></code> &quot;Hello &quot;, <code><a href="https://hackage.haskell.org/package/base-4.12.0.0/docs/System-IO.html#v:putStrLn" title="System.IO">putStrLn</a></code> &quot;world!&quot;]
+Hello world!
+</pre><p>For more ways to construct a stream see the module <a href="Streamly-Prelude.html">Streamly.Prelude</a>.</p></div><a href="#g:6" id="g:6"><h1>Generating Streams Concurrently</h1></a><div class="doc"><p>Monadic construction and generation functions like <code><a href="Streamly-Internal-Data-Stream-StreamK-Type.html#v:consM" title="Streamly.Internal.Data.Stream.StreamK.Type">consM</a></code>, <code><a href="Streamly-Internal-Prelude.html#v:unfoldrM" title="Streamly.Internal.Prelude">unfoldrM</a></code>,
+ <code><a href="Streamly-Internal-Prelude.html#v:replicateM" title="Streamly.Internal.Prelude">replicateM</a></code>, <code><a href="Streamly-Internal-Prelude.html#v:repeatM" title="Streamly.Internal.Prelude">repeatM</a></code>, <code><a href="Streamly-Internal-Prelude.html#v:iterateM" title="Streamly.Internal.Prelude">iterateM</a></code> and <code><a href="Streamly-Internal-Prelude.html#v:fromFoldableM" title="Streamly.Internal.Prelude">fromFoldableM</a></code> work concurrently
+ when used with appropriate stream type combinator. The pure versions of
+ these APIs are not concurrent, however you can use the monadic versions even
+ for pure computations by wrapping the pure value in a monad to get the
+ concurrent generation capability where required.</p><p>The following code finishes in 3 seconds (6 seconds when serial):</p><pre>&gt; let p n = threadDelay (n * 1000000) &gt;&gt; return n
+&gt; S.<code><a href="Streamly-Internal-Prelude.html#v:toList" title="Streamly.Internal.Prelude">toList</a></code> $ <code><a href="Streamly-Internal-Data-Stream-Parallel.html#v:parallely" title="Streamly.Internal.Data.Stream.Parallel">parallely</a></code> $ p 3 |: p 2 |: p 1 |: S.<code><a href="Streamly-Internal-Data-Stream-StreamK-Type.html#v:nil" title="Streamly.Internal.Data.Stream.StreamK.Type">nil</a></code>
+[1,2,3]
+&gt; S.<code><a href="Streamly-Internal-Prelude.html#v:toList" title="Streamly.Internal.Prelude">toList</a></code> $ <code><a href="Streamly-Internal-Data-Stream-Ahead.html#v:aheadly" title="Streamly.Internal.Data.Stream.Ahead">aheadly</a></code> $ p 3 |: p 2 |: p 1 |: S.<code><a href="Streamly-Internal-Data-Stream-StreamK-Type.html#v:nil" title="Streamly.Internal.Data.Stream.StreamK.Type">nil</a></code>
+[3,2,1]
+</pre><p>The following finishes in 10 seconds (100 seconds when serial):</p><pre>&gt; S.drain $ <code><a href="Streamly-Internal-Data-Stream-Async.html#v:asyncly" title="Streamly.Internal.Data.Stream.Async">asyncly</a></code> $ S.<code><a href="Streamly-Internal-Prelude.html#v:replicateM" title="Streamly.Internal.Prelude">replicateM</a></code> 10 $ p 10
+</pre></div><a href="#g:7" id="g:7"><h1>Eliminating Streams</h1></a><div class="doc"><p>We have already seen <code><a href="Streamly-Internal-Prelude.html#v:drain" title="Streamly.Internal.Prelude">drain</a></code> and <code><a href="Streamly-Internal-Prelude.html#v:toList" title="Streamly.Internal.Prelude">toList</a></code> to eliminate a stream in the
+ examples above.  <code><a href="Streamly-Internal-Prelude.html#v:drain" title="Streamly.Internal.Prelude">drain</a></code> runs a stream discarding the results i.e. only
+ for effects.  <code><a href="Streamly-Internal-Prelude.html#v:toList" title="Streamly.Internal.Prelude">toList</a></code> runs the stream and collects the results in a list.</p><p>For other ways to eliminate a stream see the <code>Folding</code> section in
+ <a href="Streamly-Prelude.html">Streamly.Prelude</a> module.</p></div><a href="#g:8" id="g:8"><h1>Concurrent Pipeline Stages</h1></a><div class="doc"><p>The concurrent function application operators <code><a href="Streamly-Internal-Prelude.html#v:-124--36-" title="Streamly.Internal.Prelude">|$</a></code> and <code><a href="Streamly-Internal-Prelude.html#v:-124--38-" title="Streamly.Internal.Prelude">|&amp;</a></code> apply a stream
+ argument to a stream function concurrently to compose a concurrent pipeline
+ of stream processing functions:</p><p>Because both the stages run concurrently, we would see a delay of only 1
+ second instead of 2 seconds in the following:</p><pre>&gt; let p n = threadDelay (n * 1000000) &gt;&gt; return n
+&gt; S.<code><a href="Streamly-Internal-Prelude.html#v:drain" title="Streamly.Internal.Prelude">drain</a></code> $ S.<code><a href="Streamly-Internal-Prelude.html#v:repeatM" title="Streamly.Internal.Prelude">repeatM</a></code> (p 1) <code><a href="Streamly-Internal-Prelude.html#v:-124--38-" title="Streamly.Internal.Prelude">|&amp;</a></code> S.<code><a href="Streamly-Internal-Prelude.html#v:mapM" title="Streamly.Internal.Prelude">mapM</a></code> (\x -&gt; p 1 &gt;&gt; print x)
+</pre></div><a href="#g:9" id="g:9"><h1>Transforming Streams</h1></a><div class="doc"><p>Transformation over a stream is the equivalent of a <code>for</code> loop construct in
+ imperative paradigm. We iterate over every element in the stream and perform
+ certain transformations for each element.  Transformations may involve
+ mapping functions over the elements, filtering elements from the stream or
+ folding all the elements in the stream into a single value. Streamly streams
+ are exactly like lists and you can perform all the transformations in the
+ same way as you would on lists.</p><p>Here is a simple console echo program that just echoes every input line,
+ forever:</p><pre>&gt; import Data.Function ((&amp;))
+&gt; S.<code><a href="Streamly-Internal-Prelude.html#v:drain" title="Streamly.Internal.Prelude">drain</a></code> $ S.<code><a href="Streamly-Internal-Prelude.html#v:repeatM" title="Streamly.Internal.Prelude">repeatM</a></code> getLine &amp; S.<code><a href="Streamly-Internal-Prelude.html#v:mapM" title="Streamly.Internal.Prelude">mapM</a></code> putStrLn
+</pre><p>The following code snippet reads lines from standard input, filters blank
+ lines, drops the first non-blank line, takes the next two, up cases them,
+ numbers them and prints them:</p><pre>import <a href="Streamly.html">Streamly</a>
+import qualified <a href="Streamly-Prelude.html">Streamly.Prelude</a> as S
+import Data.Char (toUpper)
+import Data.Function ((&amp;))
+
+main = S.<code><a href="Streamly-Internal-Prelude.html#v:drain" title="Streamly.Internal.Prelude">drain</a></code> $
+       S.<code><a href="Streamly-Internal-Prelude.html#v:repeatM" title="Streamly.Internal.Prelude">repeatM</a></code> getLine
+     &amp; S.<code><a href="Streamly-Internal-Prelude.html#v:filter" title="Streamly.Internal.Prelude">filter</a></code> (not . null)
+     &amp; S.<code><a href="Streamly-Internal-Prelude.html#v:drop" title="Streamly.Internal.Prelude">drop</a></code> 1
+     &amp; S.<code><a href="Streamly-Internal-Prelude.html#v:take" title="Streamly.Internal.Prelude">take</a></code> 2
+     &amp; fmap (map toUpper)
+     &amp; S.<code><a href="Streamly-Internal-Data-Stream-Zip.html#v:zipWith" title="Streamly.Internal.Data.Stream.Zip">zipWith</a></code> (\n s -&gt; show n ++ &quot; &quot; ++ s) (S.<code><a href="Streamly-Internal-Data-Stream-StreamK.html#v:fromFoldable" title="Streamly.Internal.Data.Stream.StreamK">fromFoldable</a></code> [1..])
+     &amp; S.<code><a href="Streamly-Internal-Prelude.html#v:mapM" title="Streamly.Internal.Prelude">mapM</a></code> putStrLn
+</pre></div><a href="#g:10" id="g:10"><h1>Mapping Concurrently</h1></a><div class="doc"><p>Monadic transformation functions <code><a href="Streamly-Internal-Prelude.html#v:mapM" title="Streamly.Internal.Prelude">mapM</a></code> and <code><a href="Streamly-Internal-Prelude.html#v:sequence" title="Streamly.Internal.Prelude">sequence</a></code> work concurrently
+ when used with appropriate stream type combinators. The pure versions do not
+ work concurrently, however you can use the monadic versions even for pure
+ computations to get the concurrent transformation capability where required.</p><p>This would print a value every second (2 seconds when serial):</p><pre>&gt; let p n = threadDelay (n * 1000000) &gt;&gt; return n
+&gt; S.<code><a href="Streamly-Internal-Prelude.html#v:drain" title="Streamly.Internal.Prelude">drain</a></code> $ S.aheadly $ S.<code><a href="Streamly-Internal-Prelude.html#v:mapM" title="Streamly.Internal.Prelude">mapM</a></code> (\x -&gt; p 1 &gt;&gt; print x) (serially $ S.repeatM (p 1))
+</pre></div><a href="#g:11" id="g:11"><h1>Merging Streams</h1></a><a href="#g:12" id="g:12"><h2>Semigroup Style</h2></a><div class="doc"><p>We can combine two streams into a single stream using semigroup composition
+ operation <code><a href="Streamly.html#v:-60--62-" title="Streamly">&lt;&gt;</a></code>.  Streams can be combined in many different ways as described
+ in the following sections, the <code><a href="Streamly.html#v:-60--62-" title="Streamly">&lt;&gt;</a></code> operation behaves differently depending
+ on the stream type in effect. The stream type and therefore the composition
+ style can be changed at any point using one of the type combinators as
+ discussed earlier.</p></div><a href="#g:13" id="g:13"><h3>Deep Serial Composition (<code><a href="Streamly-Internal-Data-Stream-Serial.html#t:Serial" title="Streamly.Internal.Data.Stream.Serial">Serial</a></code>)</h3></a><div class="doc"><p>The <code><a href="Streamly.html#t:Semigroup" title="Streamly">Semigroup</a></code> operation <code><a href="Streamly.html#v:-60--62-" title="Streamly">&lt;&gt;</a></code> of the <code><a href="Streamly-Internal-Data-Stream-Serial.html#t:Serial" title="Streamly.Internal.Data.Stream.Serial">Serial</a></code> type combines the two streams
+ in a <em>serial depth first</em> manner. We use the <code><a href="Streamly-Internal-Data-Stream-Serial.html#v:serially" title="Streamly.Internal.Data.Stream.Serial">serially</a></code> type combinator to
+ effect <code><a href="Streamly-Internal-Data-Stream-Serial.html#t:Serial" title="Streamly.Internal.Data.Stream.Serial">Serial</a></code> style of composition. We can also use an explicit <code><a href="Streamly-Internal-Data-Stream-Serial.html#t:Serial" title="Streamly.Internal.Data.Stream.Serial">Serial</a></code>
+ type annotation for the stream to achieve the same effect.  However, since
+ <code><a href="Streamly-Internal-Data-Stream-Serial.html#t:Serial" title="Streamly.Internal.Data.Stream.Serial">Serial</a></code> is the default type unless explicitly specified by using a
+ combinator, we can omit using an explicit combinator or type annotation for
+ this style of composition.</p><p>When two streams with multiple elements are combined in this manner, the
+ monadic actions in the two streams are performed sequentially i.e. first all
+ actions in the first stream are performed sequentially and then all actions
+ in the second stream are performed sequentially. We call it
+ <em>serial depth first</em> as the full depth of one stream is fully traversed
+ before we move to the next. The following example prints the sequence 1, 2,
+ 3, 4:</p><pre>main = S.<code><a href="Streamly-Internal-Prelude.html#v:drain" title="Streamly.Internal.Prelude">drain</a></code> $ (print 1 |: print 2 |: nil) &lt;&gt; (print 3 |: print 4 |: nil)
+</pre><pre>1
+2
+3
+4
+</pre><p>All actions in both the streams are performed serially in the same thread.
+ In the following example we can see that all actions are performed in the
+ same thread and take a combined total of <code>3 + 2 + 1 = 6</code> seconds:</p><pre>main = S.<code><a href="Streamly-Internal-Prelude.html#v:drain" title="Streamly.Internal.Prelude">drain</a></code> $ delay 3 &lt;&gt; delay 2 &lt;&gt; delay 1
+</pre><pre>ThreadId 36: Delay 3
+ThreadId 36: Delay 2
+ThreadId 36: Delay 1
+</pre><p>The polymorphic version of the binary operation <code><a href="Streamly.html#v:-60--62-" title="Streamly">&lt;&gt;</a></code> of the <code><a href="Streamly-Internal-Data-Stream-Serial.html#t:Serial" title="Streamly.Internal.Data.Stream.Serial">Serial</a></code> type is
+ <code><a href="Streamly-Internal-Data-Stream-StreamK-Type.html#v:serial" title="Streamly.Internal.Data.Stream.StreamK.Type">serial</a></code>. We can use <code><a href="Streamly-Internal-Data-Stream-StreamK-Type.html#v:serial" title="Streamly.Internal.Data.Stream.StreamK.Type">serial</a></code> to join streams in a sequential manner
+ irrespective of the type of stream:</p><pre>main = S.<code><a href="Streamly-Internal-Prelude.html#v:drain" title="Streamly.Internal.Prelude">drain</a></code> $ (print 1 |: print 2 |: nil) `serial` (print 3 |: print 4 |: nil)
+</pre></div><a href="#g:14" id="g:14"><h3>Wide Serial Composition (<code><a href="Streamly-Internal-Data-Stream-Serial.html#t:WSerial" title="Streamly.Internal.Data.Stream.Serial">WSerial</a></code>)</h3></a><div class="doc"><p>The <code><a href="Streamly.html#t:Semigroup" title="Streamly">Semigroup</a></code> operation <code><a href="Streamly.html#v:-60--62-" title="Streamly">&lt;&gt;</a></code> of the <code><a href="Streamly-Internal-Data-Stream-Serial.html#t:WSerial" title="Streamly.Internal.Data.Stream.Serial">WSerial</a></code> type combines the two
+ streams in a <em>serial breadth first</em> manner. We use the <code><a href="Streamly-Internal-Data-Stream-Serial.html#v:wSerially" title="Streamly.Internal.Data.Stream.Serial">wSerially</a></code> type
+ combinator to effect <code><a href="Streamly-Internal-Data-Stream-Serial.html#t:WSerial" title="Streamly.Internal.Data.Stream.Serial">WSerial</a></code> style of composition. We can also use the
+ <code><a href="Streamly-Internal-Data-Stream-Serial.html#t:WSerial" title="Streamly.Internal.Data.Stream.Serial">WSerial</a></code> type annotation for the stream to achieve the same effect.</p><p>When two streams with multiple elements are combined in this manner, we
+ traverse all the streams in a breadth first manner i.e. one action from each
+ stream is performed and yielded to the resulting stream before we come back
+ to the first stream again and so on.
+ The following example prints the sequence 1, 3, 2, 4</p><pre>main = S.<code><a href="Streamly-Internal-Prelude.html#v:drain" title="Streamly.Internal.Prelude">drain</a></code> . <code><a href="Streamly-Internal-Data-Stream-Serial.html#v:wSerially" title="Streamly.Internal.Data.Stream.Serial">wSerially</a></code> $ (print 1 |: print 2 |: nil) &lt;&gt; (print 3 |: print 4 |: nil)
+</pre><pre>1
+3
+2
+4
+</pre><p>Even though the monadic actions of the two streams are performed in an
+ interleaved manner they are all performed serially in the same thread. In
+ the following example we can see that all actions are performed in the same
+ thread and take a combined total of <code>3 + 2 + 1 = 6</code> seconds:</p><pre>main = S.<code><a href="Streamly-Internal-Prelude.html#v:drain" title="Streamly.Internal.Prelude">drain</a></code> . <code><a href="Streamly-Internal-Data-Stream-Serial.html#v:wSerially" title="Streamly.Internal.Data.Stream.Serial">wSerially</a></code> $ delay 3 &lt;&gt; delay 2 &lt;&gt; delay 1
+</pre><pre>ThreadId 36: Delay 3
+ThreadId 36: Delay 2
+ThreadId 36: Delay 1
+</pre><p>The polymorphic version of the <code><a href="Streamly-Internal-Data-Stream-Serial.html#t:WSerial" title="Streamly.Internal.Data.Stream.Serial">WSerial</a></code> binary operation <code><a href="Streamly.html#v:-60--62-" title="Streamly">&lt;&gt;</a></code> is called
+ <code><a href="Streamly-Internal-Data-Stream-Serial.html#v:wSerial" title="Streamly.Internal.Data.Stream.Serial">wSerial</a></code>. We can use <code><a href="Streamly-Internal-Data-Stream-Serial.html#v:wSerial" title="Streamly.Internal.Data.Stream.Serial">wSerial</a></code> to join streams in an interleaved manner
+ irrespective of the type, notice that we have not used the <code><a href="Streamly-Internal-Data-Stream-Serial.html#v:wSerially" title="Streamly.Internal.Data.Stream.Serial">wSerially</a></code>
+ combinator in the following example:</p><pre>main = S.<code><a href="Streamly-Internal-Prelude.html#v:drain" title="Streamly.Internal.Prelude">drain</a></code> $ (print 1 |: print 2 |: nil) `wSerial` (print 3 |: print 4 |: nil)
+</pre><pre>1
+3
+2
+4
+</pre><p>Note that this composition cannot be used to fold infinite number of streams
+ since it requires preserving the state until a stream is finished.</p></div><a href="#g:15" id="g:15"><h3>Deep Speculative Composition (<code><a href="Streamly-Internal-Data-Stream-Ahead.html#t:Ahead" title="Streamly.Internal.Data.Stream.Ahead">Ahead</a></code>)</h3></a><div class="doc"><p>The <code><a href="Streamly.html#t:Semigroup" title="Streamly">Semigroup</a></code> operation <code><a href="Streamly.html#v:-60--62-" title="Streamly">&lt;&gt;</a></code> of the <code><a href="Streamly-Internal-Data-Stream-Ahead.html#t:Ahead" title="Streamly.Internal.Data.Stream.Ahead">Ahead</a></code> type combines two streams in a
+ <em>serial depth first</em> manner with concurrent lookahead. We use the <code><a href="Streamly-Internal-Data-Stream-Ahead.html#v:aheadly" title="Streamly.Internal.Data.Stream.Ahead">aheadly</a></code>
+ type combinator to effect <code><a href="Streamly-Internal-Data-Stream-Ahead.html#t:Ahead" title="Streamly.Internal.Data.Stream.Ahead">Ahead</a></code> style of composition. We can also use an
+ explicit <code><a href="Streamly-Internal-Data-Stream-Ahead.html#t:Ahead" title="Streamly.Internal.Data.Stream.Ahead">Ahead</a></code> type annotation for the stream to achieve the same effect.</p><p>When two streams are combined in this manner, the streams are traversed in
+ depth first manner just like <code><a href="Streamly-Internal-Data-Stream-Serial.html#t:Serial" title="Streamly.Internal.Data.Stream.Serial">Serial</a></code>, however it can execute the next
+ stream concurrently and keep the results ready when its turn arrives.
+ Concurrent execution of the next stream(s) is performed if the first stream
+ blocks or if it cannot produce output at the rate that is enough to meet the
+ consumer demand. Multiple streams can be executed concurrently to meet the
+ demand.  The following example would print the result in a second even
+ though each action in each stream takes one second:</p><pre>main = do
+ xs &lt;- S.<code><a href="Streamly-Internal-Prelude.html#v:toList" title="Streamly.Internal.Prelude">toList</a></code> . <code><a href="Streamly-Internal-Data-Stream-Ahead.html#v:aheadly" title="Streamly.Internal.Data.Stream.Ahead">aheadly</a></code> $ (p 1 |: p 2 |: nil) &lt;&gt; (p 3 |: p 4 |: nil)
+ print xs
+ where p n = threadDelay 1000000 &gt;&gt; return n
+</pre><pre>[1,2,3,4]
+</pre><p>Each stream is constructed <code><a href="Streamly-Internal-Data-Stream-Ahead.html#v:aheadly" title="Streamly.Internal.Data.Stream.Ahead">aheadly</a></code> and then both the streams are merged
+ <code><a href="Streamly-Internal-Data-Stream-Ahead.html#v:aheadly" title="Streamly.Internal.Data.Stream.Ahead">aheadly</a></code>, therefore, all the actions can run concurrently but the result is
+ presented in serial order.</p><p>You can also use the polymorphic combinator <code><a href="Streamly-Internal-Data-Stream-Ahead.html#v:ahead" title="Streamly.Internal.Data.Stream.Ahead">ahead</a></code> in place of <code><a href="Streamly.html#v:-60--62-" title="Streamly">&lt;&gt;</a></code> to
+ compose any type of streams in this manner.</p></div><a href="#g:16" id="g:16"><h3>Deep Asynchronous Composition (<code><a href="Streamly-Internal-Data-Stream-Async.html#t:Async" title="Streamly.Internal.Data.Stream.Async">Async</a></code>)</h3></a><div class="doc"><p>The <code><a href="Streamly.html#t:Semigroup" title="Streamly">Semigroup</a></code> operation <code><a href="Streamly.html#v:-60--62-" title="Streamly">&lt;&gt;</a></code> of the <code><a href="Streamly-Internal-Data-Stream-Async.html#t:Async" title="Streamly.Internal.Data.Stream.Async">Async</a></code> type combines the two
+ streams in a depth first manner with parallel look ahead. We use the
+ <code><a href="Streamly-Internal-Data-Stream-Async.html#v:asyncly" title="Streamly.Internal.Data.Stream.Async">asyncly</a></code> type combinator to effect <code><a href="Streamly-Internal-Data-Stream-Async.html#t:Async" title="Streamly.Internal.Data.Stream.Async">Async</a></code> style of composition. We
+ can also use the <code><a href="Streamly-Internal-Data-Stream-Async.html#t:Async" title="Streamly.Internal.Data.Stream.Async">Async</a></code> type annotation for the stream type to achieve
+ the same effect.</p><p>When two streams with multiple elements are combined in this manner, the
+ streams are traversed in depth first manner just like <code><a href="Streamly-Internal-Data-Stream-Serial.html#t:Serial" title="Streamly.Internal.Data.Stream.Serial">Serial</a></code>, however it
+ can execute the next stream concurrently and return the results from it
+ as they arrive i.e. the results from the next stream may be yielded even
+ before the results from the first stream. Concurrent execution of the next
+ stream(s) is performed if the first stream blocks or if it cannot produce
+ output at the rate that is enough to meet the consumer demand. Multiple
+ streams can be executed concurrently to meet the demand.
+ In the example below each element in the stream introduces a constant delay
+ of 1 second, however, it takes just one second to produce all the results.
+ The results are not guaranteed to be in any particular order:</p><pre>main = do
+  xs &lt;- S.<code><a href="Streamly-Internal-Prelude.html#v:toList" title="Streamly.Internal.Prelude">toList</a></code> . <code><a href="Streamly-Internal-Data-Stream-Async.html#v:asyncly" title="Streamly.Internal.Data.Stream.Async">asyncly</a></code> $ (p 1 |: p 2 |: nil) &lt;&gt; (p 3 |: p 4 |: nil)
+  print xs
+  where p n = threadDelay 1000000 &gt;&gt; return n
+</pre><pre>[4,2,1,3]
+</pre><p>The constituent streams are also composed in <code><a href="Streamly-Internal-Data-Stream-Async.html#t:Async" title="Streamly.Internal.Data.Stream.Async">Async</a></code> manner and the
+ composition of streams too. We can compose the constituent streams to run
+ serially, in that case it would take 2 seconds to produce all the results.
+ The elements in the serial streams would be in serial order in the results:</p><pre>main = do
+  xs &lt;- S.<code><a href="Streamly-Internal-Prelude.html#v:toList" title="Streamly.Internal.Prelude">toList</a></code> . <code><a href="Streamly-Internal-Data-Stream-Async.html#v:asyncly" title="Streamly.Internal.Data.Stream.Async">asyncly</a></code> $ (serially $ p 1 |: p 2 |: nil) &lt;&gt; (serially $ p 3 |: p 4 |: nil)
+  print xs
+  where p n = threadDelay 1000000 &gt;&gt; return n
+</pre><pre>[3,1,2,4]
+</pre><p>In the following example we can see that new threads are started when a
+ computation blocks.  Notice that the output from the stream with the
+ shortest delay is printed first. The whole computation takes <code>maximum of
+ (3, 2, 1) = 3</code> seconds:</p><pre>main = S.<code><a href="Streamly-Internal-Prelude.html#v:drain" title="Streamly.Internal.Prelude">drain</a></code> . <code><a href="Streamly-Internal-Data-Stream-Async.html#v:asyncly" title="Streamly.Internal.Data.Stream.Async">asyncly</a></code> $ delay 3 <code><a href="Streamly.html#v:-60--62-" title="Streamly">&lt;&gt;</a></code> delay 2 <code><a href="Streamly.html#v:-60--62-" title="Streamly">&lt;&gt;</a></code> delay 1
+</pre><pre>ThreadId 42: Delay 1
+ThreadId 41: Delay 2
+ThreadId 40: Delay 3
+</pre><p>When we have a tree of computations composed using this style, the tree is
+ traversed in DFS style just like the <code><a href="Streamly-Internal-Data-Stream-Serial.html#t:Serial" title="Streamly.Internal.Data.Stream.Serial">Serial</a></code> style, the only difference is
+ that here we can move on to executing the next stream if a stream blocks.
+ However, we will not start new threads if we have sufficient output to
+ saturate the consumer.  This is why we call it left-biased demand driven or
+ adaptive concurrency style, the concurrency tends to stay on the left side
+ of the composition as long as possible. More threads are started based on
+ the pull rate of the consumer. The following example prints an output every
+ second as all of the actions are concurrent.</p><pre>main = S.<code><a href="Streamly-Internal-Prelude.html#v:drain" title="Streamly.Internal.Prelude">drain</a></code> . <code><a href="Streamly-Internal-Data-Stream-Async.html#v:asyncly" title="Streamly.Internal.Data.Stream.Async">asyncly</a></code> $ (delay 1 &lt;&gt; delay 2) &lt;&gt; (delay 3 &lt;&gt; delay 4)
+</pre><pre>1
+2
+3
+4
+</pre><p>All the computations may even run in a single thread when more threads are
+ not needed. As you can see, in the following example the computations are
+ run in a single thread one after another, because none of them blocks.
+ However, if the thread consuming the stream were faster than the producer
+ then it would have started parallel threads for each computation to keep up
+ even if none of them blocks:</p><pre>main = S.<code><a href="Streamly-Internal-Prelude.html#v:drain" title="Streamly.Internal.Prelude">drain</a></code> . <code><a href="Streamly-Internal-Data-Stream-Async.html#v:asyncly" title="Streamly.Internal.Data.Stream.Async">asyncly</a></code> $ traced (sqrt 9) <code><a href="Streamly.html#v:-60--62-" title="Streamly">&lt;&gt;</a></code> traced (sqrt 16) <code><a href="Streamly.html#v:-60--62-" title="Streamly">&lt;&gt;</a></code> traced (sqrt 25)
+ where traced m = S.<code><a href="Streamly-Internal-Prelude.html#v:yieldM" title="Streamly.Internal.Prelude">yieldM</a></code> (myThreadId &gt;&gt;= print) &gt;&gt; return m
+</pre><pre>ThreadId 40
+ThreadId 40
+ThreadId 40
+</pre><p>Note that the order of printing in the above examples may change due to
+ variations in scheduling latencies for concurrent threads.</p><p>The polymorphic version of the <code><a href="Streamly-Internal-Data-Stream-Async.html#t:Async" title="Streamly.Internal.Data.Stream.Async">Async</a></code> binary operation <code><a href="Streamly.html#v:-60--62-" title="Streamly">&lt;&gt;</a></code> is called
+ <code><a href="Streamly-Internal-Data-Stream-Async.html#v:async" title="Streamly.Internal.Data.Stream.Async">async</a></code>. We can use <code><a href="Streamly-Internal-Data-Stream-Async.html#v:async" title="Streamly.Internal.Data.Stream.Async">async</a></code> to join streams in a left biased
+ adaptively concurrent manner irrespective of the type, notice that we have
+ not used the <code><a href="Streamly-Internal-Data-Stream-Async.html#v:asyncly" title="Streamly.Internal.Data.Stream.Async">asyncly</a></code> combinator in the following example:</p><pre>main = S.<code><a href="Streamly-Internal-Prelude.html#v:drain" title="Streamly.Internal.Prelude">drain</a></code> $ delay 3 `async` delay 2 `async` delay 1
+</pre><pre>ThreadId 42: Delay 1
+ThreadId 41: Delay 2
+ThreadId 40: Delay 3
+</pre><p>Since the concurrency provided by this operator is demand driven it cannot
+ be used when the composed computations start timers that are relative to
+ each other because all computations may not be started at the same time and
+ therefore timers in all of them may not start at the same time.  When
+ relative timing among all computations is important or when we need to start
+ all computations at once for any reason <code><a href="Streamly-Internal-Data-Stream-Parallel.html#t:Parallel" title="Streamly.Internal.Data.Stream.Parallel">Parallel</a></code> style must be used
+ instead.</p><p><code><a href="Streamly-Internal-Data-Stream-Async.html#t:Async" title="Streamly.Internal.Data.Stream.Async">Async</a></code> style utilizes resources optimally and should be preferred over
+ <code><a href="Streamly-Internal-Data-Stream-Parallel.html#t:Parallel" title="Streamly.Internal.Data.Stream.Parallel">Parallel</a></code> or <code><a href="Streamly-Internal-Data-Stream-Async.html#t:WAsync" title="Streamly.Internal.Data.Stream.Async">WAsync</a></code> unless you really need those. <code><a href="Streamly-Internal-Data-Stream-Async.html#t:Async" title="Streamly.Internal.Data.Stream.Async">Async</a></code> should be used
+ when we know that the computations can run in parallel but we do not care if
+ they actually run in parallel or not, that decision can be left to the
+ scheduler based on demand. Also, note that <code><a href="Streamly-Internal-Data-Stream-Async.html#v:async" title="Streamly.Internal.Data.Stream.Async">async</a></code> operator can be used to fold
+ infinite number of streams in contrast to the <code><a href="Streamly-Internal-Data-Stream-Parallel.html#t:Parallel" title="Streamly.Internal.Data.Stream.Parallel">Parallel</a></code> or <code><a href="Streamly-Internal-Data-Stream-Async.html#t:WAsync" title="Streamly.Internal.Data.Stream.Async">WAsync</a></code> styles,
+ because it does not require us to run all of them at the same time in a fair
+ manner.</p></div><a href="#g:17" id="g:17"><h3>Wide Asynchronous Composition (<code><a href="Streamly-Internal-Data-Stream-Async.html#t:WAsync" title="Streamly.Internal.Data.Stream.Async">WAsync</a></code>)</h3></a><div class="doc"><p>The <code><a href="Streamly.html#t:Semigroup" title="Streamly">Semigroup</a></code> operation <code><a href="Streamly.html#v:-60--62-" title="Streamly">&lt;&gt;</a></code> of the <code><a href="Streamly-Internal-Data-Stream-Async.html#t:WAsync" title="Streamly.Internal.Data.Stream.Async">WAsync</a></code> type combines two streams in
+ a concurrent manner using <em>breadth first traversal</em>. We use the <code><a href="Streamly-Internal-Data-Stream-Async.html#v:wAsyncly" title="Streamly.Internal.Data.Stream.Async">wAsyncly</a></code>
+ type combinator to effect <code><a href="Streamly-Internal-Data-Stream-Async.html#t:WAsync" title="Streamly.Internal.Data.Stream.Async">WAsync</a></code> style of composition. We can also use the
+ <code><a href="Streamly-Internal-Data-Stream-Async.html#t:WAsync" title="Streamly.Internal.Data.Stream.Async">WAsync</a></code> type annotation for the stream to achieve the same effect.</p><p>When streams with multiple elements are combined in this manner, we traverse
+ all the streams concurrently in a breadth first manner i.e. one action from
+ each stream is performed and yielded to the resulting stream before we come
+ back to the first stream again and so on. Even though we execute the actions
+ in a breadth first order the outputs are consumed on a first come first
+ serve basis.</p><p>In the following example we can see that outputs are produced in the breadth
+ first traversal order but this is not guaranteed.</p><pre>main = S.<code><a href="Streamly-Internal-Prelude.html#v:drain" title="Streamly.Internal.Prelude">drain</a></code> . <code><a href="Streamly-Internal-Data-Stream-Async.html#v:wAsyncly" title="Streamly.Internal.Data.Stream.Async">wAsyncly</a></code> $ (serially $ print 1 |: print 2 |: nil) &lt;&gt; (serially $ print 3 |: print 4 |: nil)
+</pre><pre>1
+3
+2
+4
+</pre><p>The polymorphic version of the binary operation <code><a href="Streamly.html#v:-60--62-" title="Streamly">&lt;&gt;</a></code> of the <code><a href="Streamly-Internal-Data-Stream-Async.html#t:WAsync" title="Streamly.Internal.Data.Stream.Async">WAsync</a></code> type is
+ <code><a href="Streamly-Internal-Data-Stream-Async.html#v:wAsync" title="Streamly.Internal.Data.Stream.Async">wAsync</a></code>.  We can use <code><a href="Streamly-Internal-Data-Stream-Async.html#v:wAsync" title="Streamly.Internal.Data.Stream.Async">wAsync</a></code> to join streams using a breadth first
+ concurrent traversal irrespective of the type, notice that we have not used
+ the <code><a href="Streamly-Internal-Data-Stream-Async.html#v:wAsyncly" title="Streamly.Internal.Data.Stream.Async">wAsyncly</a></code> combinator in the following example:</p><pre>main = S.<code><a href="Streamly-Internal-Prelude.html#v:drain" title="Streamly.Internal.Prelude">drain</a></code> $ delay 3 `wAsync` delay 2 `wAsync` delay 1
+</pre><pre>ThreadId 42: Delay 1
+ThreadId 41: Delay 2
+ThreadId 40: Delay 3
+</pre><p>Since the concurrency provided by this style is demand driven it may not
+ be used when the composed computations start timers that are relative to
+ each other because all computations may not be started at the same time and
+ therefore timers in all of them may not start at the same time.  When
+ relative timing among all computations is important or when we need to start
+ all computations at once for any reason <code><a href="Streamly-Internal-Data-Stream-Parallel.html#t:Parallel" title="Streamly.Internal.Data.Stream.Parallel">Parallel</a></code> style must be used
+ instead.</p></div><a href="#g:18" id="g:18"><h3>Parallel Asynchronous Composition (<code><a href="Streamly-Internal-Data-Stream-Parallel.html#t:Parallel" title="Streamly.Internal.Data.Stream.Parallel">Parallel</a></code>)</h3></a><div class="doc"><p>The <code><a href="Streamly.html#t:Semigroup" title="Streamly">Semigroup</a></code> operation <code><a href="Streamly.html#v:-60--62-" title="Streamly">&lt;&gt;</a></code> of the <code><a href="Streamly-Internal-Data-Stream-Parallel.html#t:Parallel" title="Streamly.Internal.Data.Stream.Parallel">Parallel</a></code> type combines the two
+ streams in a fairly concurrent manner with round robin scheduling. We use
+ the <code><a href="Streamly-Internal-Data-Stream-Parallel.html#v:parallely" title="Streamly.Internal.Data.Stream.Parallel">parallely</a></code> type combinator to effect <code><a href="Streamly-Internal-Data-Stream-Parallel.html#t:Parallel" title="Streamly.Internal.Data.Stream.Parallel">Parallel</a></code> style of composition.
+ We can also use the <code><a href="Streamly-Internal-Data-Stream-Parallel.html#t:Parallel" title="Streamly.Internal.Data.Stream.Parallel">Parallel</a></code> type annotation for the stream type to
+ achieve the same effect.</p><p>When two streams with multiple elements are combined in this manner, the
+ monadic actions in both the streams are performed concurrently with a fair
+ round robin scheduling.  The outputs are yielded in the order in which the
+ actions complete. This is pretty similar to the <code><a href="Streamly-Internal-Data-Stream-Async.html#t:WAsync" title="Streamly.Internal.Data.Stream.Async">WAsync</a></code> type, the
+ difference is that <code><a href="Streamly-Internal-Data-Stream-Async.html#t:WAsync" title="Streamly.Internal.Data.Stream.Async">WAsync</a></code> is adaptive to the consumer demand and may or
+ may not execute all actions in parallel depending on the demand, whereas
+ <code><a href="Streamly-Internal-Data-Stream-Parallel.html#t:Parallel" title="Streamly.Internal.Data.Stream.Parallel">Parallel</a></code> runs all the streams in parallel irrespective of the demand.</p><p>The following example sends a query to all the three search engines in
+ parallel and prints the name of the search engines in the order in which the
+ responses arrive. You need the <a href="http://hackage.haskell.org/package/http-conduit">http-conduit</a>
+ package to run this example:</p><pre>import <a href="Streamly.html">Streamly</a>
+import qualified Streamly.Prelude as S
+import Network.HTTP.Simple
+
+main = S.<code><a href="Streamly-Internal-Prelude.html#v:drain" title="Streamly.Internal.Prelude">drain</a></code> . <code><a href="Streamly-Internal-Data-Stream-Parallel.html#v:parallely" title="Streamly.Internal.Data.Stream.Parallel">parallely</a></code> $ google &lt;&gt; bing &lt;&gt; duckduckgo
+    where
+        google     = get &quot;<a href="https://www.google.com/search?q=haskell&quot;">https://www.google.com/search?q=haskell&quot;</a>
+        bing       = get &quot;<a href="https://www.bing.com/search?q=haskell&quot;">https://www.bing.com/search?q=haskell&quot;</a>
+        duckduckgo = get &quot;<a href="https://www.duckduckgo.com/?q=haskell&quot;">https://www.duckduckgo.com/?q=haskell&quot;</a>
+        get s = S.<code><a href="Streamly-Internal-Prelude.html#v:yieldM" title="Streamly.Internal.Prelude">yieldM</a></code> (httpNoBody (parseRequest_ s) &gt;&gt; putStrLn (show s))
+</pre><p>The polymorphic version of the binary operation <code><a href="Streamly.html#v:-60--62-" title="Streamly">&lt;&gt;</a></code> of the <code><a href="Streamly-Internal-Data-Stream-Parallel.html#t:Parallel" title="Streamly.Internal.Data.Stream.Parallel">Parallel</a></code> type
+ is <code><a href="Streamly-Internal-Data-Stream-Parallel.html#v:parallel" title="Streamly.Internal.Data.Stream.Parallel">parallel</a></code>. We can use <code><a href="Streamly-Internal-Data-Stream-Parallel.html#v:parallel" title="Streamly.Internal.Data.Stream.Parallel">parallel</a></code> to join streams in a fairly concurrent
+ manner irrespective of the type, notice that we have not used the
+ <code><a href="Streamly-Internal-Data-Stream-Parallel.html#v:parallely" title="Streamly.Internal.Data.Stream.Parallel">parallely</a></code> combinator in the following example:</p><pre>main = S.<code><a href="Streamly-Internal-Prelude.html#v:drain" title="Streamly.Internal.Prelude">drain</a></code> $ delay 3 `parallel` delay 2 `wAsync` delay 1
+</pre><pre>ThreadId 42: Delay 1
+ThreadId 41: Delay 2
+ThreadId 40: Delay 3
+</pre><p>Note that this style of composition cannot be used to combine infinite
+ number of streams, as it will lead to an infinite sized scheduling queue.</p></div><a href="#g:19" id="g:19"><h2>Monoid Style</h2></a><div class="doc"><p>We can use <code><a href="https://hackage.haskell.org/package/base-4.12.0.0/docs/Data-Monoid.html#t:Monoid" title="Data.Monoid">Monoid</a></code> instances to fold a container of streams in the desired
+ style using <code><a href="Streamly-Internal-Prelude.html#v:fold" title="Streamly.Internal.Prelude">fold</a></code> or <code><a href="https://hackage.haskell.org/package/base-4.12.0.0/docs/Data-Foldable.html#v:foldMap" title="Data.Foldable">foldMap</a></code>.  We have also provided some fold utilities
+ to fold streams using the polymorphic combine operations:</p><ul><li><code>foldWith</code> is like <code><a href="Streamly-Internal-Prelude.html#v:fold" title="Streamly.Internal.Prelude">fold</a></code>, it folds a <code><a href="https://hackage.haskell.org/package/base-4.12.0.0/docs/Data-Foldable.html#t:Foldable" title="Data.Foldable">Foldable</a></code> container of streams
+ using the given composition operator.</li><li><code>foldMapWith</code> is like <code><a href="https://hackage.haskell.org/package/base-4.12.0.0/docs/Data-Foldable.html#v:foldMap" title="Data.Foldable">foldMap</a></code>, it folds like <code>foldWith</code> but also maps a
+ function before folding.</li><li><code>forEachWith</code> is like <code>foldMapwith</code> but the container argument comes before
+ the function argument.</li></ul><p>All of the following are equivalent and start ten concurrent tasks each with
+ a delay from 1 to 10 seconds, resulting in the printing of each number every
+ second:</p><pre>import <a href="Streamly.html">Streamly</a>
+import qualified <a href="Streamly-Prelude.html">Streamly.Prelude</a> as S
+import Control.Concurrent
+
+main = do
+ S.<code><a href="Streamly-Internal-Prelude.html#v:drain" title="Streamly.Internal.Prelude">drain</a></code> $ <code><a href="Streamly-Internal-Data-Stream-Async.html#v:asyncly" title="Streamly.Internal.Data.Stream.Async">asyncly</a></code> $ foldMap delay [1..10]
+ S.<code><a href="Streamly-Internal-Prelude.html#v:drain" title="Streamly.Internal.Prelude">drain</a></code> $ S.<code>foldWith</code>    <code><a href="Streamly-Internal-Data-Stream-Async.html#v:async" title="Streamly.Internal.Data.Stream.Async">async</a></code> (map delay [1..10])
+ S.<code><a href="Streamly-Internal-Prelude.html#v:drain" title="Streamly.Internal.Prelude">drain</a></code> $ S.<code>foldMapWith</code> <code><a href="Streamly-Internal-Data-Stream-Async.html#v:async" title="Streamly.Internal.Data.Stream.Async">async</a></code> delay [1..10]
+ S.<code><a href="Streamly-Internal-Prelude.html#v:drain" title="Streamly.Internal.Prelude">drain</a></code> $ S.<code>forEachWith</code> <code><a href="Streamly-Internal-Data-Stream-Async.html#v:async" title="Streamly.Internal.Data.Stream.Async">async</a></code> [1..10] delay
+ where delay n = S.<code><a href="Streamly-Internal-Prelude.html#v:yieldM" title="Streamly.Internal.Prelude">yieldM</a></code> $ threadDelay (n * 1000000) &gt;&gt; print n
+</pre></div><a href="#g:20" id="g:20"><h1>Nesting Streams</h1></a><div class="doc"><p>Till now we discussed ways to apply transformations on a stream or to merge
+ streams together to create another stream. We mentioned earlier that
+ transforming a stream is similar to a <code>for</code> loop in the imperative paradigm.
+ We will now discuss the concept of a nested composition of streams which is
+ analogous to nested <code>for</code> loops in the imperative paradigm. Functional
+ programmers call this style of composition a list transformer or <code>ListT</code>.
+ Logic programmers call it a logic monad or non-deterministic composition,
+ but for ordinary imperative minded people like me it is easier to think in
+ terms of good old nested <code>for</code> loops.</p></div><a href="#g:21" id="g:21"><h2>Monad</h2></a><div class="doc"><p>In functional programmer's parlance the <code><a href="https://hackage.haskell.org/package/base-4.12.0.0/docs/Control-Monad.html#t:Monad" title="Control.Monad">Monad</a></code> instances of different
+ <code><a href="Streamly-Internal-Data-Stream-StreamK-Type.html#t:IsStream" title="Streamly.Internal.Data.Stream.StreamK.Type">IsStream</a></code> types implement non-determinism, exploring all possible
+ combination of choices from both the streams. From an imperative
+ programmer's point of view it behaves like nested loops i.e.  for each
+ element in the first stream and for each element in the second stream
+ execute the body of the loop.</p><p>The <code><a href="https://hackage.haskell.org/package/base-4.12.0.0/docs/Control-Monad.html#t:Monad" title="Control.Monad">Monad</a></code> instances of <code><a href="Streamly-Internal-Data-Stream-Serial.html#t:Serial" title="Streamly.Internal.Data.Stream.Serial">Serial</a></code>, <code><a href="Streamly-Internal-Data-Stream-Serial.html#t:WSerial" title="Streamly.Internal.Data.Stream.Serial">WSerial</a></code>, <code><a href="Streamly-Internal-Data-Stream-Async.html#t:Async" title="Streamly.Internal.Data.Stream.Async">Async</a></code> and <code><a href="Streamly-Internal-Data-Stream-Async.html#t:WAsync" title="Streamly.Internal.Data.Stream.Async">WAsync</a></code>
+ stream types support different flavors of nested looping.  In other words,
+ they are all variants of list transformer.  The nesting behavior of these
+ types correspond exactly to the way they merge streams as we discussed in
+ the previous section.</p></div><a href="#g:22" id="g:22"><h3>Deep Serial Nesting (<code><a href="Streamly-Internal-Data-Stream-Serial.html#t:Serial" title="Streamly.Internal.Data.Stream.Serial">Serial</a></code>)</h3></a><div class="doc"><p>The <code><a href="https://hackage.haskell.org/package/base-4.12.0.0/docs/Control-Monad.html#t:Monad" title="Control.Monad">Monad</a></code> composition of the <code><a href="Streamly-Internal-Data-Stream-Serial.html#t:Serial" title="Streamly.Internal.Data.Stream.Serial">Serial</a></code> type behaves like a standard list
+ transformer. This is the default when we do not use an explicit type
+ combinator. However, the <code><a href="Streamly-Internal-Data-Stream-Serial.html#v:serially" title="Streamly.Internal.Data.Stream.Serial">serially</a></code> type combinator can be used to switch to
+ this style of composition. We will see how this style of composition works
+ in the following examples.</p><p>Let's start with an example with a simple <code>for</code> loop without any nesting.
+ For simplicity of illustration we are using streams of pure values in all
+ the examples.  However, the streams could also be made of monadic actions
+ instead.</p><pre>import <a href="Streamly.html">Streamly</a>
+import qualified <a href="Streamly-Prelude.html">Streamly.Prelude</a> as S
+
+main = S.<code><a href="Streamly-Internal-Prelude.html#v:drain" title="Streamly.Internal.Prelude">drain</a></code> $ do
+    x &lt;- S.<code><a href="Streamly-Internal-Data-Stream-StreamK.html#v:fromFoldable" title="Streamly.Internal.Data.Stream.StreamK">fromFoldable</a></code> [3,2,1]
+    delay x
+</pre><pre>ThreadId 30: Delay 3
+ThreadId 30: Delay 2
+ThreadId 30: Delay 1
+</pre><p>As we can see, the code after the <code>fromFoldable</code> statement is run three
+ times, once for each value of <code>x</code> drawn from the stream. All the three
+ iterations are serial and run in the same thread one after another. In
+ imperative terms this is equivalent to a <code>for</code> loop with three iterations.</p><p>A console echo loop copying standard input to standard output can simply be
+ written like this:</p><pre>import <a href="Streamly.html">Streamly</a>
+import qualified <a href="Streamly-Prelude.html">Streamly.Prelude</a> as S
+
+import Control.Monad (forever)
+
+main = S.<code><a href="Streamly-Internal-Prelude.html#v:drain" title="Streamly.Internal.Prelude">drain</a></code> $ forever $ S.yieldM getLine &gt;&gt;= S.yieldM . putStrLn
+</pre><p>When multiple streams are composed using this style they nest in a DFS
+ manner i.e. nested iterations of a loop are executed before we proceed to
+ the next iteration of the parent loop. This behaves just like nested <code>for</code>
+ loops in imperative programming.</p><pre>import <a href="Streamly.html">Streamly</a>
+import qualified <a href="Streamly-Prelude.html">Streamly.Prelude</a> as S
+
+main = S.<code><a href="Streamly-Internal-Prelude.html#v:drain" title="Streamly.Internal.Prelude">drain</a></code> $ do
+    x &lt;- S.<code><a href="Streamly-Internal-Data-Stream-StreamK.html#v:fromFoldable" title="Streamly.Internal.Data.Stream.StreamK">fromFoldable</a></code> [1,2]
+    y &lt;- S.<code><a href="Streamly-Internal-Data-Stream-StreamK.html#v:fromFoldable" title="Streamly.Internal.Data.Stream.StreamK">fromFoldable</a></code> [3,4]
+    S.<code><a href="Streamly-Internal-Prelude.html#v:yieldM" title="Streamly.Internal.Prelude">yieldM</a></code> $ putStrLn $ show (x, y)
+</pre><pre>(1,3)
+(1,4)
+(2,3)
+(2,4)
+</pre><p>Notice that this is analogous to merging streams of type <code><a href="Streamly-Internal-Data-Stream-Serial.html#t:Serial" title="Streamly.Internal.Data.Stream.Serial">Serial</a></code> or merging
+ streams using <code><a href="Streamly-Internal-Data-Stream-StreamK-Type.html#v:serial" title="Streamly.Internal.Data.Stream.StreamK.Type">serial</a></code>.</p></div><a href="#g:23" id="g:23"><h3>Wide Serial Nesting (<code><a href="Streamly-Internal-Data-Stream-Serial.html#t:WSerial" title="Streamly.Internal.Data.Stream.Serial">WSerial</a></code>)</h3></a><div class="doc"><p>The <code><a href="https://hackage.haskell.org/package/base-4.12.0.0/docs/Control-Monad.html#t:Monad" title="Control.Monad">Monad</a></code> composition of <code><a href="Streamly-Internal-Data-Stream-Serial.html#t:WSerial" title="Streamly.Internal.Data.Stream.Serial">WSerial</a></code> type interleaves the iterations of
+ outer and inner loops in a nested loop composition. This works exactly the
+ same way as the merging of two streams in <code><a href="Streamly-Internal-Data-Stream-Serial.html#v:wSerially" title="Streamly.Internal.Data.Stream.Serial">wSerially</a></code> fashion works.  The
+ <code><a href="Streamly-Internal-Data-Stream-Serial.html#v:wSerially" title="Streamly.Internal.Data.Stream.Serial">wSerially</a></code> type combinator can be used to switch to this style of
+ composition. Alternatively, a type annotation can be used to specify the
+ type of the stream as <code><a href="Streamly-Internal-Data-Stream-Serial.html#t:WSerial" title="Streamly.Internal.Data.Stream.Serial">WSerial</a></code>.</p><pre>import <a href="Streamly.html">Streamly</a>
+import qualified <a href="Streamly-Prelude.html">Streamly.Prelude</a> as S
+
+main = S.<code><a href="Streamly-Internal-Prelude.html#v:drain" title="Streamly.Internal.Prelude">drain</a></code> . <code><a href="Streamly-Internal-Data-Stream-Serial.html#v:wSerially" title="Streamly.Internal.Data.Stream.Serial">wSerially</a></code> $ do
+    x &lt;- S.<code><a href="Streamly-Internal-Data-Stream-StreamK.html#v:fromFoldable" title="Streamly.Internal.Data.Stream.StreamK">fromFoldable</a></code> [1,2]
+    y &lt;- S.<code><a href="Streamly-Internal-Data-Stream-StreamK.html#v:fromFoldable" title="Streamly.Internal.Data.Stream.StreamK">fromFoldable</a></code> [3,4]
+    S.yieldM $ putStrLn $ show (x, y)
+</pre><pre>(1,3)
+(2,3)
+(1,4)
+(2,4)
+</pre></div><a href="#g:24" id="g:24"><h3>Deep Speculative Nesting (<code><a href="Streamly-Internal-Data-Stream-Ahead.html#t:Ahead" title="Streamly.Internal.Data.Stream.Ahead">Ahead</a></code>)</h3></a><div class="doc"><p>The <code><a href="https://hackage.haskell.org/package/base-4.12.0.0/docs/Control-Monad.html#t:Monad" title="Control.Monad">Monad</a></code> composition of <code><a href="Streamly-Internal-Data-Stream-Ahead.html#t:Ahead" title="Streamly.Internal.Data.Stream.Ahead">Ahead</a></code> type behaves just like <code><a href="Streamly-Internal-Data-Stream-Serial.html#t:Serial" title="Streamly.Internal.Data.Stream.Serial">Serial</a></code> except
+ that it can speculatively perform a bounded number of next iterations of a
+ loop concurrently.</p><p>The <code><a href="Streamly-Internal-Data-Stream-Ahead.html#v:aheadly" title="Streamly.Internal.Data.Stream.Ahead">aheadly</a></code> type combinator can be used to switch to this style of
+ composition. Alternatively, a type annotation can be used to specify the
+ type of the stream as <code><a href="Streamly-Internal-Data-Stream-Ahead.html#t:Ahead" title="Streamly.Internal.Data.Stream.Ahead">Ahead</a></code>.</p><pre>import <a href="Streamly.html">Streamly</a>
+import qualified <a href="Streamly-Prelude.html">Streamly.Prelude</a> as S
+
+comp = S.<code><a href="Streamly-Internal-Prelude.html#v:toList" title="Streamly.Internal.Prelude">toList</a></code> . <code><a href="Streamly-Internal-Data-Stream-Ahead.html#v:aheadly" title="Streamly.Internal.Data.Stream.Ahead">aheadly</a></code> $ do
+    x &lt;- S.<code><a href="Streamly-Internal-Data-Stream-StreamK.html#v:fromFoldable" title="Streamly.Internal.Data.Stream.StreamK">fromFoldable</a></code> [3,2,1]
+    delay x &gt;&gt; return x
+
+main = comp &gt;&gt;= print
+</pre><pre>ThreadId 40: Delay 1
+ThreadId 39: Delay 2
+ThreadId 38: Delay 3
+[3,2,1]
+</pre><p>This code finishes in 3 seconds, <code><a href="Streamly-Internal-Data-Stream-Serial.html#t:Serial" title="Streamly.Internal.Data.Stream.Serial">Serial</a></code> would take 6 seconds.  As we can
+ see all the three iterations are concurrent and run in different threads,
+ however, the results are returned in the serial order.</p><p>Concurrency is demand driven, when multiple streams are composed using this
+ style, the iterations are executed in a depth first manner just like
+ <code><a href="Streamly-Internal-Data-Stream-Serial.html#t:Serial" title="Streamly.Internal.Data.Stream.Serial">Serial</a></code> i.e. nested iterations are executed before we proceed to the next
+ outer iteration. The only difference is that we may execute multiple future
+ iterations concurrently and keep the results ready.</p></div><a href="#g:25" id="g:25"><h3>Deep Asynchronous Nesting (<code><a href="Streamly-Internal-Data-Stream-Async.html#t:Async" title="Streamly.Internal.Data.Stream.Async">Async</a></code>)</h3></a><div class="doc"><p>The <code><a href="https://hackage.haskell.org/package/base-4.12.0.0/docs/Control-Monad.html#t:Monad" title="Control.Monad">Monad</a></code> composition of <code><a href="Streamly-Internal-Data-Stream-Async.html#t:Async" title="Streamly.Internal.Data.Stream.Async">Async</a></code> type can perform the iterations of a
+ loop concurrently.  Concurrency is demand driven i.e. more concurrent
+ iterations are started only if the previous iterations are not able to
+ produce enough output for the consumer of the output stream.  This works
+ exactly the same way as the merging of two streams <code><a href="Streamly-Internal-Data-Stream-Async.html#v:asyncly" title="Streamly.Internal.Data.Stream.Async">asyncly</a></code> works.
+ This is the concurrent analogue of <code><a href="Streamly-Internal-Data-Stream-Serial.html#t:Serial" title="Streamly.Internal.Data.Stream.Serial">Serial</a></code> style monadic composition.</p><p>The <code><a href="Streamly-Internal-Data-Stream-Async.html#v:asyncly" title="Streamly.Internal.Data.Stream.Async">asyncly</a></code> type combinator can be used to switch to this style of
+ composition. Alternatively, a type annotation can be used to specify the
+ type of the stream as <code><a href="Streamly-Internal-Data-Stream-Async.html#t:Async" title="Streamly.Internal.Data.Stream.Async">Async</a></code>.</p><pre>import <a href="Streamly.html">Streamly</a>
+import qualified <a href="Streamly-Prelude.html">Streamly.Prelude</a> as S
+
+main = S.<code><a href="Streamly-Internal-Prelude.html#v:drain" title="Streamly.Internal.Prelude">drain</a></code> . <code><a href="Streamly-Internal-Data-Stream-Async.html#v:asyncly" title="Streamly.Internal.Data.Stream.Async">asyncly</a></code> $ do
+    x &lt;- S.<code><a href="Streamly-Internal-Data-Stream-StreamK.html#v:fromFoldable" title="Streamly.Internal.Data.Stream.StreamK">fromFoldable</a></code> [3,2,1]
+    delay x
+</pre><pre>ThreadId 40: Delay 1
+ThreadId 39: Delay 2
+ThreadId 38: Delay 3
+</pre><p>As we can see the code after the <code>fromFoldable</code> statement is run three
+ times, once for each value of <code>x</code>. All the three iterations are concurrent
+ and run in different threads. The iteration with least delay finishes first.
+ When compared to imperative programming, this can be viewed as a <code>for</code> loop
+ with three concurrent iterations.</p><p>Concurrency is demand driven just as in the case of <code><a href="Streamly-Internal-Data-Stream-Async.html#v:async" title="Streamly.Internal.Data.Stream.Async">async</a></code> merging.
+ When multiple streams are composed using this style, the iterations are
+ triggered in a depth first manner just like <code><a href="Streamly-Internal-Data-Stream-Serial.html#t:Serial" title="Streamly.Internal.Data.Stream.Serial">Serial</a></code> i.e. nested iterations are
+ executed before we proceed to the next iteration at higher level. However,
+ unlike <code><a href="Streamly-Internal-Data-Stream-Serial.html#t:Serial" title="Streamly.Internal.Data.Stream.Serial">Serial</a></code> more than one iterations may be started concurrently based
+ on the demand from the consumer of the stream.</p><pre>import <a href="Streamly.html">Streamly</a>
+import qualified <a href="Streamly-Prelude.html">Streamly.Prelude</a> as S
+
+main = S.<code><a href="Streamly-Internal-Prelude.html#v:drain" title="Streamly.Internal.Prelude">drain</a></code> . <code><a href="Streamly-Internal-Data-Stream-Async.html#v:asyncly" title="Streamly.Internal.Data.Stream.Async">asyncly</a></code> $ do
+    x &lt;- S.<code><a href="Streamly-Internal-Data-Stream-StreamK.html#v:fromFoldable" title="Streamly.Internal.Data.Stream.StreamK">fromFoldable</a></code> [1,2]
+    y &lt;- S.<code><a href="Streamly-Internal-Data-Stream-StreamK.html#v:fromFoldable" title="Streamly.Internal.Data.Stream.StreamK">fromFoldable</a></code> [3,4]
+    S.<code><a href="Streamly-Internal-Prelude.html#v:yieldM" title="Streamly.Internal.Prelude">yieldM</a></code> $ putStrLn $ show (x, y)
+</pre><pre>(1,3)
+(1,4)
+(2,3)
+(2,4)
+</pre></div><a href="#g:26" id="g:26"><h3>Wide Asynchronous Nesting (<code><a href="Streamly-Internal-Data-Stream-Async.html#t:WAsync" title="Streamly.Internal.Data.Stream.Async">WAsync</a></code>)</h3></a><div class="doc"><p>Just like <code><a href="Streamly-Internal-Data-Stream-Async.html#t:Async" title="Streamly.Internal.Data.Stream.Async">Async</a></code> the <code><a href="https://hackage.haskell.org/package/base-4.12.0.0/docs/Control-Monad.html#t:Monad" title="Control.Monad">Monad</a></code> composition of <code><a href="Streamly-Internal-Data-Stream-Async.html#t:WAsync" title="Streamly.Internal.Data.Stream.Async">WAsync</a></code> runs the iterations of
+ a loop concurrently. The difference is in the nested loop behavior. The
+ nested loops in this type are traversed and executed in a breadth first
+ manner rather than the depth first manner of <code><a href="Streamly-Internal-Data-Stream-Async.html#t:Async" title="Streamly.Internal.Data.Stream.Async">Async</a></code> style.
+ The loop nesting works exactly the same way as the merging of streams
+ <code><a href="Streamly-Internal-Data-Stream-Async.html#v:wAsyncly" title="Streamly.Internal.Data.Stream.Async">wAsyncly</a></code> works.  The <code><a href="Streamly-Internal-Data-Stream-Async.html#v:wAsyncly" title="Streamly.Internal.Data.Stream.Async">wAsyncly</a></code> type combinator can be used to switch to
+ this style of composition. Alternatively, a type annotation can be used to
+ specify the type of the stream as <code><a href="Streamly-Internal-Data-Stream-Async.html#t:WAsync" title="Streamly.Internal.Data.Stream.Async">WAsync</a></code>.</p><pre>import <a href="Streamly.html">Streamly</a>
+import qualified <a href="Streamly-Prelude.html">Streamly.Prelude</a> as S
+
+main = S.<code><a href="Streamly-Internal-Prelude.html#v:drain" title="Streamly.Internal.Prelude">drain</a></code> . <code><a href="Streamly-Internal-Data-Stream-Async.html#v:wAsyncly" title="Streamly.Internal.Data.Stream.Async">wAsyncly</a></code> $ do
+    x &lt;- S.<code><a href="Streamly-Internal-Data-Stream-StreamK.html#v:fromFoldable" title="Streamly.Internal.Data.Stream.StreamK">fromFoldable</a></code> [1,2]
+    y &lt;- S.<code><a href="Streamly-Internal-Data-Stream-StreamK.html#v:fromFoldable" title="Streamly.Internal.Data.Stream.StreamK">fromFoldable</a></code> [3,4]
+    S.<code><a href="Streamly-Internal-Prelude.html#v:yieldM" title="Streamly.Internal.Prelude">yieldM</a></code> $ putStrLn $ show (x, y)
+</pre><pre>(1,3)
+(2,3)
+(1,4)
+(2,4)
+</pre></div><a href="#g:27" id="g:27"><h3>Parallel Asynchronous Nesting (<code><a href="Streamly-Internal-Data-Stream-Parallel.html#t:Parallel" title="Streamly.Internal.Data.Stream.Parallel">Parallel</a></code>)</h3></a><div class="doc"><p>Just like <code><a href="Streamly-Internal-Data-Stream-Async.html#t:Async" title="Streamly.Internal.Data.Stream.Async">Async</a></code> or <code><a href="Streamly-Internal-Data-Stream-Async.html#t:WAsync" title="Streamly.Internal.Data.Stream.Async">WAsync</a></code> the <code><a href="https://hackage.haskell.org/package/base-4.12.0.0/docs/Control-Monad.html#t:Monad" title="Control.Monad">Monad</a></code> composition of <code><a href="Streamly-Internal-Data-Stream-Parallel.html#t:Parallel" title="Streamly.Internal.Data.Stream.Parallel">Parallel</a></code> runs the
+ iterations of a loop concurrently. The difference is in the nested loop
+ behavior. The streams at each nest level is run fully concurrently
+ irrespective of the demand.  The loop nesting works exactly the same way as
+ the merging of streams <code><a href="Streamly-Internal-Data-Stream-Parallel.html#v:parallely" title="Streamly.Internal.Data.Stream.Parallel">parallely</a></code> works.  The <code><a href="Streamly-Internal-Data-Stream-Parallel.html#v:parallely" title="Streamly.Internal.Data.Stream.Parallel">parallely</a></code> type combinator
+ can be used to switch to this style of composition. Alternatively, a type
+ annotation can be used to specify the type of the stream as <code><a href="Streamly-Internal-Data-Stream-Parallel.html#t:Parallel" title="Streamly.Internal.Data.Stream.Parallel">Parallel</a></code>.</p><pre>import <a href="Streamly.html">Streamly</a>
+import qualified <a href="Streamly-Prelude.html">Streamly.Prelude</a> as S
+
+main = S.<code><a href="Streamly-Internal-Prelude.html#v:drain" title="Streamly.Internal.Prelude">drain</a></code> . <code><a href="Streamly-Internal-Data-Stream-Parallel.html#v:parallely" title="Streamly.Internal.Data.Stream.Parallel">parallely</a></code> $ do
+    x &lt;- S.<code><a href="Streamly-Internal-Data-Stream-StreamK.html#v:fromFoldable" title="Streamly.Internal.Data.Stream.StreamK">fromFoldable</a></code> [3,2,1]
+    delay x
+</pre><pre>ThreadId 40: Delay 1
+ThreadId 39: Delay 2
+ThreadId 38: Delay 3
+</pre></div><a href="#g:28" id="g:28"><h3>Exercise</h3></a><div class="doc"><p>Streamly code is usually written in a way that is agnostic of the
+ specific monadic composition type. We use a polymorphic type with a
+ <code><a href="Streamly-Internal-Data-Stream-StreamK-Type.html#t:IsStream" title="Streamly.Internal.Data.Stream.StreamK.Type">IsStream</a></code> type class constraint. When running the stream we can choose the
+ specific mode of composition. For example take a look at the following code.</p><pre>import <a href="Streamly.html">Streamly</a>
+import qualified <a href="Streamly-Prelude.html">Streamly.Prelude</a> as S
+
+composed :: (IsStream t, Monad (t IO)) =&gt; t IO ()
+composed = do
+    sz &lt;- sizes
+    cl &lt;- colors
+    sh &lt;- shapes
+    S.<code><a href="Streamly-Internal-Prelude.html#v:yieldM" title="Streamly.Internal.Prelude">yieldM</a></code> $ putStrLn $ show (sz, cl, sh)
+
+    where
+
+    sizes  = S.<code><a href="Streamly-Internal-Data-Stream-StreamK.html#v:fromFoldable" title="Streamly.Internal.Data.Stream.StreamK">fromFoldable</a></code> [1, 2, 3]
+    colors = S.<code><a href="Streamly-Internal-Data-Stream-StreamK.html#v:fromFoldable" title="Streamly.Internal.Data.Stream.StreamK">fromFoldable</a></code> [&quot;red&quot;, &quot;green&quot;, &quot;blue&quot;]
+    shapes = S.<code><a href="Streamly-Internal-Data-Stream-StreamK.html#v:fromFoldable" title="Streamly.Internal.Data.Stream.StreamK">fromFoldable</a></code> [&quot;triangle&quot;, &quot;square&quot;, &quot;circle&quot;]
+</pre><p>Now we can interpret this in whatever way we want:</p><pre>main = S.<code><a href="Streamly-Internal-Prelude.html#v:drain" title="Streamly.Internal.Prelude">drain</a></code> . <code><a href="Streamly-Internal-Data-Stream-Serial.html#v:serially" title="Streamly.Internal.Data.Stream.Serial">serially</a></code>  $ composed
+main = S.<code><a href="Streamly-Internal-Prelude.html#v:drain" title="Streamly.Internal.Prelude">drain</a></code> . <code><a href="Streamly-Internal-Data-Stream-Serial.html#v:wSerially" title="Streamly.Internal.Data.Stream.Serial">wSerially</a></code> $ composed
+main = S.<code><a href="Streamly-Internal-Prelude.html#v:drain" title="Streamly.Internal.Prelude">drain</a></code> . <code><a href="Streamly-Internal-Data-Stream-Async.html#v:asyncly" title="Streamly.Internal.Data.Stream.Async">asyncly</a></code>   $ composed
+main = S.<code><a href="Streamly-Internal-Prelude.html#v:drain" title="Streamly.Internal.Prelude">drain</a></code> . <code><a href="Streamly-Internal-Data-Stream-Async.html#v:wAsyncly" title="Streamly.Internal.Data.Stream.Async">wAsyncly</a></code>  $ composed
+main = S.<code><a href="Streamly-Internal-Prelude.html#v:drain" title="Streamly.Internal.Prelude">drain</a></code> . <code><a href="Streamly-Internal-Data-Stream-Parallel.html#v:parallely" title="Streamly.Internal.Data.Stream.Parallel">parallely</a></code> $ composed
+</pre><p>As an exercise try to figure out the output of this code for each mode of
+  composition.</p></div><a href="#g:29" id="g:29"><h2>Applicative</h2></a><div class="doc"><p>Applicative is precisely the same as the <code><a href="https://hackage.haskell.org/package/base-4.12.0.0/docs/Control-Monad.html#v:ap" title="Control.Monad">ap</a></code> operation of <code><a href="https://hackage.haskell.org/package/base-4.12.0.0/docs/Control-Monad.html#t:Monad" title="Control.Monad">Monad</a></code>. For
+ zipping applicatives separate types <code><a href="Streamly-Internal-Data-Stream-Zip.html#t:ZipSerial" title="Streamly.Internal.Data.Stream.Zip">ZipSerial</a></code> and <code><a href="Streamly-Internal-Data-Stream-Zip.html#t:ZipAsync" title="Streamly.Internal.Data.Stream.Zip">ZipAsync</a></code> are
+ provided.</p><p>The following example uses the <code><a href="Streamly-Internal-Data-Stream-Serial.html#t:Serial" title="Streamly.Internal.Data.Stream.Serial">Serial</a></code> applicative, it runs all iterations
+ serially and takes a total 17 seconds (1 + 3 + 4 + 2 + 3 + 4):</p><pre>import <a href="Streamly.html">Streamly</a>
+import qualified <a href="Streamly-Prelude.html">Streamly.Prelude</a> as S
+import Control.Concurrent
+
+s1 = d 1 &lt;&gt; d 2
+s2 = d 3 &lt;&gt; d 4
+d n = delay n &gt;&gt; return n
+
+main = (S.<code><a href="Streamly-Internal-Prelude.html#v:toList" title="Streamly.Internal.Prelude">toList</a></code> . <code><a href="Streamly-Internal-Data-Stream-Serial.html#v:serially" title="Streamly.Internal.Data.Stream.Serial">serially</a></code> $ (,) &lt;$&gt; s1 &lt;*&gt; s2) &gt;&gt;= print
+</pre><pre>ThreadId 36: Delay 1
+ThreadId 36: Delay 3
+ThreadId 36: Delay 4
+ThreadId 36: Delay 2
+ThreadId 36: Delay 3
+ThreadId 36: Delay 4
+[(1,3),(1,4),(2,3),(2,4)]
+</pre><p>Similarly <code><a href="Streamly-Internal-Data-Stream-Serial.html#t:WSerial" title="Streamly.Internal.Data.Stream.Serial">WSerial</a></code> applicative runs the iterations in an interleaved
+ order but since it is serial it takes a total of 17 seconds:</p><pre>main = (S.<code><a href="Streamly-Internal-Prelude.html#v:toList" title="Streamly.Internal.Prelude">toList</a></code> . <code><a href="Streamly-Internal-Data-Stream-Serial.html#v:wSerially" title="Streamly.Internal.Data.Stream.Serial">wSerially</a></code> $ (,) &lt;$&gt; s1 &lt;*&gt; s2) &gt;&gt;= print
+</pre><pre>ThreadId 36: Delay 1
+ThreadId 36: Delay 3
+ThreadId 36: Delay 2
+ThreadId 36: Delay 3
+ThreadId 36: Delay 4
+ThreadId 36: Delay 4
+[(1,3),(2,3),(1,4),(2,4)]
+</pre><p><code><a href="Streamly-Internal-Data-Stream-Async.html#t:Async" title="Streamly.Internal.Data.Stream.Async">Async</a></code> can run the iterations concurrently and therefore takes a total
+ of 6 seconds which is max (1, 2) + max (3, 4):</p><pre>main = (S.<code><a href="Streamly-Internal-Prelude.html#v:toList" title="Streamly.Internal.Prelude">toList</a></code> . <code><a href="Streamly-Internal-Data-Stream-Async.html#v:asyncly" title="Streamly.Internal.Data.Stream.Async">asyncly</a></code> $ (,) &lt;$&gt; s1 &lt;*&gt; s2) &gt;&gt;= print
+</pre><pre>ThreadId 34: Delay 1
+ThreadId 36: Delay 2
+ThreadId 35: Delay 3
+ThreadId 36: Delay 3
+ThreadId 35: Delay 4
+ThreadId 36: Delay 4
+[(1,3),(2,3),(1,4),(2,4)]
+</pre><p>Similarly <code><a href="Streamly-Internal-Data-Stream-Async.html#t:WAsync" title="Streamly.Internal.Data.Stream.Async">WAsync</a></code> as well can run the iterations concurrently and
+ therefore takes a total of 6 seconds (2 + 4):</p><pre>main = (S.<code><a href="Streamly-Internal-Prelude.html#v:toList" title="Streamly.Internal.Prelude">toList</a></code> . <code><a href="Streamly-Internal-Data-Stream-Async.html#v:wAsyncly" title="Streamly.Internal.Data.Stream.Async">wAsyncly</a></code> $ (,) &lt;$&gt; s1 &lt;*&gt; s2) &gt;&gt;= print
+</pre><pre>ThreadId 34: Delay 1
+ThreadId 36: Delay 2
+ThreadId 35: Delay 3
+ThreadId 36: Delay 3
+ThreadId 35: Delay 4
+ThreadId 36: Delay 4
+[(1,3),(2,3),(1,4),(2,4)]
+</pre></div><a href="#g:30" id="g:30"><h2>Functor</h2></a><div class="doc"><p><code><a href="https://hackage.haskell.org/package/base-4.12.0.0/docs/Data-Functor.html#v:fmap" title="Data.Functor">fmap</a></code> transforms a stream by mapping a function on all elements of the
+ stream. <code><a href="https://hackage.haskell.org/package/base-4.12.0.0/docs/Data-Functor.html#v:fmap" title="Data.Functor">fmap</a></code> behaves in the same way for all stream types, it is always
+ serial.</p><pre>import <a href="Streamly.html">Streamly</a>
+import qualified <a href="Streamly-Prelude.html">Streamly.Prelude</a> as S
+
+main = (S.<code><a href="Streamly-Internal-Prelude.html#v:toList" title="Streamly.Internal.Prelude">toList</a></code> $ fmap show $ S.<code><a href="Streamly-Internal-Data-Stream-StreamK.html#v:fromFoldable" title="Streamly.Internal.Data.Stream.StreamK">fromFoldable</a></code> [1..10]) &gt;&gt;= print
+</pre><p>Also see the <code><a href="Streamly-Internal-Prelude.html#v:mapM" title="Streamly.Internal.Prelude">mapM</a></code> and <code><a href="Streamly-Internal-Prelude.html#v:sequence" title="Streamly.Internal.Prelude">sequence</a></code> functions for mapping actions, in the
+ <a href="Streamly-Prelude.html">Streamly.Prelude</a> module.</p></div><a href="#g:31" id="g:31"><h1>Zipping Streams</h1></a><div class="doc"><p>Zipping is a special transformation where the corresponding elements of two
+ streams are combined together using a zip function producing a new stream of
+ outputs. Two different types are provided for serial and concurrent zipping.
+ These types provide an applicative instance that can be used to lift
+ functions to zip the argument streams.
+ Also see the zipping functions in the <a href="Streamly-Prelude.html">Streamly.Prelude</a> module.</p></div><a href="#g:32" id="g:32"><h2>Serial Zipping</h2></a><div class="doc"><p>The applicative instance of <code><a href="Streamly-Internal-Data-Stream-Zip.html#t:ZipSerial" title="Streamly.Internal.Data.Stream.Zip">ZipSerial</a></code> type zips streams serially.
+ <code><a href="Streamly-Internal-Data-Stream-Zip.html#v:zipSerially" title="Streamly.Internal.Data.Stream.Zip">zipSerially</a></code> type combinator can be used to switch to serial applicative
+ zip composition:</p><pre>import <a href="Streamly.html">Streamly</a>
+import qualified <a href="Streamly-Prelude.html">Streamly.Prelude</a> as S
+import Control.Concurrent
+
+d n = delay n &gt;&gt; return n
+s1 = <code><a href="Streamly-Internal-Data-Stream-Serial.html#v:serially" title="Streamly.Internal.Data.Stream.Serial">serially</a></code> $ d 1 &lt;&gt; d 2
+s2 = <code><a href="Streamly-Internal-Data-Stream-Serial.html#v:serially" title="Streamly.Internal.Data.Stream.Serial">serially</a></code> $ d 3 &lt;&gt; d 4
+
+main = (S.<code><a href="Streamly-Internal-Prelude.html#v:toList" title="Streamly.Internal.Prelude">toList</a></code> . <code><a href="Streamly-Internal-Data-Stream-Zip.html#v:zipSerially" title="Streamly.Internal.Data.Stream.Zip">zipSerially</a></code> $ (,) &lt;$&gt; s1 &lt;*&gt; s2) &gt;&gt;= print
+</pre><p>This takes total 10 seconds to zip, which is (1 + 2 + 3 + 4) since
+ everything runs serially:</p><pre>ThreadId 29: Delay 1
+ThreadId 29: Delay 3
+ThreadId 29: Delay 2
+ThreadId 29: Delay 4
+[(1,3),(2,4)]
+</pre></div><a href="#g:33" id="g:33"><h2>Parallel Zipping</h2></a><div class="doc"><p>The applicative instance of <code><a href="Streamly-Internal-Data-Stream-Zip.html#t:ZipAsync" title="Streamly.Internal.Data.Stream.Zip">ZipAsync</a></code> type zips streams concurrently.
+ <code><a href="Streamly-Internal-Data-Stream-Zip.html#v:zipAsyncly" title="Streamly.Internal.Data.Stream.Zip">zipAsyncly</a></code> type combinator can be used to switch to parallel applicative
+ zip composition:</p><pre>import <a href="Streamly.html">Streamly</a>
+import qualified <a href="Streamly-Prelude.html">Streamly.Prelude</a> as S
+import Control.Concurrent
+import System.IO (stdout, hSetBuffering, BufferMode(LineBuffering))
+
+d n = delay n &gt;&gt; return n
+s1 = <code><a href="Streamly-Internal-Data-Stream-Serial.html#v:serially" title="Streamly.Internal.Data.Stream.Serial">serially</a></code> $ d 1 &lt;&gt; d 2
+s2 = <code><a href="Streamly-Internal-Data-Stream-Serial.html#v:serially" title="Streamly.Internal.Data.Stream.Serial">serially</a></code> $ d 3 &lt;&gt; d 4
+
+main = do
+    hSetBuffering stdout LineBuffering
+    (S.<code><a href="Streamly-Internal-Prelude.html#v:toList" title="Streamly.Internal.Prelude">toList</a></code> . <code><a href="Streamly-Internal-Data-Stream-Zip.html#v:zipAsyncly" title="Streamly.Internal.Data.Stream.Zip">zipAsyncly</a></code> $ (,) &lt;$&gt; s1 &lt;*&gt; s2) &gt;&gt;= print
+</pre><p>This takes 7 seconds to zip, which is max (1,3) + max (2,4) because 1 and 3
+ are produced concurrently, and 2 and 4 are produced concurrently:</p><pre>ThreadId 32: Delay 1
+ThreadId 32: Delay 2
+ThreadId 33: Delay 3
+ThreadId 33: Delay 4
+[(1,3),(2,4)]
+</pre></div><a href="#g:34" id="g:34"><h1>Monad transformers</h1></a><div class="doc"><p>To represent streams in an arbitrary monad use the more general monad
+ transformer types for example the monad transformer type corresponding to
+ the <code><a href="Streamly-Internal-Data-Stream-Serial.html#t:Serial" title="Streamly.Internal.Data.Stream.Serial">Serial</a></code> type is <code><a href="Streamly-Internal-Data-Stream-Serial.html#t:SerialT" title="Streamly.Internal.Data.Stream.Serial">SerialT</a></code>.  <code>SerialT m a</code> represents a stream of values
+ of type <code>a</code> in some underlying monad <code>m</code>. For example, <code>SerialT IO Int</code> is a
+ stream of <code><a href="https://hackage.haskell.org/package/base-4.12.0.0/docs/Data-Int.html#t:Int" title="Data.Int">Int</a></code> in <code><a href="https://hackage.haskell.org/package/base-4.12.0.0/docs/System-IO.html#t:IO" title="System.IO">IO</a></code> monad.  In fact, the type <code><a href="Streamly-Internal-Data-Stream-Serial.html#t:Serial" title="Streamly.Internal.Data.Stream.Serial">Serial</a></code> is a synonym for
+ <code>SerialT IO</code>.</p><p>Similarly we have monad transformer types for other stream types as well viz.
+ <code><a href="Streamly-Internal-Data-Stream-Serial.html#t:WSerialT" title="Streamly.Internal.Data.Stream.Serial">WSerialT</a></code>, <code><a href="Streamly-Internal-Data-Stream-Async.html#t:AsyncT" title="Streamly.Internal.Data.Stream.Async">AsyncT</a></code>, <code><a href="Streamly-Internal-Data-Stream-Async.html#t:WAsyncT" title="Streamly.Internal.Data.Stream.Async">WAsyncT</a></code> and <code><a href="Streamly-Internal-Data-Stream-Parallel.html#t:ParallelT" title="Streamly.Internal.Data.Stream.Parallel">ParallelT</a></code>.</p><p>To lift a value from an underlying monad in a monad transformer stack into a
+ singleton stream use <code><a href="https://hackage.haskell.org/package/transformers-0.5.6.2/docs/Control-Monad-Trans-Class.html#v:lift" title="Control.Monad.Trans.Class">lift</a></code> and to lift from an IO action use <code><a href="https://hackage.haskell.org/package/base-4.12.0.0/docs/Control-Monad-IO-Class.html#v:liftIO" title="Control.Monad.IO.Class">liftIO</a></code>.</p><pre>&gt; S.<code><a href="Streamly-Internal-Prelude.html#v:drain" title="Streamly.Internal.Prelude">drain</a></code> $ liftIO $ putStrLn &quot;Hello world!&quot;
+Hello world!
+&gt; S.<code><a href="Streamly-Internal-Prelude.html#v:drain" title="Streamly.Internal.Prelude">drain</a></code> $ lift $ putStrLn &quot;Hello world!&quot;
+Hello world!
+</pre></div><a href="#g:35" id="g:35"><h1>Concurrent Programming</h1></a><div class="doc"><p>When writing concurrent programs there are two distinct places where the
+ programmer can control the concurrency. First, when <em>composing</em> a stream by
+ merging multiple streams we can choose an appropriate sum style operators to
+ combine them concurrently or serially. Second, when <em>processing</em> a stream in
+ a monadic composition we can choose one of the monad composition types to
+ choose the desired type of concurrency.</p><p>In the following example the squares of <code>x</code> and <code>y</code> are computed
+ concurrently using the <code><a href="Streamly-Internal-Data-Stream-Async.html#v:async" title="Streamly.Internal.Data.Stream.Async">async</a></code> operation and the square roots of their
+ sum are computed serially because of the <code>streamly</code> combinator. We can
+ choose different combinators for the monadic processing and the stream
+ generation, to control the concurrency.  We can also use the <code><a href="Streamly-Internal-Data-Stream-Async.html#v:asyncly" title="Streamly.Internal.Data.Stream.Async">asyncly</a></code>
+ combinator instead of explicitly folding with <code><a href="Streamly-Internal-Data-Stream-Async.html#v:async" title="Streamly.Internal.Data.Stream.Async">async</a></code>.</p><pre>import <a href="Streamly.html">Streamly</a>
+import qualified <a href="Streamly-Prelude.html">Streamly.Prelude</a> as S
+import Data.List (sum)
+
+main = do
+    z &lt;-   S.<code><a href="Streamly-Internal-Prelude.html#v:toList" title="Streamly.Internal.Prelude">toList</a></code>
+         $ <code><a href="Streamly-Internal-Data-Stream-Serial.html#v:serially" title="Streamly.Internal.Data.Stream.Serial">serially</a></code>     -- Serial monadic processing (sqrt below)
+         $ do
+             x2 &lt;- <code>forEachWith</code> <code><a href="Streamly-Internal-Data-Stream-Async.html#v:async" title="Streamly.Internal.Data.Stream.Async">async</a></code> [1..100] $ -- Concurrent <code>&quot;for&quot;</code> loop
+                         \x -&gt; return $ x * x  -- body of the loop
+             y2 &lt;- <code>forEachWith</code> <code><a href="Streamly-Internal-Data-Stream-Async.html#v:async" title="Streamly.Internal.Data.Stream.Async">async</a></code> [1..100] $
+                         \y -&gt; return $ y * y
+             return $ sqrt (x2 + y2)
+    print $ sum z
+</pre><p>We can see how this directly maps to the imperative style
+ <a href="https://en.wikipedia.org/wiki/OpenMP">OpenMP</a> model, we use combinators
+ and operators instead of the ugly pragmas.</p><p>For more concurrent programming examples see,
+ <a href="examples/ListDir.hs">ListDir.hs</a>,
+ <a href="examples/MergeSort.hs">MergeSort.hs</a> and
+ <a href="examples/SearchQuery.hs">SearchQuery.hs</a> in the examples directory.</p></div><a href="#g:36" id="g:36"><h1>Reactive Programming</h1></a><div class="doc"><p>Reactive programming is nothing but concurrent streaming which is what
+ streamly is all about. With streamly we can generate streams of events,
+ merge streams that are generated concurrently and process events
+ concurrently. We can do all this without any knowledge about the specifics
+ of the implementation of concurrency. In the following example you will see
+ that the code is just regular Haskell code without much streamly APIs used
+ (active hyperlinks are the streamly APIs) and yet it is a reactive
+ application.</p><p>This application has two independent and concurrent sources of event
+ streams, <code>acidRain</code> and <code>userAction</code>. <code>acidRain</code> continuously generates
+ events that deteriorate the health of the character in the game.
+ <code>userAction</code> can be &quot;potion&quot; or &quot;quit&quot;. When the user types &quot;potion&quot; the
+ health improves and the game continues.</p><pre>{-# LANGUAGE FlexibleContexts #-}
+
+import <a href="Streamly.html">Streamly</a>
+import <a href="Streamly-Prelude.html">Streamly.Prelude</a> as S
+import Control.Monad (void, when)
+import Control.Monad.IO.Class (MonadIO(liftIO))
+import Control.Monad.State (MonadState, get, modify, runStateT, put)
+
+data Event = Quit | Harm Int | Heal Int deriving (Show)
+
+userAction :: MonadAsync m =&gt; <code><a href="Streamly-Internal-Data-Stream-Serial.html#t:SerialT" title="Streamly.Internal.Data.Stream.Serial">SerialT</a></code> m Event
+userAction = S.<code><a href="Streamly-Internal-Prelude.html#v:repeatM" title="Streamly.Internal.Prelude">repeatM</a></code> $ liftIO askUser
+    where
+    askUser = do
+        command &lt;- getLine
+        case command of
+            &quot;potion&quot; -&gt; return (Heal 10)
+            &quot;harm&quot;   -&gt; return (Harm 10)
+            &quot;quit&quot;   -&gt; return Quit
+            _        -&gt; putStrLn &quot;Type potion or harm or quit&quot; &gt;&gt; askUser
+
+acidRain :: MonadAsync m =&gt; <code><a href="Streamly-Internal-Data-Stream-Serial.html#t:SerialT" title="Streamly.Internal.Data.Stream.Serial">SerialT</a></code> m Event
+acidRain = <code><a href="Streamly-Internal-Data-Stream-Async.html#v:asyncly" title="Streamly.Internal.Data.Stream.Async">asyncly</a></code> $ <code><a href="Streamly-Internal-Data-Stream-Combinators.html#v:constRate" title="Streamly.Internal.Data.Stream.Combinators">constRate</a></code> 1 $ S.<code><a href="Streamly-Internal-Prelude.html#v:repeatM" title="Streamly.Internal.Prelude">repeatM</a></code> $ liftIO $ return $ Harm 1
+
+data Result = Check | Done
+
+runEvents :: (MonadAsync m, MonadState Int m) =&gt; <code><a href="Streamly-Internal-Data-Stream-Serial.html#t:SerialT" title="Streamly.Internal.Data.Stream.Serial">SerialT</a></code> m Result
+runEvents = do
+    event &lt;- userAction `parallel` acidRain
+    case event of
+        Harm n -&gt; modify (\h -&gt; h - n) &gt;&gt; return Check
+        Heal n -&gt; modify (\h -&gt; h + n) &gt;&gt; return Check
+        Quit -&gt; return Done
+
+data Status = Alive | GameOver deriving Eq
+
+getStatus :: (MonadAsync m, MonadState Int m) =&gt; Result -&gt; m Status
+getStatus result =
+    case result of
+        Done  -&gt; liftIO $ putStrLn &quot;You quit!&quot; &gt;&gt; return GameOver
+        Check -&gt; do
+            h &lt;- get
+            liftIO $ if (h &lt;= 0)
+                     then putStrLn &quot;You die!&quot; &gt;&gt; return GameOver
+                     else putStrLn (&quot;Health = &quot; &lt;&gt; show h) &gt;&gt; return Alive
+
+main :: IO ()
+main = do
+    putStrLn &quot;Your health is deteriorating due to acid rain,\
+             \ type \&quot;potion\&quot; or \&quot;quit\&quot;&quot;
+    let runGame = S.<code><a href="Streamly-Internal-Prelude.html#v:drainWhile" title="Streamly.Internal.Prelude">drainWhile</a></code> (== Alive) $ S.<code><a href="Streamly-Internal-Prelude.html#v:mapM" title="Streamly.Internal.Prelude">mapM</a></code> getStatus runEvents
+    void $ runStateT runGame 60
+</pre><p>You can also find the source of this example in the examples directory as
+ <a href="examples/AcidRain.hs">AcidRain.hs</a>. It has been adapted from Gabriel's
+ <a href="https://hackage.haskell.org/package/pipes-concurrency-2.0.8/docs/Pipes-Concurrent-Tutorial.html">pipes-concurrency</a>
+ package.
+ This is much simpler compared to the pipes version because of the builtin
+ concurrency in streamly. You can also find a SDL based reactive programming
+ example adapted from Yampa in
+ <a href="examples/CirclingSquare.hs">CirclingSquare.hs</a>.</p></div><a href="#g:37" id="g:37"><h1>Writing Concurrent Programs</h1></a><div class="doc"><p>When writing concurrent programs it is advised to not use the concurrent
+ style stream combinators blindly at the top level. That might create too
+ much concurrency where it is not even required, and can even degrade
+ performance in some cases. In some cases it can also lead to surprising
+ behavior because of some code that is supposed to be serial becoming
+ concurrent. Please be aware that all concurrency capable APIs that you may
+ have used under the scope of a concurrent stream combinator will become
+ concurrent. For example if you have a <code><a href="Streamly-Internal-Prelude.html#v:repeatM" title="Streamly.Internal.Prelude">repeatM</a></code> somewhere in your program
+ and you use <code><a href="Streamly-Internal-Data-Stream-Parallel.html#v:parallely" title="Streamly.Internal.Data.Stream.Parallel">parallely</a></code> on top, the <code><a href="Streamly-Internal-Prelude.html#v:repeatM" title="Streamly.Internal.Prelude">repeatM</a></code> becomes fully parallel,
+ resulting into an infinite parallel execution . Instead, use the
+ <em>Keep It Serial and Stupid</em> principle, start with the default serial
+ composition and enable concurrent combinators only when and where necessary.
+ When you use a concurrent combinator you can use an explicit <code><a href="Streamly-Internal-Data-Stream-Serial.html#v:serially" title="Streamly.Internal.Data.Stream.Serial">serially</a></code>
+ combinator to suppress any unnecessary concurrency under the scope of that
+ combinator.</p></div><a href="#g:38" id="g:38"><h1>Performance</h1></a><div class="doc"><p>Streamly is highly optimized for performance, it is designed for serious
+ high performing, concurrent and scalable applications. We have created the
+ <a href="https://hackage.haskell.org/package/streaming-benchmarks">streaming-benchmarks</a>
+ package which is specifically and carefully designed to measure the
+ performance of Haskell streaming libraries fairly and squarely in the right
+ way. Streamly performs at par or even better than most streaming libraries
+ for serial operations even though it needs to deal with the concurrency
+ capability.</p></div><a href="#g:39" id="g:39"><h1>Interoperation with Streaming Libraries</h1></a><div class="doc"><p>We can use <code>unfoldr</code> and <code>uncons</code> to convert one streaming type to another.</p><p>Interop with <code>vector</code>:</p><pre>import Streamly
+import qualified Streamly.Prelude as S
+import qualified Data.Vector.Fusion.Stream.Monadic as V
+
+-- | vector to streamly
+fromVector :: (IsStream t, Monad m) =&gt; V.Stream m a -&gt; t m a
+fromVector = S.unfoldrM unconsV
+    where
+    unconsV v = do
+        r &lt;- V.null v
+        if r
+        then return Nothing
+        else do
+            h &lt;- V.head v
+            return $ Just (h, V.tail v)
+
+-- | streamly to vector
+toVector :: Monad m =&gt; SerialT m a -&gt; V.Stream m a
+toVector = V.unfoldrM (S.uncons . adapt)
+
+main = do
+    S.toList (fromVector (V.fromList [1..3]))   &gt;&gt;= print
+    V.toList (toVector (S.fromFoldable [1..3])) &gt;&gt;= print
+</pre><p>Interop with <code>pipes</code>:</p><pre>import <a href="Streamly.html">Streamly</a>
+import qualified <a href="Streamly-Prelude.html">Streamly.Prelude</a> as S
+import qualified Pipes as P
+import qualified Pipes.Prelude as P
+
+-- | pipes to streamly
+fromPipes :: (IsStream t, Monad m) =&gt; P.Producer a m r -&gt; t m a
+fromPipes = S.<code><a href="Streamly-Internal-Prelude.html#v:unfoldrM" title="Streamly.Internal.Prelude">unfoldrM</a></code> unconsP
+    where
+    -- Adapt P.next to return a Maybe instead of Either
+    unconsP p = P.next p &gt;&gt;= either (\_ -&gt; return Nothing) (return . Just)
+
+-- | streamly to pipes
+toPipes :: Monad m =&gt; SerialT m a -&gt; P.Producer a m ()
+toPipes = P.unfoldr unconsS
+    where
+    -- Adapt S.uncons to return an Either instead of Maybe
+    unconsS s = S.<code><a href="Streamly-Internal-Prelude.html#v:uncons" title="Streamly.Internal.Prelude">uncons</a></code> s &gt;&gt;= maybe (return $ Left ()) (return . Right)
+
+main = do
+    S.<code><a href="Streamly-Internal-Prelude.html#v:toList" title="Streamly.Internal.Prelude">toList</a></code> (fromPipes (P.each [1..3])) &gt;&gt;= print
+    P.toListM (toPipes (S.<code><a href="Streamly-Internal-Data-Stream-StreamK.html#v:fromFoldable" title="Streamly.Internal.Data.Stream.StreamK">fromFoldable</a></code> [1..3])) &gt;&gt;= print
+</pre><p>Interop with <code>streaming</code>:</p><pre>import <a href="Streamly.html">Streamly</a>
+import qualified <a href="Streamly-Prelude.html">Streamly.Prelude</a> as S
+import qualified Streaming as SG
+import qualified Streaming.Prelude as SG
+
+-- | streaming to streamly
+fromStreaming :: (IsStream t, MonadAsync m) =&gt; SG.Stream (SG.Of a) m r -&gt; t m a
+fromStreaming = S.unfoldrM SG.uncons
+
+-- | streamly to streaming
+toStreaming :: Monad m =&gt; SerialT m a -&gt; SG.Stream (SG.Of a) m ()
+toStreaming = SG.unfoldr unconsS
+    where
+    -- Adapt S.uncons to return an Either instead of Maybe
+    unconsS s = S.<code><a href="Streamly-Internal-Prelude.html#v:uncons" title="Streamly.Internal.Prelude">uncons</a></code> s &gt;&gt;= maybe (return $ Left ()) (return . Right)
+
+main = do
+    S.toList (fromStreaming (SG.each [1..3])) &gt;&gt;= print
+    SG.toList (toStreaming (S.fromFoldable [1..3])) &gt;&gt;= print
+</pre><p>Interop with <code>conduit</code>:</p><pre>import <a href="Streamly.html">Streamly</a>
+import qualified <a href="Streamly-Prelude.html">Streamly.Prelude</a> as S
+import qualified Data.Conduit as C
+import qualified Data.Conduit.List as C
+import qualified Data.Conduit.Combinators as C
+
+-- It seems there is no way out of a conduit as it does not provide an
+-- uncons or a tail function. We can convert streamly to conduit though.
+
+-- | streamly to conduit
+toConduit :: Monad m =&gt; SerialT m a -&gt; C.ConduitT i a m ()
+toConduit s = C.unfoldM S.<code><a href="Streamly-Internal-Prelude.html#v:uncons" title="Streamly.Internal.Prelude">uncons</a></code> s
+
+main = do
+ C.runConduit (toConduit (S.<code><a href="Streamly-Internal-Data-Stream-StreamK.html#v:fromFoldable" title="Streamly.Internal.Data.Stream.StreamK">fromFoldable</a></code> [1..3]) C..| C.sinkList) &gt;&gt;= print
+</pre></div><a href="#g:40" id="g:40"><h1>Comparison with Existing Packages</h1></a><div class="doc"><p>List transformers and logic programming monads also provide a product style
+ composition similar to streamly, however streamly generalizes it with the
+ time dimension; allowing streams to be composed in an asynchronous and
+ concurrent fashion in many different ways.  It also provides multiple
+ alternative ways of composing streams e.g.  serial, interleaved or
+ concurrent.</p><p>This seemingly simple addition of asynchronicity and concurrency to product
+ style streaming composition unifies a number of disparate abstractions into
+ one powerful, concise and elegant abstraction.  A wide variety of
+ programming problems can be solved elegantly with this abstraction. In
+ particular, it unifies three major programming domains namely
+ non-deterministic (logic) programming, concurrent programming and functional
+ reactive programming. In other words, you can do everything with this one
+ abstraction that you could do with the popular libraries listed under these
+ categories in the list below.</p><pre>+-----------------+----------------+
+| Non-determinism | <a href="https://hackage.haskell.org/package/pipes">pipes</a>          |
+|                 +----------------+
+|                 | <a href="https://hackage.haskell.org/package/list-t">list-t</a>         |
+|                 +----------------+
+|                 | <a href="https://hackage.haskell.org/package/logict">logict</a>         |
++-----------------+----------------+
+| Streaming       | <a href="https://hackage.haskell.org/package/vector">vector</a>         |
+|                 +----------------+
+|                 | <a href="https://hackage.haskell.org/package/streaming">streaming</a>      |
+|                 +----------------+
+|                 | <a href="https://hackage.haskell.org/package/pipes">pipes</a>          |
+|                 +----------------+
+|                 | <a href="https://hackage.haskell.org/package/conduit">conduit</a>        |
++-----------------+----------------+
+| Concurrency     | <a href="https://hackage.haskell.org/package/async">async</a>          |
+|                 +----------------+
+|                 | <a href="https://hackage.haskell.org/package/transient">transient</a>      |
++-----------------+----------------+
+| FRP             | <a href="https://hackage.haskell.org/package/Yampa">Yampa</a>          |
+|                 +----------------+
+|                 | <a href="https://hackage.haskell.org/package/dunai">dunai</a>          |
+|                 +----------------+
+|                 | <a href="https://hackage.haskell.org/package/reflex">reflex</a>         |
++-----------------+----------------+
+</pre><p>Streamly is a list-transformer. It provides all the functionality provided
+ by any of the list transformer and logic programming packages listed above.
+ In addition, Streamly naturally integrates the concurrency dimension to the
+ basic list transformer functionality.</p><p>When it comes to streaming, in terms of the streaming API streamly is almost
+ identical to the vector package. Streamly, vector and streaming packages all
+ represent a stream as data and are therefore similar in the fundamental
+ approach to streaming. The fundamental difference is that streamly adds
+ concurrency support and the monad instance provides concurrent looping.
+ Other streaming libraries like pipes, conduit and machines represent and
+ compose stream processors rather than the stream data and therefore fall in
+ another class of streaming libraries and have comparatively more complicated
+ types.</p><p>When it comes to concurrency, streamly can do everything that the <code>async</code>
+ package can do and more. async provides applicative concurrency whereas
+ streamly provides both applicative and monadic concurrency. The
+ <code><a href="Streamly-Internal-Data-Stream-Zip.html#t:ZipAsync" title="Streamly.Internal.Data.Stream.Zip">ZipAsync</a></code> type behaves like the applicative instance of async.  In
+ comparison to transient streamly has a first class streaming interface and
+ is a monad transformer that can be used universally in any Haskell monad
+ transformer stack.  Streamly was in fact originally inspired by the
+ concurrency implementation in <code>transient</code> though it has no resemblance with
+ that and takes a lazy pull approach versus transient's strict push approach.</p><p>The non-determinism, concurrency and streaming combination make streamly a
+ strong reactive programming library as well. Reactive programming is
+ fundamentally stream of events that can be processed concurrently. The
+ example in this tutorial as well as the
+ <a href="examples/CirclingSquare.hs">CirclingSquare</a> example from Yampa demonstrate
+ the basic reactive capability of streamly. In core concepts streamly is
+ strikingly similar to <code>dunai</code>.  dunai was designed from a FRP perspective
+ and streamly was originally designed from a concurrency perspective.
+ However, both have similarity at the core.</p></div><a href="#g:41" id="g:41"><h1>Where to go next?</h1></a><div class="doc"><ul><li>Read the documentation of <a href="Streamly.html">Streamly</a> module</li><li>Read the documentation of <a href="Streamly-Prelude.html">Streamly.Prelude</a> module</li><li>See the examples in the &quot;examples&quot; directory of the package</li><li>See the tests in the &quot;test&quot; directory of the package</li></ul></div></div></div><div id="footer"><p>Produced by <a href="http://www.haskell.org/haddock/">Haddock</a> version 2.22.0</p></div></body></html>

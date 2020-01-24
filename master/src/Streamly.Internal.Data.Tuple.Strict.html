@@ -1,0 +1,106 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-comment">-- |</span><span>
+</span><span id="line-2"></span><span class="hs-comment">-- Module      : Streamly.Internal.Data.Tuple.Strict</span><span>
+</span><span id="line-3"></span><span class="hs-comment">-- Copyright   : (c) 2019 Composewell Technologies</span><span>
+</span><span id="line-4"></span><span class="hs-comment">--               (c) 2013 Gabriel Gonzalez</span><span>
+</span><span id="line-5"></span><span class="hs-comment">-- License     : BSD3</span><span>
+</span><span id="line-6"></span><span class="hs-comment">-- Maintainer  : streamly@composewell.com</span><span>
+</span><span id="line-7"></span><span class="hs-comment">-- Stability   : experimental</span><span>
+</span><span id="line-8"></span><span class="hs-comment">-- Portability : GHC</span><span>
+</span><span id="line-9"></span><span class="hs-comment">--</span><span>
+</span><span id="line-10"></span><span class="hs-comment">-- | Strict data types to be used as accumulator for strict left folds and</span><span>
+</span><span id="line-11"></span><span class="hs-comment">-- scans. For more comprehensive strict data types see</span><span>
+</span><span id="line-12"></span><span class="hs-comment">-- https://hackage.haskell.org/package/strict-base-types . The names have been</span><span>
+</span><span id="line-13"></span><span class="hs-comment">-- suffixed by a prime so that programmers can easily distinguish the strict</span><span>
+</span><span id="line-14"></span><span class="hs-comment">-- versions from the lazy ones.</span><span>
+</span><span id="line-15"></span><span class="hs-comment">--</span><span>
+</span><span id="line-16"></span><span class="hs-comment">-- One major advantage of strict data structures as accumulators in folds and</span><span>
+</span><span id="line-17"></span><span class="hs-comment">-- scans is that it helps the compiler optimize the code much better by</span><span>
+</span><span id="line-18"></span><span class="hs-comment">-- unboxing. In a big tight loop the difference could be huge.</span><span>
+</span><span id="line-19"></span><span class="hs-comment">--</span><span>
+</span><span id="line-20"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Streamly.Internal.Data.Tuple.Strict</span><span>
+</span><span id="line-21"></span><span>    </span><span class="hs-special">(</span><span>
+</span><span id="line-22"></span><span>      </span><span class="annot"><a href="Streamly.Internal.Data.Tuple.Strict.html#Tuple%27"><span class="hs-identifier">Tuple'</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-23"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Tuple.Strict.html#Tuple3%27"><span class="hs-identifier">Tuple3'</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-24"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Tuple.Strict.html#Tuple4%27"><span class="hs-identifier">Tuple4'</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-25"></span><span>    </span><span class="hs-special">)</span><span>
+</span><span id="line-26"></span><span class="hs-keyword">where</span><span>
+</span><span id="line-27"></span><span>
+</span><span id="line-28"></span><span class="hs-comment">-- | A strict '(,)'</span><span>
+</span><span id="line-29"></span><span class="hs-keyword">data</span><span> </span><span id="Tuple%27"><span class="annot"><a href="Streamly.Internal.Data.Tuple.Strict.html#Tuple%27"><span class="hs-identifier hs-var">Tuple'</span></a></span></span><span> </span><span id="local-6989586621679364055"><span class="annot"><a href="#local-6989586621679364055"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span id="local-6989586621679364054"><span class="annot"><a href="#local-6989586621679364054"><span class="hs-identifier hs-type">b</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="Tuple%27"><span class="annot"><a href="Streamly.Internal.Data.Tuple.Strict.html#Tuple%27"><span class="hs-identifier hs-var">Tuple'</span></a></span></span><span> </span><span class="hs-glyph">!</span><span class="annot"><a href="#local-6989586621679364055"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">!</span><span class="annot"><a href="#local-6989586621679364054"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-keyword">deriving</span><span> </span><span id="local-6989586621679364047"><span id="local-6989586621679364049"><span id="local-6989586621679364051"><span class="annot"><span class="annottext">Int -&gt; Tuple' a b -&gt; ShowS
+[Tuple' a b] -&gt; ShowS
+Tuple' a b -&gt; String
+(Int -&gt; Tuple' a b -&gt; ShowS)
+-&gt; (Tuple' a b -&gt; String)
+-&gt; ([Tuple' a b] -&gt; ShowS)
+-&gt; Show (Tuple' a b)
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+forall a b. (Show a, Show b) =&gt; Int -&gt; Tuple' a b -&gt; ShowS
+forall a b. (Show a, Show b) =&gt; [Tuple' a b] -&gt; ShowS
+forall a b. (Show a, Show b) =&gt; Tuple' a b -&gt; String
+showList :: [Tuple' a b] -&gt; ShowS
+$cshowList :: forall a b. (Show a, Show b) =&gt; [Tuple' a b] -&gt; ShowS
+show :: Tuple' a b -&gt; String
+$cshow :: forall a b. (Show a, Show b) =&gt; Tuple' a b -&gt; String
+showsPrec :: Int -&gt; Tuple' a b -&gt; ShowS
+$cshowsPrec :: forall a b. (Show a, Show b) =&gt; Int -&gt; Tuple' a b -&gt; ShowS
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></span></span></span></span><span>
+</span><span id="line-30"></span><span>
+</span><span id="line-31"></span><span class="hs-comment">-- | A strict '(,,)'</span><span>
+</span><span id="line-32"></span><span class="hs-keyword">data</span><span> </span><span id="Tuple3%27"><span class="annot"><a href="Streamly.Internal.Data.Tuple.Strict.html#Tuple3%27"><span class="hs-identifier hs-var">Tuple3'</span></a></span></span><span> </span><span id="local-6989586621679364045"><span class="annot"><a href="#local-6989586621679364045"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span id="local-6989586621679364044"><span class="annot"><a href="#local-6989586621679364044"><span class="hs-identifier hs-type">b</span></a></span></span><span> </span><span id="local-6989586621679364043"><span class="annot"><a href="#local-6989586621679364043"><span class="hs-identifier hs-type">c</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="Tuple3%27"><span class="annot"><a href="Streamly.Internal.Data.Tuple.Strict.html#Tuple3%27"><span class="hs-identifier hs-var">Tuple3'</span></a></span></span><span> </span><span class="hs-glyph">!</span><span class="annot"><a href="#local-6989586621679364045"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">!</span><span class="annot"><a href="#local-6989586621679364044"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">!</span><span class="annot"><a href="#local-6989586621679364043"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="hs-keyword">deriving</span><span> </span><span id="local-6989586621679364036"><span id="local-6989586621679364038"><span id="local-6989586621679364040"><span class="annot"><span class="annottext">Int -&gt; Tuple3' a b c -&gt; ShowS
+[Tuple3' a b c] -&gt; ShowS
+Tuple3' a b c -&gt; String
+(Int -&gt; Tuple3' a b c -&gt; ShowS)
+-&gt; (Tuple3' a b c -&gt; String)
+-&gt; ([Tuple3' a b c] -&gt; ShowS)
+-&gt; Show (Tuple3' a b c)
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+forall a b c.
+(Show a, Show b, Show c) =&gt;
+Int -&gt; Tuple3' a b c -&gt; ShowS
+forall a b c. (Show a, Show b, Show c) =&gt; [Tuple3' a b c] -&gt; ShowS
+forall a b c. (Show a, Show b, Show c) =&gt; Tuple3' a b c -&gt; String
+showList :: [Tuple3' a b c] -&gt; ShowS
+$cshowList :: forall a b c. (Show a, Show b, Show c) =&gt; [Tuple3' a b c] -&gt; ShowS
+show :: Tuple3' a b c -&gt; String
+$cshow :: forall a b c. (Show a, Show b, Show c) =&gt; Tuple3' a b c -&gt; String
+showsPrec :: Int -&gt; Tuple3' a b c -&gt; ShowS
+$cshowsPrec :: forall a b c.
+(Show a, Show b, Show c) =&gt;
+Int -&gt; Tuple3' a b c -&gt; ShowS
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></span></span></span></span><span>
+</span><span id="line-33"></span><span>
+</span><span id="line-34"></span><span class="hs-comment">-- | A strict '(,,,)'</span><span>
+</span><span id="line-35"></span><span class="hs-keyword">data</span><span> </span><span id="Tuple4%27"><span class="annot"><a href="Streamly.Internal.Data.Tuple.Strict.html#Tuple4%27"><span class="hs-identifier hs-var">Tuple4'</span></a></span></span><span> </span><span id="local-6989586621679364035"><span class="annot"><a href="#local-6989586621679364035"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span id="local-6989586621679364034"><span class="annot"><a href="#local-6989586621679364034"><span class="hs-identifier hs-type">b</span></a></span></span><span> </span><span id="local-6989586621679364033"><span class="annot"><a href="#local-6989586621679364033"><span class="hs-identifier hs-type">c</span></a></span></span><span> </span><span id="local-6989586621679364032"><span class="annot"><a href="#local-6989586621679364032"><span class="hs-identifier hs-type">d</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="Tuple4%27"><span class="annot"><a href="Streamly.Internal.Data.Tuple.Strict.html#Tuple4%27"><span class="hs-identifier hs-var">Tuple4'</span></a></span></span><span> </span><span class="hs-glyph">!</span><span class="annot"><a href="#local-6989586621679364035"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">!</span><span class="annot"><a href="#local-6989586621679364034"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">!</span><span class="annot"><a href="#local-6989586621679364033"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="hs-glyph">!</span><span class="annot"><a href="#local-6989586621679364032"><span class="hs-identifier hs-type">d</span></a></span><span> </span><span class="hs-keyword">deriving</span><span> </span><span id="local-6989586621679364025"><span id="local-6989586621679364027"><span id="local-6989586621679364029"><span class="annot"><span class="annottext">Int -&gt; Tuple4' a b c d -&gt; ShowS
+[Tuple4' a b c d] -&gt; ShowS
+Tuple4' a b c d -&gt; String
+(Int -&gt; Tuple4' a b c d -&gt; ShowS)
+-&gt; (Tuple4' a b c d -&gt; String)
+-&gt; ([Tuple4' a b c d] -&gt; ShowS)
+-&gt; Show (Tuple4' a b c d)
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+forall a b c d.
+(Show a, Show b, Show c, Show d) =&gt;
+Int -&gt; Tuple4' a b c d -&gt; ShowS
+forall a b c d.
+(Show a, Show b, Show c, Show d) =&gt;
+[Tuple4' a b c d] -&gt; ShowS
+forall a b c d.
+(Show a, Show b, Show c, Show d) =&gt;
+Tuple4' a b c d -&gt; String
+showList :: [Tuple4' a b c d] -&gt; ShowS
+$cshowList :: forall a b c d.
+(Show a, Show b, Show c, Show d) =&gt;
+[Tuple4' a b c d] -&gt; ShowS
+show :: Tuple4' a b c d -&gt; String
+$cshow :: forall a b c d.
+(Show a, Show b, Show c, Show d) =&gt;
+Tuple4' a b c d -&gt; String
+showsPrec :: Int -&gt; Tuple4' a b c d -&gt; ShowS
+$cshowsPrec :: forall a b c d.
+(Show a, Show b, Show c, Show d) =&gt;
+Int -&gt; Tuple4' a b c d -&gt; ShowS
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></span></span></span></span><span>
+</span><span id="line-36"></span></pre></body></html>

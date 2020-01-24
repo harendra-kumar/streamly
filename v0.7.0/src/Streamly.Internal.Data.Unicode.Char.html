@@ -1,0 +1,51 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE FlexibleContexts #-}</span><span>
+</span><a name="line-2"></a><span>
+</span><a name="line-3"></a><span class="hs-comment">-- |</span><span>
+</span><a name="line-4"></a><span class="hs-comment">-- Module      : Streamly.Data.Internal.Unicode.Char</span><span>
+</span><a name="line-5"></a><span class="hs-comment">-- Copyright   : (c) 2018 Composewell Technologies</span><span>
+</span><a name="line-6"></a><span class="hs-comment">--</span><span>
+</span><a name="line-7"></a><span class="hs-comment">-- License     : BSD3</span><span>
+</span><a name="line-8"></a><span class="hs-comment">-- Maintainer  : streamly@composewell.com</span><span>
+</span><a name="line-9"></a><span class="hs-comment">-- Stability   : experimental</span><span>
+</span><a name="line-10"></a><span class="hs-comment">-- Portability : GHC</span><span>
+</span><a name="line-11"></a><span class="hs-comment">--</span><span>
+</span><a name="line-12"></a><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Streamly.Internal.Data.Unicode.Char</span><span>
+</span><a name="line-13"></a><span>    </span><span class="hs-special">(</span><span>
+</span><a name="line-14"></a><span>    </span><span class="hs-comment">-- * Unicode aware operations</span><span>
+</span><a name="line-15"></a><span>    </span><span class="hs-comment">{-
+      toCaseFold
+    , toLower
+    , toUpper
+    , toTitle
+    -}</span><span>
+</span><a name="line-21"></a><span>    </span><span class="hs-special">)</span><span>
+</span><a name="line-22"></a><span class="hs-keyword">where</span><span>
+</span><a name="line-23"></a><span>
+</span><a name="line-24"></a><span class="hs-comment">-- import Streamly (IsStream)</span><span>
+</span><a name="line-25"></a><span>
+</span><a name="line-26"></a><span class="hs-comment">-------------------------------------------------------------------------------</span><span>
+</span><a name="line-27"></a><span class="hs-comment">-- Unicode aware operations on strings</span><span>
+</span><a name="line-28"></a><span class="hs-comment">-------------------------------------------------------------------------------</span><span>
+</span><a name="line-29"></a><span>
+</span><a name="line-30"></a><span class="hs-comment">{-
+-- |
+-- /undefined/
+toCaseFold :: IsStream t =&gt; Char -&gt; t m Char
+toCaseFold = undefined
+
+-- |
+-- /undefined/
+toLower :: IsStream t =&gt; Char -&gt; t m Char
+toLower = undefined
+
+-- |
+-- /undefined/
+toUpper :: IsStream t =&gt; Char -&gt; t m Char
+toUpper = undefined
+
+-- |
+-- /undefined/
+toTitle :: IsStream t =&gt; Char -&gt; t m Char
+toTitle = undefined
+-}</span><span>
+</span><a name="line-51"></a></pre></body></html>

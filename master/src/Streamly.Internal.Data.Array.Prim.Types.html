@@ -1,0 +1,169 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE UnboxedTuples #-}</span><span class="hs-cpp">
+
+#include &quot;inline.hs&quot;
+</span><span>
+</span><span id="line-5"></span><span class="hs-comment">-- |</span><span>
+</span><span id="line-6"></span><span class="hs-comment">-- Module      : Streamly.Internal.Data.Array.Prim.Types</span><span>
+</span><span id="line-7"></span><span class="hs-comment">-- Copyright   : (c) 2020 Composewell Technologies</span><span>
+</span><span id="line-8"></span><span class="hs-comment">--</span><span>
+</span><span id="line-9"></span><span class="hs-comment">-- License     : BSD-3-Clause</span><span>
+</span><span id="line-10"></span><span class="hs-comment">-- Maintainer  : streamly@composewell.com</span><span>
+</span><span id="line-11"></span><span class="hs-comment">-- Stability   : experimental</span><span>
+</span><span id="line-12"></span><span class="hs-comment">-- Portability : GHC</span><span>
+</span><span id="line-13"></span><span class="hs-comment">--</span><span>
+</span><span id="line-14"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Streamly.Internal.Data.Array.Prim.Types</span><span>
+</span><span id="line-15"></span><span>    </span><span class="hs-special">(</span><span>
+</span><span id="line-16"></span><span>      </span><span class="annot"><a href="Streamly.Internal.Data.Array.Prim.Types.html#Array"><span class="hs-identifier">Array</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-17"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Array.Prim.Types.html#unsafeFreeze"><span class="hs-identifier">unsafeFreeze</span></a></span><span>
+</span><span id="line-18"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Array.Prim.Types.html#unsafeFreezeWithShrink"><span class="hs-identifier">unsafeFreezeWithShrink</span></a></span><span>
+</span><span id="line-19"></span><span class="hs-comment">--    , unsafeThaw</span><span>
+</span><span id="line-20"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Array.Prim.Types.html#defaultChunkSize"><span class="hs-identifier">defaultChunkSize</span></a></span><span>
+</span><span id="line-21"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Array.Prim.Types.html#nil"><span class="hs-identifier">nil</span></a></span><span>
+</span><span id="line-22"></span><span>
+</span><span id="line-23"></span><span>    </span><span class="annot"><span class="hs-comment">-- * Construction</span></span><span>
+</span><span id="line-24"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Array.Prim.Types.html#spliceTwo"><span class="hs-identifier">spliceTwo</span></a></span><span>
+</span><span id="line-25"></span><span>
+</span><span id="line-26"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Array.Prim.Types.html#fromList"><span class="hs-identifier">fromList</span></a></span><span>
+</span><span id="line-27"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Array.Prim.Types.html#fromListN"><span class="hs-identifier">fromListN</span></a></span><span>
+</span><span id="line-28"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Array.Prim.Types.html#fromStreamDN"><span class="hs-identifier">fromStreamDN</span></a></span><span>
+</span><span id="line-29"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Array.Prim.Types.html#fromStreamD"><span class="hs-identifier">fromStreamD</span></a></span><span>
+</span><span id="line-30"></span><span>
+</span><span id="line-31"></span><span>    </span><span class="annot"><span class="hs-comment">-- * Streams of arrays</span></span><span>
+</span><span id="line-32"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Array.Prim.Types.html#fromStreamDArraysOf"><span class="hs-identifier">fromStreamDArraysOf</span></a></span><span>
+</span><span id="line-33"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Array.Prim.Types.html#FlattenState"><span class="hs-identifier">FlattenState</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span> </span><span class="hs-comment">-- for inspection testing</span><span>
+</span><span id="line-34"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Array.Prim.Types.html#flattenArrays"><span class="hs-identifier">flattenArrays</span></a></span><span>
+</span><span id="line-35"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Array.Prim.Types.html#flattenArraysRev"><span class="hs-identifier">flattenArraysRev</span></a></span><span>
+</span><span id="line-36"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Array.Prim.Types.html#SpliceState"><span class="hs-identifier">SpliceState</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span> </span><span class="hs-comment">-- for inspection testing</span><span>
+</span><span id="line-37"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Array.Prim.Types.html#packArraysChunksOf"><span class="hs-identifier">packArraysChunksOf</span></a></span><span>
+</span><span id="line-38"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Array.Prim.Types.html#lpackArraysChunksOf"><span class="hs-identifier">lpackArraysChunksOf</span></a></span><span class="hs-cpp">
+#if !defined(mingw32_HOST_OS)
+</span><span class="hs-comment">--    , groupIOVecsOf</span><span class="hs-cpp">
+#endif
+</span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Array.Prim.Types.html#splitOn"><span class="hs-identifier">splitOn</span></a></span><span>
+</span><span id="line-43"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Array.Prim.Types.html#breakOn"><span class="hs-identifier">breakOn</span></a></span><span>
+</span><span id="line-44"></span><span>
+</span><span id="line-45"></span><span>    </span><span class="annot"><span class="hs-comment">-- * Elimination</span></span><span>
+</span><span id="line-46"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Array.Prim.Types.html#unsafeIndex"><span class="hs-identifier">unsafeIndex</span></a></span><span>
+</span><span id="line-47"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Array.Prim.Types.html#byteLength"><span class="hs-identifier">byteLength</span></a></span><span>
+</span><span id="line-48"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Array.Prim.Types.html#length"><span class="hs-identifier">length</span></a></span><span>
+</span><span id="line-49"></span><span>
+</span><span id="line-50"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Array.Prim.Types.html#foldl%27"><span class="hs-identifier">foldl'</span></a></span><span>
+</span><span id="line-51"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Array.Prim.Types.html#foldr"><span class="hs-identifier">foldr</span></a></span><span>
+</span><span id="line-52"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Array.Prim.Types.html#foldr%27"><span class="hs-identifier">foldr'</span></a></span><span>
+</span><span id="line-53"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Array.Prim.Types.html#foldlM%27"><span class="hs-identifier">foldlM'</span></a></span><span>
+</span><span id="line-54"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">splitAt</span></span><span>
+</span><span id="line-55"></span><span>
+</span><span id="line-56"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Array.Prim.Types.html#toStreamD"><span class="hs-identifier">toStreamD</span></a></span><span>
+</span><span id="line-57"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Array.Prim.Types.html#toStreamDRev"><span class="hs-identifier">toStreamDRev</span></a></span><span>
+</span><span id="line-58"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Array.Prim.Types.html#toStreamK"><span class="hs-identifier">toStreamK</span></a></span><span>
+</span><span id="line-59"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Array.Prim.Types.html#toStreamKRev"><span class="hs-identifier">toStreamKRev</span></a></span><span>
+</span><span id="line-60"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Array.Prim.Types.html#toList"><span class="hs-identifier">toList</span></a></span><span>
+</span><span id="line-61"></span><span class="hs-comment">--    , toArrayMinChunk</span><span>
+</span><span id="line-62"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Array.Prim.Types.html#writeN"><span class="hs-identifier">writeN</span></a></span><span>
+</span><span id="line-63"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Array.Prim.Mut.Types.html#ArrayUnsafe"><span class="hs-identifier">MA.ArrayUnsafe</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-64"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Array.Prim.Types.html#writeNUnsafe"><span class="hs-identifier">writeNUnsafe</span></a></span><span>
+</span><span id="line-65"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Array.Prim.Types.html#write"><span class="hs-identifier">write</span></a></span><span>
+</span><span id="line-66"></span><span>
+</span><span id="line-67"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Array.Prim.Types.html#unlines"><span class="hs-identifier">unlines</span></a></span><span>
+</span><span id="line-68"></span><span>    </span><span class="hs-special">)</span><span>
+</span><span id="line-69"></span><span class="hs-keyword">where</span><span>
+</span><span id="line-70"></span><span>
+</span><span id="line-71"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Array.Prim.Mut.Types.html"><span class="hs-identifier">Streamly.Internal.Data.Array.Prim.Mut.Types</span></a></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">MA</span></span><span class="hs-cpp">
+
+#include &quot;Streamly/Internal/Data/Array/Prim/TypesInclude.hs&quot;
+</span><span>
+</span><span id="line-75"></span><span class="hs-comment">-- Drops the separator byte</span><span>
+</span><span id="line-76"></span><span class="hs-comment">-- Inefficient compared to Memory Array</span><span>
+</span><span id="line-77"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Array.Prim.Types.html#breakOn"><span class="hs-pragma hs-type">breakOn</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-78"></span><span id="local-6989586621679395118"><span class="annot"><a href="Streamly.Internal.Data.Array.Prim.Types.html#breakOn"><span class="hs-identifier hs-type">breakOn</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-79"></span><span>       </span><span class="annot"><span class="hs-identifier hs-type">MonadIO</span></span><span> </span><span class="annot"><a href="#local-6989586621679395118"><span class="hs-identifier hs-type">m</span></a></span><span>
+</span><span id="line-80"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span>
+</span><span id="line-81"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Array.Prim.Types.html#Array"><span class="hs-identifier hs-type">Array</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span>
+</span><span id="line-82"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679395118"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.Array.Prim.Types.html#Array"><span class="hs-identifier hs-type">Array</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.Array.Prim.Types.html#Array"><span class="hs-identifier hs-type">Array</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span class="hs-special">)</span><span class="hs-special">)</span></span><span>
+</span><span id="line-83"></span><span id="breakOn"><span class="annot"><span class="annottext">breakOn :: Word8 -&gt; Array Word8 -&gt; m (Array Word8, Maybe (Array Word8))
+</span><a href="Streamly.Internal.Data.Array.Prim.Types.html#breakOn"><span class="hs-identifier hs-var hs-var">breakOn</span></a></span></span><span> </span><span id="local-6989586621679395082"><span class="annot"><span class="annottext">sep :: Word8
+</span><a href="#local-6989586621679395082"><span class="hs-identifier hs-var">sep</span></a></span></span><span> </span><span id="local-6989586621679395081"><span class="annot"><span class="annottext">arr :: Array Word8
+</span><a href="#local-6989586621679395081"><span class="hs-identifier hs-var">arr</span></a></span></span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.Array.Prim.Types.html#Array"><span class="hs-identifier hs-type">Array</span></a></span><span> </span><span id="local-6989586621679395079"><span class="annot"><span class="annottext">arr# :: ByteArray#
+</span><a href="#local-6989586621679395079"><span class="hs-identifier hs-var">arr#</span></a></span></span><span> </span><span id="local-6989586621679395078"><span class="annot"><span class="annottext">off :: Int
+</span><a href="#local-6989586621679395078"><span class="hs-identifier hs-var">off</span></a></span></span><span> </span><span id="local-6989586621679395077"><span class="annot"><span class="annottext">len :: Int
+</span><a href="#local-6989586621679395077"><span class="hs-identifier hs-var">len</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-84"></span><span>    </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">Either Int Int
+</span><a href="#local-6989586621679395076"><span class="hs-identifier hs-var">loc</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-85"></span><span>        </span><span class="annot"><span class="hs-identifier hs-type">Left</span></span><span> </span><span class="hs-identifier">_</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(Array Word8, Maybe (Array Word8))
+-&gt; m (Array Word8, Maybe (Array Word8))
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Array Word8
+</span><a href="#local-6989586621679395081"><span class="hs-identifier hs-var">arr</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Maybe (Array Word8)
+forall a. Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span class="hs-special">)</span><span>
+</span><span id="line-86"></span><span>        </span><span class="annot"><span class="hs-identifier hs-type">Right</span></span><span> </span><span id="local-6989586621679395075"><span class="annot"><span class="annottext">len1 :: Int
+</span><a href="#local-6989586621679395075"><span class="hs-identifier hs-var">len1</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-87"></span><span>            </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679395074"><span class="annot"><span class="annottext">len2 :: Int
+</span><a href="#local-6989586621679395074"><span class="hs-identifier hs-var hs-var">len2</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679395077"><span class="hs-identifier hs-var">len</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-glyph hs-var">-</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679395075"><span class="hs-identifier hs-var">len1</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-glyph hs-var">-</span></span><span> </span><span class="annot"><span class="hs-number">1</span></span><span>
+</span><span id="line-88"></span><span>            </span><span class="annot"><span class="annottext">(Array Word8, Maybe (Array Word8))
+-&gt; m (Array Word8, Maybe (Array Word8))
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ByteArray# -&gt; Int -&gt; Int -&gt; Array Word8
+forall a. ByteArray# -&gt; Int -&gt; Int -&gt; Array a
+</span><a href="Streamly.Internal.Data.Array.Prim.Types.html#Array"><span class="hs-identifier hs-var">Array</span></a></span><span> </span><span class="annot"><span class="annottext">ByteArray#
+</span><a href="#local-6989586621679395079"><span class="hs-identifier hs-var">arr#</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679395078"><span class="hs-identifier hs-var">off</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679395075"><span class="hs-identifier hs-var">len1</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Array Word8 -&gt; Maybe (Array Word8)
+forall a. a -&gt; Maybe a
+</span><span class="hs-identifier hs-var">Just</span></span><span> </span><span class="annot"><span class="annottext">(Array Word8 -&gt; Maybe (Array Word8))
+-&gt; Array Word8 -&gt; Maybe (Array Word8)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">ByteArray# -&gt; Int -&gt; Int -&gt; Array Word8
+forall a. ByteArray# -&gt; Int -&gt; Int -&gt; Array a
+</span><a href="Streamly.Internal.Data.Array.Prim.Types.html#Array"><span class="hs-identifier hs-var">Array</span></a></span><span> </span><span class="annot"><span class="annottext">ByteArray#
+</span><a href="#local-6989586621679395079"><span class="hs-identifier hs-var">arr#</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679395078"><span class="hs-identifier hs-var">off</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">+</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679395075"><span class="hs-identifier hs-var">len1</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">+</span></span><span> </span><span class="annot"><span class="hs-number">1</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679395074"><span class="hs-identifier hs-var">len2</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-89"></span><span>
+</span><span id="line-90"></span><span>    </span><span class="hs-keyword">where</span><span>
+</span><span id="line-91"></span><span>
+</span><span id="line-92"></span><span>    </span><span id="local-6989586621679395076"><span class="annot"><span class="annottext">loc :: Either Int Int
+</span><a href="#local-6989586621679395076"><span class="hs-identifier hs-var hs-var">loc</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Either Int Int -&gt; Word8 -&gt; Either Int Int)
+-&gt; Either Int Int -&gt; Array Word8 -&gt; Either Int Int
+forall a b. Prim a =&gt; (b -&gt; a -&gt; b) -&gt; b -&gt; Array a -&gt; b
+</span><a href="Streamly.Internal.Data.Array.Prim.Types.html#foldl%27"><span class="hs-identifier hs-var">foldl'</span></a></span><span> </span><span class="annot"><span class="annottext">Either Int Int -&gt; Word8 -&gt; Either Int Int
+forall a. Num a =&gt; Either a a -&gt; Word8 -&gt; Either a a
+</span><a href="#local-6989586621679395072"><span class="hs-identifier hs-var">chk</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; Either Int Int
+forall a b. a -&gt; Either a b
+</span><span class="hs-identifier hs-var">Left</span></span><span> </span><span class="annot"><span class="hs-number">0</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Array Word8
+</span><a href="#local-6989586621679395081"><span class="hs-identifier hs-var">arr</span></a></span><span>
+</span><span id="line-93"></span><span>
+</span><span id="line-94"></span><span>    </span><span id="local-6989586621679395072"><span class="annot"><span class="annottext">chk :: Either a a -&gt; Word8 -&gt; Either a a
+</span><a href="#local-6989586621679395072"><span class="hs-identifier hs-var hs-var">chk</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Left</span></span><span> </span><span id="local-6989586621679395071"><span class="annot"><span class="annottext">i :: a
+</span><a href="#local-6989586621679395071"><span class="hs-identifier hs-var">i</span></a></span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621679395070"><span class="annot"><span class="annottext">a :: Word8
+</span><a href="#local-6989586621679395070"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-95"></span><span>        </span><span class="hs-keyword">if</span><span> </span><span class="annot"><span class="annottext">Word8
+</span><a href="#local-6989586621679395070"><span class="hs-identifier hs-var">a</span></a></span><span> </span><span class="annot"><span class="annottext">Word8 -&gt; Word8 -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">==</span></span><span> </span><span class="annot"><span class="annottext">Word8
+</span><a href="#local-6989586621679395082"><span class="hs-identifier hs-var">sep</span></a></span><span>
+</span><span id="line-96"></span><span>            </span><span class="hs-keyword">then</span><span> </span><span class="annot"><span class="annottext">a -&gt; Either a a
+forall a b. b -&gt; Either a b
+</span><span class="hs-identifier hs-var">Right</span></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679395071"><span class="hs-identifier hs-var">i</span></a></span><span>
+</span><span id="line-97"></span><span>            </span><span class="hs-keyword">else</span><span> </span><span class="annot"><span class="annottext">a -&gt; Either a a
+forall a b. a -&gt; Either a b
+</span><span class="hs-identifier hs-var">Left</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679395071"><span class="hs-identifier hs-var">i</span></a></span><span> </span><span class="annot"><span class="annottext">a -&gt; a -&gt; a
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">+</span></span><span> </span><span class="annot"><span class="hs-number">1</span></span><span class="hs-special">)</span><span>
+</span><span id="line-98"></span><span>    </span><span class="annot"><a href="#local-6989586621679395072"><span class="hs-identifier hs-var">chk</span></a></span><span> </span><span id="local-6989586621679395069"><span class="annot"><span class="annottext">r :: Either a a
+</span><a href="#local-6989586621679395069"><span class="hs-identifier hs-var">r</span></a></span></span><span> </span><span class="hs-identifier">_</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Either a a
+</span><a href="#local-6989586621679395069"><span class="hs-identifier hs-var">r</span></a></span><span>
+</span><span id="line-99"></span></pre></body></html>

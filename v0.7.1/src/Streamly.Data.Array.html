@@ -1,0 +1,44 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-comment">-- |</span><span>
+</span><a name="line-2"></a><span class="hs-comment">-- Module      : Streamly.Data.Array</span><span>
+</span><a name="line-3"></a><span class="hs-comment">-- Copyright   : (c) 2019 Composewell Technologies</span><span>
+</span><a name="line-4"></a><span class="hs-comment">--</span><span>
+</span><a name="line-5"></a><span class="hs-comment">-- License     : BSD-3-Clause</span><span>
+</span><a name="line-6"></a><span class="hs-comment">-- Maintainer  : streamly@composewell.com</span><span>
+</span><a name="line-7"></a><span class="hs-comment">-- Stability   : experimental</span><span>
+</span><a name="line-8"></a><span class="hs-comment">-- Portability : GHC</span><span>
+</span><a name="line-9"></a><span class="hs-comment">--</span><span>
+</span><a name="line-10"></a><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Streamly.Data.Array</span><span>
+</span><a name="line-11"></a><span>    </span><span class="hs-special">(</span><span> </span><span class="hs-identifier hs-type">Array</span><span>
+</span><a name="line-12"></a><span>
+</span><a name="line-13"></a><span>    </span><span class="hs-comment">-- * Construction</span><span>
+</span><a name="line-14"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Data.Array.html#fromListN"><span class="hs-identifier hs-var">A.fromListN</span></a><span>
+</span><a name="line-15"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Data.Array.html#fromList"><span class="hs-identifier hs-var">A.fromList</span></a><span>
+</span><a name="line-16"></a><span>
+</span><a name="line-17"></a><span>    </span><span class="hs-comment">-- Stream Folds</span><span>
+</span><a name="line-18"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Data.Array.html#fromStreamN"><span class="hs-identifier hs-var">A.fromStreamN</span></a><span>
+</span><a name="line-19"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Data.Array.html#fromStream"><span class="hs-identifier hs-var">A.fromStream</span></a><span>
+</span><a name="line-20"></a><span>
+</span><a name="line-21"></a><span>    </span><span class="hs-comment">-- MonadicAPIs</span><span>
+</span><a name="line-22"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Data.Array.html#writeN"><span class="hs-identifier hs-var">A.writeN</span></a><span>
+</span><a name="line-23"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Data.Array.html#write"><span class="hs-identifier hs-var">A.write</span></a><span>
+</span><a name="line-24"></a><span>
+</span><a name="line-25"></a><span>    </span><span class="hs-comment">-- * Elimination</span><span>
+</span><a name="line-26"></a><span>
+</span><a name="line-27"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Data.Array.html#toStream"><span class="hs-identifier hs-var">A.toStream</span></a><span>
+</span><a name="line-28"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Data.Array.html#toStreamRev"><span class="hs-identifier hs-var">A.toStreamRev</span></a><span>
+</span><a name="line-29"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Data.Array.html#read"><span class="hs-identifier hs-var">A.read</span></a><span>
+</span><a name="line-30"></a><span>
+</span><a name="line-31"></a><span>    </span><span class="hs-comment">-- * Random Access</span><span>
+</span><a name="line-32"></a><span>
+</span><a name="line-33"></a><span>    </span><span class="hs-comment">-- * Folding Arrays</span><span>
+</span><a name="line-34"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Data.Array.html#streamFold"><span class="hs-identifier hs-var">A.streamFold</span></a><span>
+</span><a name="line-35"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Data.Array.html#fold"><span class="hs-identifier hs-var">A.fold</span></a><span>
+</span><a name="line-36"></a><span>
+</span><a name="line-37"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Data.Array.html#length"><span class="hs-identifier hs-var">A.length</span></a><span>
+</span><a name="line-38"></a><span>    </span><span class="hs-special">)</span><span>
+</span><a name="line-39"></a><span class="hs-keyword">where</span><span>
+</span><a name="line-40"></a><span>
+</span><a name="line-41"></a><span class="hs-keyword">import</span><span> </span><a href="Streamly.Internal.Data.Array.html"><span class="hs-identifier">Streamly.Internal.Data.Array</span></a><span> </span><span class="hs-special">(</span><span class="hs-identifier hs-type">Array</span><span class="hs-special">)</span><span>
+</span><a name="line-42"></a><span>
+</span><a name="line-43"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><a href="Streamly.Internal.Data.Array.html"><span class="hs-identifier">Streamly.Internal.Data.Array</span></a><span> </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">A</span><span>
+</span><a name="line-44"></a></pre></body></html>

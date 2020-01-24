@@ -1,0 +1,30 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE CPP                       #-}</span><span>
+</span><a name="line-2"></a><span>
+</span><a name="line-3"></a><span class="hs-comment">-- |</span><span>
+</span><a name="line-4"></a><span class="hs-comment">-- Module      : Streamly.Internal.BaseCompat</span><span>
+</span><a name="line-5"></a><span class="hs-comment">-- License     : BSD3</span><span>
+</span><a name="line-6"></a><span class="hs-comment">-- Maintainer  : streamly@composewell.com</span><span>
+</span><a name="line-7"></a><span class="hs-comment">-- Stability   : experimental</span><span>
+</span><a name="line-8"></a><span class="hs-comment">-- Portability : GHC</span><span>
+</span><a name="line-9"></a><span class="hs-comment">--</span><span>
+</span><a name="line-10"></a><span class="hs-comment">-- Compatibility functions for &quot;base&quot; package.</span><span>
+</span><a name="line-11"></a><span class="hs-comment">--</span><span>
+</span><a name="line-12"></a><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Streamly.Internal.BaseCompat</span><span>
+</span><a name="line-13"></a><span>    </span><span class="hs-special">(</span><span>
+</span><a name="line-14"></a><span>      </span><span class="hs-special">(</span><a href="Streamly.Internal.BaseCompat.html#%23."><span class="hs-operator hs-var">#.</span></a><span class="hs-special">)</span><span>
+</span><a name="line-15"></a><span>    </span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-var">errorWithoutStackTrace</span><span>
+</span><a name="line-16"></a><span>    </span><span class="hs-special">)</span><span>
+</span><a name="line-17"></a><span class="hs-keyword">where</span><span>
+</span><a name="line-18"></a><span>
+</span><a name="line-19"></a><span class="hs-keyword">import</span><span> </span><span class="hs-identifier">Data.Coerce</span><span> </span><span class="hs-special">(</span><span class="hs-identifier hs-type">Coercible</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-var">coerce</span><span class="hs-special">)</span><span>
+</span><a name="line-20"></a><span>
+</span><a name="line-21"></a><span class="hs-pragma">{-# INLINE</span><span> </span><span class="hs-pragma">(</span><span class="hs-pragma">#.</span><span class="hs-pragma">)</span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><a name="line-22"></a><span class="hs-special">(</span><span class="hs-operator">#.</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier hs-type">Coercible</span><span> </span><a href="#local-6989586621679038778"><span class="hs-identifier hs-type">b</span></a><span> </span><a href="#local-6989586621679038779"><span class="hs-identifier hs-type">c</span></a><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="hs-special">(</span><a href="#local-6989586621679038778"><span class="hs-identifier hs-type">b</span></a><span> </span><span class="hs-glyph">-&gt;</span><span> </span><a href="#local-6989586621679038779"><span class="hs-identifier hs-type">c</span></a><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><a href="#local-6989586621679038780"><span class="hs-identifier hs-type">a</span></a><span> </span><span class="hs-glyph">-&gt;</span><span> </span><a href="#local-6989586621679038778"><span class="hs-identifier hs-type">b</span></a><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><a href="#local-6989586621679038780"><span class="hs-identifier hs-type">a</span></a><span> </span><span class="hs-glyph">-&gt;</span><span> </span><a href="#local-6989586621679038779"><span class="hs-identifier hs-type">c</span></a><span class="hs-special">)</span><span>
+</span><a name="line-23"></a><span class="hs-special">(</span><a name="%23."><a href="Streamly.Internal.BaseCompat.html#%23."><span class="hs-operator">#.</span></a></a><span class="hs-special">)</span><span> </span><a name="local-6989586621679038781"><a href="#local-6989586621679038781"><span class="hs-identifier">_f</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-identifier hs-var">coerce</span><span>
+</span><a name="line-24"></a><span>
+</span><a name="line-25"></a><span class="hs-cpp">#if !(MIN_VERSION_base(4,9,0))
+</span><span class="hs-pragma">{-# NOINLINE</span><span> </span><span class="hs-pragma">errorWithoutStackTrace</span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><a name="line-27"></a><span class="hs-identifier">errorWithoutStackTrace</span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="hs-identifier">Char</span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier">a</span><span>
+</span><a name="line-28"></a><span class="hs-identifier">errorWithoutStackTrace</span><span> </span><span class="hs-identifier">s</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-identifier">error</span><span> </span><span class="hs-identifier">s</span><span>
+</span><a name="line-29"></a><span class="hs-cpp">#endif
+</span></pre></body></html>

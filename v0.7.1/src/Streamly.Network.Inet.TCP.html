@@ -1,0 +1,50 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-comment">-- |</span><span>
+</span><a name="line-2"></a><span class="hs-comment">-- Module      : Streamly.Network.Server</span><span>
+</span><a name="line-3"></a><span class="hs-comment">-- Copyright   : (c) 2019 Composewell Technologies</span><span>
+</span><a name="line-4"></a><span class="hs-comment">--</span><span>
+</span><a name="line-5"></a><span class="hs-comment">-- License     : BSD3</span><span>
+</span><a name="line-6"></a><span class="hs-comment">-- Maintainer  : streamly@composewell.com</span><span>
+</span><a name="line-7"></a><span class="hs-comment">-- Stability   : experimental</span><span>
+</span><a name="line-8"></a><span class="hs-comment">-- Portability : GHC</span><span>
+</span><a name="line-9"></a><span class="hs-comment">--</span><span>
+</span><a name="line-10"></a><span class="hs-comment">-- Combinators to build Inet/TCP clients and servers.</span><span>
+</span><a name="line-11"></a><span class="hs-comment">--</span><span>
+</span><a name="line-12"></a><span class="hs-comment">-- &gt; import qualified Streamly.Network.Inet.TCP as TCP</span><span>
+</span><a name="line-13"></a><span class="hs-comment">--</span><span>
+</span><a name="line-14"></a><span>
+</span><a name="line-15"></a><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Streamly.Network.Inet.TCP</span><span>
+</span><a name="line-16"></a><span>    </span><span class="hs-special">(</span><span>
+</span><a name="line-17"></a><span>    </span><span class="hs-comment">-- * Accept Connections</span><span>
+</span><a name="line-18"></a><span>      </span><a href="Streamly.Internal.Network.Inet.TCP.html#acceptOnAddr"><span class="hs-identifier hs-var">acceptOnAddr</span></a><span>
+</span><a name="line-19"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Network.Inet.TCP.html#acceptOnPort"><span class="hs-identifier hs-var">acceptOnPort</span></a><span>
+</span><a name="line-20"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Network.Inet.TCP.html#acceptOnPortLocal"><span class="hs-identifier hs-var">acceptOnPortLocal</span></a><span>
+</span><a name="line-21"></a><span>
+</span><a name="line-22"></a><span>    </span><span class="hs-comment">-- * Connect to Servers</span><span>
+</span><a name="line-23"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Network.Inet.TCP.html#connect"><span class="hs-identifier hs-var">connect</span></a><span>
+</span><a name="line-24"></a><span>
+</span><a name="line-25"></a><span>    </span><span class="hs-comment">{-
+    -- ** Sink Servers
+
+    -- These abstractions can be applied to any setting where we need to do a
+    -- sink processing of multiple streams e.g. output from multiple processes
+    -- or data coming from multiple files.
+
+    -- handle connections concurrently using a specified fold
+    -- , handleConnections
+
+    -- handle frames concurrently using a specified fold
+    , handleFrames
+
+    -- merge frames from all connection into a single stream. Frames can be
+    -- created by a specified fold.
+    , mergeFrames
+
+    -- * UDP Servers
+    , datagrams
+    , datagramsOn
+    -}</span><span>
+</span><a name="line-46"></a><span>    </span><span class="hs-special">)</span><span>
+</span><a name="line-47"></a><span class="hs-keyword">where</span><span>
+</span><a name="line-48"></a><span>
+</span><a name="line-49"></a><span class="hs-keyword">import</span><span> </span><a href="Streamly.Internal.Network.Inet.TCP.html"><span class="hs-identifier">Streamly.Internal.Network.Inet.TCP</span></a><span>
+</span><a name="line-50"></a></pre></body></html>

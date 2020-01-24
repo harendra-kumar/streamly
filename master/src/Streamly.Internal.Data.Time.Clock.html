@@ -1,0 +1,365 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# OPTIONS_GHC -optc-DHAVE_CLOCK_MONOTONIC_RAW #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# OPTIONS_GHC -optc-DHAVE_CLOCK_MONOTONIC_COARSE #-}</span><span>
+</span><span id="line-3"></span><span class="hs-pragma">{-# OPTIONS_GHC -optc-DHAVE_CLOCK_MONOTONIC_UPTIME #-}</span><span>
+</span><span id="line-4"></span><span class="hs-pragma">{-# OPTIONS_GHC -optc-DHAVE_CLOCK_REALTIME_COARSE #-}</span><span>
+</span><span id="line-5"></span><span class="hs-pragma">{-# LINE 1 &quot;src/Streamly/Internal/Data/Time/Clock.hsc&quot; #-}</span><span>
+</span><span id="line-1"></span><span id="%24maxtag_ISqx7HDCy3EBJCyIHT6LD6"><span id="%24tag2con_ISqx7HDCy3EBJCyIHT6LD6"><span id="%24con2tag_ISqx7HDCy3EBJCyIHT6LD6"></span></span></span><span class="hs-pragma">{-# OPTIONS_GHC -Wno-identities          #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# OPTIONS_GHC -fno-warn-unused-imports #-}</span><span>
+</span><span id="line-3"></span><span>
+</span><span id="line-4"></span><span>
+</span><span id="line-5"></span><span class="hs-pragma">{-# LINE 5 &quot;src/Streamly/Internal/Data/Time/Clock.hsc&quot; #-}</span><span>
+</span><span id="line-5"></span><span>
+</span><span id="line-6"></span><span>
+</span><span id="line-7"></span><span class="hs-pragma">{-# LINE 7 &quot;src/Streamly/Internal/Data/Time/Clock.hsc&quot; #-}</span><span>
+</span><span id="line-7"></span><span>
+</span><span id="line-8"></span><span>
+</span><span id="line-9"></span><span>
+</span><span id="line-10"></span><span class="hs-comment">-- |</span><span>
+</span><span id="line-11"></span><span class="hs-comment">-- Module      : Streamly.Internal.Data.Time.Clock</span><span>
+</span><span id="line-12"></span><span class="hs-comment">-- Copyright   : (c) 2019 Composewell Technologies</span><span>
+</span><span id="line-13"></span><span class="hs-comment">--               (c) 2009-2012, Cetin Sert</span><span>
+</span><span id="line-14"></span><span class="hs-comment">--               (c) 2010, Eugene Kirpichov</span><span>
+</span><span id="line-15"></span><span class="hs-comment">-- License     : BSD3</span><span>
+</span><span id="line-16"></span><span class="hs-comment">-- Maintainer  : streamly@composewell.com</span><span>
+</span><span id="line-17"></span><span class="hs-comment">-- Stability   : experimental</span><span>
+</span><span id="line-18"></span><span class="hs-comment">-- Portability : GHC</span><span>
+</span><span id="line-19"></span><span>
+</span><span id="line-20"></span><span class="hs-comment">-- A majority of the code below has been stolen from the &quot;clock&quot; package.</span><span>
+</span><span id="line-21"></span><span>
+</span><span id="line-22"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Streamly.Internal.Data.Time.Clock</span><span>
+</span><span id="line-23"></span><span>    </span><span class="hs-special">(</span><span>
+</span><span id="line-24"></span><span>    </span><span class="annot"><span class="hs-comment">-- * get time from the system clock</span></span><span>
+</span><span id="line-25"></span><span>      </span><span class="annot"><a href="Streamly.Internal.Data.Time.Clock.html#Clock"><span class="hs-identifier">Clock</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-26"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Time.Clock.html#getTime"><span class="hs-identifier">getTime</span></a></span><span>
+</span><span id="line-27"></span><span>    </span><span class="hs-special">)</span><span>
+</span><span id="line-28"></span><span class="hs-keyword">where</span><span>
+</span><span id="line-29"></span><span>
+</span><span id="line-30"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Int</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Int32</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">Int64</span></span><span class="hs-special">)</span><span>
+</span><span id="line-31"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Typeable</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Typeable</span></span><span class="hs-special">)</span><span>
+</span><span id="line-32"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Word</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Word32</span></span><span class="hs-special">)</span><span>
+</span><span id="line-33"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Foreign.C</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">CInt</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">throwErrnoIfMinus1_</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">CTime</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">CLong</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-34"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Foreign.Marshal.Alloc</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">alloca</span></span><span class="hs-special">)</span><span>
+</span><span id="line-35"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Foreign.Ptr</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Ptr</span></span><span class="hs-special">)</span><span>
+</span><span id="line-36"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Foreign.Storable</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Storable</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">peek</span></span><span class="hs-special">)</span><span>
+</span><span id="line-37"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">GHC.Generics</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Generic</span></span><span class="hs-special">)</span><span>
+</span><span id="line-38"></span><span>
+</span><span id="line-39"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Time.Units.html"><span class="hs-identifier">Streamly.Internal.Data.Time.Units</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.Time.TimeSpec.html#TimeSpec"><span class="hs-identifier">TimeSpec</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Time.Units.html#AbsTime"><span class="hs-identifier">AbsTime</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-40"></span><span>
+</span><span id="line-41"></span><span class="hs-comment">-------------------------------------------------------------------------------</span><span>
+</span><span id="line-42"></span><span class="hs-comment">-- Clock Types</span><span>
+</span><span id="line-43"></span><span class="hs-comment">-------------------------------------------------------------------------------</span><span>
+</span><span id="line-44"></span><span>
+</span><span id="line-45"></span><span>
+</span><span id="line-46"></span><span class="hs-pragma">{-# LINE 46 &quot;src/Streamly/Internal/Data/Time/Clock.hsc&quot; #-}</span><span>
+</span><span id="line-46"></span><span>
+</span><span id="line-47"></span><span>
+</span><span id="line-48"></span><span>
+</span><span id="line-49"></span><span class="hs-pragma">{-# LINE 49 &quot;src/Streamly/Internal/Data/Time/Clock.hsc&quot; #-}</span><span>
+</span><span id="line-49"></span><span>
+</span><span id="line-50"></span><span>
+</span><span id="line-51"></span><span class="hs-pragma">{-# LINE 51 &quot;src/Streamly/Internal/Data/Time/Clock.hsc&quot; #-}</span><span>
+</span><span id="line-51"></span><span>
+</span><span id="line-52"></span><span class="hs-comment">-- XXX this may be RAW on apple not RAW on linux</span><span>
+</span><span id="line-53"></span><span>
+</span><span id="line-54"></span><span class="hs-pragma">{-# LINE 54 &quot;src/Streamly/Internal/Data/Time/Clock.hsc&quot; #-}</span><span>
+</span><span id="line-54"></span><span>
+</span><span id="line-55"></span><span>
+</span><span id="line-56"></span><span class="hs-pragma">{-# LINE 56 &quot;src/Streamly/Internal/Data/Time/Clock.hsc&quot; #-}</span><span>
+</span><span id="line-56"></span><span>
+</span><span id="line-57"></span><span>
+</span><span id="line-58"></span><span class="hs-pragma">{-# LINE 60 &quot;src/Streamly/Internal/Data/Time/Clock.hsc&quot; #-}</span><span>
+</span><span id="line-60"></span><span>
+</span><span id="line-61"></span><span>
+</span><span id="line-62"></span><span class="hs-pragma">{-# LINE 62 &quot;src/Streamly/Internal/Data/Time/Clock.hsc&quot; #-}</span><span>
+</span><span id="line-62"></span><span>
+</span><span id="line-63"></span><span>
+</span><span id="line-64"></span><span class="hs-pragma">{-# LINE 64 &quot;src/Streamly/Internal/Data/Time/Clock.hsc&quot; #-}</span><span>
+</span><span id="line-64"></span><span>
+</span><span id="line-65"></span><span>
+</span><span id="line-66"></span><span class="hs-pragma">{-# LINE 68 &quot;src/Streamly/Internal/Data/Time/Clock.hsc&quot; #-}</span><span>
+</span><span id="line-68"></span><span>
+</span><span id="line-69"></span><span>
+</span><span id="line-70"></span><span class="hs-pragma">{-# LINE 70 &quot;src/Streamly/Internal/Data/Time/Clock.hsc&quot; #-}</span><span>
+</span><span id="line-70"></span><span>
+</span><span id="line-71"></span><span>
+</span><span id="line-72"></span><span class="hs-pragma">{-# LINE 72 &quot;src/Streamly/Internal/Data/Time/Clock.hsc&quot; #-}</span><span>
+</span><span id="line-72"></span><span>
+</span><span id="line-73"></span><span>
+</span><span id="line-74"></span><span class="hs-pragma">{-# LINE 74 &quot;src/Streamly/Internal/Data/Time/Clock.hsc&quot; #-}</span><span>
+</span><span id="line-74"></span><span>
+</span><span id="line-75"></span><span class="hs-comment">-- | Clock types. A clock may be system-wide (that is, visible to all processes)</span><span>
+</span><span id="line-76"></span><span class="hs-comment">--   or per-process (measuring time that is meaningful only within a process).</span><span>
+</span><span id="line-77"></span><span class="hs-comment">--   All implementations shall support CLOCK_REALTIME. (The only suspend-aware</span><span>
+</span><span id="line-78"></span><span class="hs-comment">--   monotonic is CLOCK_BOOTTIME on Linux.)</span><span>
+</span><span id="line-79"></span><span id="local-6989586621679360917"><span id="local-6989586621679360918"></span></span><span class="hs-keyword">data</span><span> </span><span id="Clock"><span class="annot"><a href="Streamly.Internal.Data.Time.Clock.html#Clock"><span class="hs-identifier hs-var">Clock</span></a></span></span><span>
+</span><span id="line-80"></span><span>
+</span><span id="line-81"></span><span>    </span><span class="hs-comment">-- | The identifier for the system-wide monotonic clock, which is defined as</span><span>
+</span><span id="line-82"></span><span>    </span><span class="hs-comment">--   a clock measuring real time, whose value cannot be set via</span><span>
+</span><span id="line-83"></span><span>    </span><span class="hs-comment">--   @clock_settime@ and which cannot have negative clock jumps. The maximum</span><span>
+</span><span id="line-84"></span><span>    </span><span class="hs-comment">--   possible clock jump shall be implementation defined. For this clock,</span><span>
+</span><span id="line-85"></span><span>    </span><span class="hs-comment">--   the value returned by 'getTime' represents the amount of time (in</span><span>
+</span><span id="line-86"></span><span>    </span><span class="hs-comment">--   seconds and nanoseconds) since an unspecified point in the past (for</span><span>
+</span><span id="line-87"></span><span>    </span><span class="hs-comment">--   example, system start-up time, or the Epoch). This point does not</span><span>
+</span><span id="line-88"></span><span>    </span><span class="hs-comment">--   change after system start-up time. Note that the absolute value of the</span><span>
+</span><span id="line-89"></span><span>    </span><span class="hs-comment">--   monotonic clock is meaningless (because its origin is arbitrary), and</span><span>
+</span><span id="line-90"></span><span>    </span><span class="hs-comment">--   thus there is no need to set it. Furthermore, realtime applications can</span><span>
+</span><span id="line-91"></span><span>    </span><span class="hs-comment">--   rely on the fact that the value of this clock is never set.</span><span>
+</span><span id="line-92"></span><span>  </span><span class="hs-glyph">=</span><span> </span><span id="Monotonic"><span class="annot"><a href="Streamly.Internal.Data.Time.Clock.html#Monotonic"><span class="hs-identifier hs-var">Monotonic</span></a></span></span><span>
+</span><span id="line-93"></span><span>
+</span><span id="line-94"></span><span>    </span><span class="hs-comment">-- | The identifier of the system-wide clock measuring real time. For this</span><span>
+</span><span id="line-95"></span><span>    </span><span class="hs-comment">--   clock, the value returned by 'getTime' represents the amount of time (in</span><span>
+</span><span id="line-96"></span><span>    </span><span class="hs-comment">--   seconds and nanoseconds) since the Epoch.</span><span>
+</span><span id="line-97"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="Realtime"><span class="annot"><a href="Streamly.Internal.Data.Time.Clock.html#Realtime"><span class="hs-identifier hs-var">Realtime</span></a></span></span><span>
+</span><span id="line-98"></span><span>
+</span><span id="line-99"></span><span>
+</span><span id="line-100"></span><span class="hs-pragma">{-# LINE 100 &quot;src/Streamly/Internal/Data/Time/Clock.hsc&quot; #-}</span><span>
+</span><span id="line-100"></span><span>    </span><span class="hs-comment">-- | The identifier of the CPU-time clock associated with the calling</span><span>
+</span><span id="line-101"></span><span>    </span><span class="hs-comment">--   process. For this clock, the value returned by 'getTime' represents the</span><span>
+</span><span id="line-102"></span><span>    </span><span class="hs-comment">--   amount of execution time of the current process.</span><span>
+</span><span id="line-103"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="ProcessCPUTime"><span class="annot"><a href="Streamly.Internal.Data.Time.Clock.html#ProcessCPUTime"><span class="hs-identifier hs-var">ProcessCPUTime</span></a></span></span><span>
+</span><span id="line-104"></span><span>
+</span><span id="line-105"></span><span>    </span><span class="hs-comment">-- | The identifier of the CPU-time clock associated with the calling OS</span><span>
+</span><span id="line-106"></span><span>    </span><span class="hs-comment">--   thread. For this clock, the value returned by 'getTime' represents the</span><span>
+</span><span id="line-107"></span><span>    </span><span class="hs-comment">--   amount of execution time of the current OS thread.</span><span>
+</span><span id="line-108"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="ThreadCPUTime"><span class="annot"><a href="Streamly.Internal.Data.Time.Clock.html#ThreadCPUTime"><span class="hs-identifier hs-var">ThreadCPUTime</span></a></span></span><span>
+</span><span id="line-109"></span><span>
+</span><span id="line-110"></span><span class="hs-pragma">{-# LINE 110 &quot;src/Streamly/Internal/Data/Time/Clock.hsc&quot; #-}</span><span>
+</span><span id="line-110"></span><span>
+</span><span id="line-111"></span><span>
+</span><span id="line-112"></span><span class="hs-pragma">{-# LINE 112 &quot;src/Streamly/Internal/Data/Time/Clock.hsc&quot; #-}</span><span>
+</span><span id="line-112"></span><span>    </span><span class="hs-comment">-- | (since Linux 2.6.28; Linux and Mac OSX)</span><span>
+</span><span id="line-113"></span><span>    </span><span class="hs-comment">--   Similar to CLOCK_MONOTONIC, but provides access to a</span><span>
+</span><span id="line-114"></span><span>    </span><span class="hs-comment">--   raw hardware-based time that is not subject to NTP</span><span>
+</span><span id="line-115"></span><span>    </span><span class="hs-comment">--   adjustments or the incremental adjustments performed by</span><span>
+</span><span id="line-116"></span><span>    </span><span class="hs-comment">--   adjtime(3).</span><span>
+</span><span id="line-117"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="MonotonicRaw"><span class="annot"><a href="Streamly.Internal.Data.Time.Clock.html#MonotonicRaw"><span class="hs-identifier hs-var">MonotonicRaw</span></a></span></span><span>
+</span><span id="line-118"></span><span>
+</span><span id="line-119"></span><span class="hs-pragma">{-# LINE 119 &quot;src/Streamly/Internal/Data/Time/Clock.hsc&quot; #-}</span><span>
+</span><span id="line-119"></span><span>
+</span><span id="line-120"></span><span>
+</span><span id="line-121"></span><span class="hs-pragma">{-# LINE 121 &quot;src/Streamly/Internal/Data/Time/Clock.hsc&quot; #-}</span><span>
+</span><span id="line-121"></span><span>    </span><span class="hs-comment">-- | (since Linux 2.6.32; Linux and Mac OSX)</span><span>
+</span><span id="line-122"></span><span>    </span><span class="hs-comment">--   A faster but less precise version of CLOCK_MONOTONIC.</span><span>
+</span><span id="line-123"></span><span>    </span><span class="hs-comment">--   Use when you need very fast, but not fine-grained timestamps.</span><span>
+</span><span id="line-124"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="MonotonicCoarse"><span class="annot"><a href="Streamly.Internal.Data.Time.Clock.html#MonotonicCoarse"><span class="hs-identifier hs-var">MonotonicCoarse</span></a></span></span><span>
+</span><span id="line-125"></span><span>
+</span><span id="line-126"></span><span class="hs-pragma">{-# LINE 126 &quot;src/Streamly/Internal/Data/Time/Clock.hsc&quot; #-}</span><span>
+</span><span id="line-126"></span><span>
+</span><span id="line-127"></span><span>
+</span><span id="line-128"></span><span class="hs-pragma">{-# LINE 128 &quot;src/Streamly/Internal/Data/Time/Clock.hsc&quot; #-}</span><span>
+</span><span id="line-128"></span><span>    </span><span class="hs-comment">-- | (since Linux 2.6.39; Linux and Mac OSX)</span><span>
+</span><span id="line-129"></span><span>    </span><span class="hs-comment">--   Identical to CLOCK_MONOTONIC, except it also includes</span><span>
+</span><span id="line-130"></span><span>    </span><span class="hs-comment">--   any time that the system is suspended.  This allows</span><span>
+</span><span id="line-131"></span><span>    </span><span class="hs-comment">--   applications to get a suspend-aware monotonic clock</span><span>
+</span><span id="line-132"></span><span>    </span><span class="hs-comment">--   without having to deal with the complications of</span><span>
+</span><span id="line-133"></span><span>    </span><span class="hs-comment">--   CLOCK_REALTIME, which may have discontinuities if the</span><span>
+</span><span id="line-134"></span><span>    </span><span class="hs-comment">--   time is changed using settimeofday(2).</span><span>
+</span><span id="line-135"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="Uptime"><span class="annot"><a href="Streamly.Internal.Data.Time.Clock.html#Uptime"><span class="hs-identifier hs-var">Uptime</span></a></span></span><span>
+</span><span id="line-136"></span><span>
+</span><span id="line-137"></span><span class="hs-pragma">{-# LINE 137 &quot;src/Streamly/Internal/Data/Time/Clock.hsc&quot; #-}</span><span>
+</span><span id="line-137"></span><span>
+</span><span id="line-138"></span><span>
+</span><span id="line-139"></span><span class="hs-pragma">{-# LINE 139 &quot;src/Streamly/Internal/Data/Time/Clock.hsc&quot; #-}</span><span>
+</span><span id="line-139"></span><span>    </span><span class="hs-comment">-- | (since Linux 2.6.32; Linux-specific)</span><span>
+</span><span id="line-140"></span><span>    </span><span class="hs-comment">--   A faster but less precise version of CLOCK_REALTIME.</span><span>
+</span><span id="line-141"></span><span>    </span><span class="hs-comment">--   Use when you need very fast, but not fine-grained timestamps.</span><span>
+</span><span id="line-142"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="RealtimeCoarse"><span class="annot"><a href="Streamly.Internal.Data.Time.Clock.html#RealtimeCoarse"><span class="hs-identifier hs-var">RealtimeCoarse</span></a></span></span><span>
+</span><span id="line-143"></span><span>
+</span><span id="line-144"></span><span class="hs-pragma">{-# LINE 144 &quot;src/Streamly/Internal/Data/Time/Clock.hsc&quot; #-}</span><span>
+</span><span id="line-144"></span><span>
+</span><span id="line-145"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span id="local-6989586621679360905"><span id="local-6989586621679360907"><span class="annot"><span class="annottext">Clock -&gt; Clock -&gt; Bool
+(Clock -&gt; Clock -&gt; Bool) -&gt; (Clock -&gt; Clock -&gt; Bool) -&gt; Eq Clock
+forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
+/= :: Clock -&gt; Clock -&gt; Bool
+$c/= :: Clock -&gt; Clock -&gt; Bool
+== :: Clock -&gt; Clock -&gt; Bool
+$c== :: Clock -&gt; Clock -&gt; Bool
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679360888"><span id="local-6989586621679360890"><span id="local-6989586621679360892"><span id="local-6989586621679360894"><span id="local-6989586621679360896"><span id="local-6989586621679360898"><span id="local-6989586621679360900"><span id="local-6989586621679360902"><span class="annot"><span class="annottext">Int -&gt; Clock
+Clock -&gt; Int
+Clock -&gt; [Clock]
+Clock -&gt; Clock
+Clock -&gt; Clock -&gt; [Clock]
+Clock -&gt; Clock -&gt; Clock -&gt; [Clock]
+(Clock -&gt; Clock)
+-&gt; (Clock -&gt; Clock)
+-&gt; (Int -&gt; Clock)
+-&gt; (Clock -&gt; Int)
+-&gt; (Clock -&gt; [Clock])
+-&gt; (Clock -&gt; Clock -&gt; [Clock])
+-&gt; (Clock -&gt; Clock -&gt; [Clock])
+-&gt; (Clock -&gt; Clock -&gt; Clock -&gt; [Clock])
+-&gt; Enum Clock
+forall a.
+(a -&gt; a)
+-&gt; (a -&gt; a)
+-&gt; (Int -&gt; a)
+-&gt; (a -&gt; Int)
+-&gt; (a -&gt; [a])
+-&gt; (a -&gt; a -&gt; [a])
+-&gt; (a -&gt; a -&gt; [a])
+-&gt; (a -&gt; a -&gt; a -&gt; [a])
+-&gt; Enum a
+enumFromThenTo :: Clock -&gt; Clock -&gt; Clock -&gt; [Clock]
+$cenumFromThenTo :: Clock -&gt; Clock -&gt; Clock -&gt; [Clock]
+enumFromTo :: Clock -&gt; Clock -&gt; [Clock]
+$cenumFromTo :: Clock -&gt; Clock -&gt; [Clock]
+enumFromThen :: Clock -&gt; Clock -&gt; [Clock]
+$cenumFromThen :: Clock -&gt; Clock -&gt; [Clock]
+enumFrom :: Clock -&gt; [Clock]
+$cenumFrom :: Clock -&gt; [Clock]
+fromEnum :: Clock -&gt; Int
+$cfromEnum :: Clock -&gt; Int
+toEnum :: Int -&gt; Clock
+$ctoEnum :: Int -&gt; Clock
+pred :: Clock -&gt; Clock
+$cpred :: Clock -&gt; Clock
+succ :: Clock -&gt; Clock
+$csucc :: Clock -&gt; Clock
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Enum</span></span></span></span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">(forall x. Clock -&gt; Rep Clock x)
+-&gt; (forall x. Rep Clock x -&gt; Clock) -&gt; Generic Clock
+forall x. Rep Clock x -&gt; Clock
+forall x. Clock -&gt; Rep Clock x
+forall a.
+(forall x. a -&gt; Rep a x) -&gt; (forall x. Rep a x -&gt; a) -&gt; Generic a
+$cto :: forall x. Rep Clock x -&gt; Clock
+$cfrom :: forall x. Clock -&gt; Rep Clock x
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">Generic</span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679360876"><span id="local-6989586621679360878"><span id="local-6989586621679360880"><span id="local-6989586621679360882"><span class="annot"><span class="annottext">ReadPrec [Clock]
+ReadPrec Clock
+Int -&gt; ReadS Clock
+ReadS [Clock]
+(Int -&gt; ReadS Clock)
+-&gt; ReadS [Clock]
+-&gt; ReadPrec Clock
+-&gt; ReadPrec [Clock]
+-&gt; Read Clock
+forall a.
+(Int -&gt; ReadS a)
+-&gt; ReadS [a] -&gt; ReadPrec a -&gt; ReadPrec [a] -&gt; Read a
+readListPrec :: ReadPrec [Clock]
+$creadListPrec :: ReadPrec [Clock]
+readPrec :: ReadPrec Clock
+$creadPrec :: ReadPrec Clock
+readList :: ReadS [Clock]
+$creadList :: ReadS [Clock]
+readsPrec :: Int -&gt; ReadS Clock
+$creadsPrec :: Int -&gt; ReadS Clock
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Read</span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679360869"><span id="local-6989586621679360871"><span id="local-6989586621679360873"><span class="annot"><span class="annottext">Int -&gt; Clock -&gt; ShowS
+[Clock] -&gt; ShowS
+Clock -&gt; String
+(Int -&gt; Clock -&gt; ShowS)
+-&gt; (Clock -&gt; String) -&gt; ([Clock] -&gt; ShowS) -&gt; Show Clock
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+showList :: [Clock] -&gt; ShowS
+$cshowList :: [Clock] -&gt; ShowS
+show :: Clock -&gt; String
+$cshow :: Clock -&gt; String
+showsPrec :: Int -&gt; Clock -&gt; ShowS
+$cshowsPrec :: Int -&gt; Clock -&gt; ShowS
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></span></span></span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Typeable</span></span><span class="hs-special">)</span><span>
+</span><span id="line-146"></span><span>
+</span><span id="line-147"></span><span class="hs-comment">-------------------------------------------------------------------------------</span><span>
+</span><span id="line-148"></span><span class="hs-comment">-- Translate the Haskell &quot;Clock&quot; type to C</span><span>
+</span><span id="line-149"></span><span class="hs-comment">-------------------------------------------------------------------------------</span><span>
+</span><span id="line-150"></span><span>
+</span><span id="line-151"></span><span>
+</span><span id="line-152"></span><span class="hs-pragma">{-# LINE 152 &quot;src/Streamly/Internal/Data/Time/Clock.hsc&quot; #-}</span><span>
+</span><span id="line-152"></span><span class="hs-comment">-- Posix systems (Linux and Mac OSX 10.12 and later)</span><span>
+</span><span id="line-153"></span><span class="annot"><a href="Streamly.Internal.Data.Time.Clock.html#clockToPosixClockId"><span class="hs-identifier hs-type">clockToPosixClockId</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Time.Clock.html#Clock"><span class="hs-identifier hs-type">Clock</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int32</span></span><span>
+</span><span id="line-154"></span><span id="clockToPosixClockId"><span class="hs-pragma">{-# LINE 154 &quot;src/Streamly/Internal/Data/Time/Clock.hsc&quot; #-}</span></span><span>
+</span><span id="line-154"></span><span class="hs-identifier">clockToPosixClockId</span><span> </span><span class="hs-identifier">Monotonic</span><span>      </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">1</span><span>
+</span><span id="line-155"></span><span class="hs-pragma">{-# LINE 155 &quot;src/Streamly/Internal/Data/Time/Clock.hsc&quot; #-}</span><span>
+</span><span id="line-155"></span><span class="hs-identifier">clockToPosixClockId</span><span> </span><span class="hs-identifier">Realtime</span><span>       </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">0</span><span>
+</span><span id="line-156"></span><span class="hs-pragma">{-# LINE 156 &quot;src/Streamly/Internal/Data/Time/Clock.hsc&quot; #-}</span><span>
+</span><span id="line-156"></span><span class="hs-identifier">clockToPosixClockId</span><span> </span><span class="hs-identifier">ProcessCPUTime</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">2</span><span>
+</span><span id="line-157"></span><span class="hs-pragma">{-# LINE 157 &quot;src/Streamly/Internal/Data/Time/Clock.hsc&quot; #-}</span><span>
+</span><span id="line-157"></span><span class="hs-identifier">clockToPosixClockId</span><span> </span><span class="hs-identifier">ThreadCPUTime</span><span>  </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">3</span><span>
+</span><span id="line-158"></span><span class="hs-pragma">{-# LINE 158 &quot;src/Streamly/Internal/Data/Time/Clock.hsc&quot; #-}</span><span>
+</span><span id="line-158"></span><span>
+</span><span id="line-159"></span><span>
+</span><span id="line-160"></span><span class="hs-pragma">{-# LINE 160 &quot;src/Streamly/Internal/Data/Time/Clock.hsc&quot; #-}</span><span>
+</span><span id="line-160"></span><span class="hs-identifier">clockToPosixClockId</span><span> </span><span class="hs-identifier">MonotonicRaw</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">4</span><span>
+</span><span id="line-161"></span><span class="hs-pragma">{-# LINE 161 &quot;src/Streamly/Internal/Data/Time/Clock.hsc&quot; #-}</span><span>
+</span><span id="line-161"></span><span>
+</span><span id="line-162"></span><span class="hs-pragma">{-# LINE 162 &quot;src/Streamly/Internal/Data/Time/Clock.hsc&quot; #-}</span><span>
+</span><span id="line-162"></span><span>
+</span><span id="line-163"></span><span>
+</span><span id="line-164"></span><span class="hs-pragma">{-# LINE 164 &quot;src/Streamly/Internal/Data/Time/Clock.hsc&quot; #-}</span><span>
+</span><span id="line-164"></span><span class="hs-identifier">clockToPosixClockId</span><span> </span><span class="hs-identifier">MonotonicCoarse</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">6</span><span>
+</span><span id="line-165"></span><span class="hs-pragma">{-# LINE 165 &quot;src/Streamly/Internal/Data/Time/Clock.hsc&quot; #-}</span><span>
+</span><span id="line-165"></span><span>
+</span><span id="line-166"></span><span class="hs-pragma">{-# LINE 168 &quot;src/Streamly/Internal/Data/Time/Clock.hsc&quot; #-}</span><span>
+</span><span id="line-168"></span><span>
+</span><span id="line-169"></span><span>
+</span><span id="line-170"></span><span class="hs-pragma">{-# LINE 170 &quot;src/Streamly/Internal/Data/Time/Clock.hsc&quot; #-}</span><span>
+</span><span id="line-170"></span><span class="hs-identifier">clockToPosixClockId</span><span> </span><span class="hs-identifier">RealtimeCoarse</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">5</span><span>
+</span><span id="line-171"></span><span class="hs-pragma">{-# LINE 171 &quot;src/Streamly/Internal/Data/Time/Clock.hsc&quot; #-}</span><span>
+</span><span id="line-171"></span><span>
+</span><span id="line-172"></span><span class="hs-pragma">{-# LINE 172 &quot;src/Streamly/Internal/Data/Time/Clock.hsc&quot; #-}</span><span>
+</span><span id="line-172"></span><span>
+</span><span id="line-173"></span><span>
+</span><span id="line-174"></span><span class="hs-pragma">{-# LINE 174 &quot;src/Streamly/Internal/Data/Time/Clock.hsc&quot; #-}</span><span>
+</span><span id="line-174"></span><span class="hs-identifier">clockToPosixClockId</span><span> </span><span class="hs-identifier">Uptime</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-number">7</span><span>
+</span><span id="line-175"></span><span class="hs-pragma">{-# LINE 175 &quot;src/Streamly/Internal/Data/Time/Clock.hsc&quot; #-}</span><span>
+</span><span id="line-175"></span><span>
+</span><span id="line-176"></span><span class="hs-pragma">{-# LINE 178 &quot;src/Streamly/Internal/Data/Time/Clock.hsc&quot; #-}</span><span>
+</span><span id="line-178"></span><span>
+</span><span id="line-179"></span><span>
+</span><span id="line-180"></span><span class="hs-pragma">{-# LINE 195 &quot;src/Streamly/Internal/Data/Time/Clock.hsc&quot; #-}</span><span>
+</span><span id="line-195"></span><span>
+</span><span id="line-196"></span><span class="hs-comment">-------------------------------------------------------------------------------</span><span>
+</span><span id="line-197"></span><span class="hs-comment">-- Clock time</span><span>
+</span><span id="line-198"></span><span class="hs-comment">-------------------------------------------------------------------------------</span><span>
+</span><span id="line-199"></span><span>
+</span><span id="line-200"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Time.Clock.html#getTimeWith"><span class="hs-pragma hs-type">getTimeWith</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-201"></span><span class="annot"><a href="Streamly.Internal.Data.Time.Clock.html#getTimeWith"><span class="hs-identifier hs-type">getTimeWith</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Ptr</span></span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Time.TimeSpec.html#TimeSpec"><span class="hs-identifier hs-type">TimeSpec</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Time.Units.html#AbsTime"><span class="hs-identifier hs-type">AbsTime</span></a></span><span>
+</span><span id="line-202"></span><span id="getTimeWith"><span class="annot"><span class="annottext">getTimeWith :: (Ptr TimeSpec -&gt; IO ()) -&gt; IO AbsTime
+</span><a href="Streamly.Internal.Data.Time.Clock.html#getTimeWith"><span class="hs-identifier hs-var hs-var">getTimeWith</span></a></span></span><span> </span><span id="local-6989586621679360865"><span class="annot"><span class="annottext">f :: Ptr TimeSpec -&gt; IO ()
+</span><a href="#local-6989586621679360865"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-203"></span><span>    </span><span id="local-6989586621679360864"><span class="annot"><span class="annottext">TimeSpec
+</span><a href="#local-6989586621679360864"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">(Ptr TimeSpec -&gt; IO TimeSpec) -&gt; IO TimeSpec
+forall a b. Storable a =&gt; (Ptr a -&gt; IO b) -&gt; IO b
+</span><span class="hs-identifier hs-var">alloca</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621679360863"><span class="annot"><span class="annottext">ptr :: Ptr TimeSpec
+</span><a href="#local-6989586621679360863"><span class="hs-identifier hs-var">ptr</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Ptr TimeSpec -&gt; IO ()
+</span><a href="#local-6989586621679360865"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">Ptr TimeSpec
+</span><a href="#local-6989586621679360863"><span class="hs-identifier hs-var">ptr</span></a></span><span> </span><span class="annot"><span class="annottext">IO () -&gt; IO TimeSpec -&gt; IO TimeSpec
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; m b -&gt; m b
+</span><span class="hs-operator hs-var">&gt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">Ptr TimeSpec -&gt; IO TimeSpec
+forall a. Storable a =&gt; Ptr a -&gt; IO a
+</span><span class="hs-identifier hs-var">peek</span></span><span> </span><span class="annot"><span class="annottext">Ptr TimeSpec
+</span><a href="#local-6989586621679360863"><span class="hs-identifier hs-var">ptr</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-204"></span><span>    </span><span class="annot"><span class="annottext">AbsTime -&gt; IO AbsTime
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">(AbsTime -&gt; IO AbsTime) -&gt; AbsTime -&gt; IO AbsTime
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">TimeSpec -&gt; AbsTime
+</span><a href="Streamly.Internal.Data.Time.Units.html#AbsTime"><span class="hs-identifier hs-var">AbsTime</span></a></span><span> </span><span class="annot"><span class="annottext">TimeSpec
+</span><a href="#local-6989586621679360864"><span class="hs-identifier hs-var">t</span></a></span><span>
+</span><span id="line-205"></span><span>
+</span><span id="line-206"></span><span>
+</span><span id="line-207"></span><span class="hs-pragma">{-# LINE 218 &quot;src/Streamly/Internal/Data/Time/Clock.hsc&quot; #-}</span><span>
+</span><span id="line-218"></span><span>
+</span><span id="line-219"></span><span class="hs-keyword">foreign</span><span> </span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-keyword">ccall</span></span><span> </span><span class="annot"><span class="hs-keyword">unsafe</span></span><span> </span><span class="annot"><span class="hs-string">&quot;time.h clock_gettime&quot;</span></span><span>
+</span><span id="line-220"></span><span>    </span><span id="clock_gettime"><span class="annot"><a href="Streamly.Internal.Data.Time.Clock.html#clock_gettime"><span class="hs-identifier hs-var">clock_gettime</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int32</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Ptr</span></span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Time.TimeSpec.html#TimeSpec"><span class="hs-identifier hs-type">TimeSpec</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">CInt</span></span><span>
+</span><span id="line-221"></span><span class="hs-pragma">{-# LINE 221 &quot;src/Streamly/Internal/Data/Time/Clock.hsc&quot; #-}</span><span>
+</span><span id="line-221"></span><span>
+</span><span id="line-222"></span><span class="hs-pragma">{-# INLINABLE</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Time.Clock.html#getTime"><span class="hs-pragma hs-type">getTime</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-223"></span><span class="annot"><a href="Streamly.Internal.Data.Time.Clock.html#getTime"><span class="hs-identifier hs-type">getTime</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Time.Clock.html#Clock"><span class="hs-identifier hs-type">Clock</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Time.Units.html#AbsTime"><span class="hs-identifier hs-type">AbsTime</span></a></span><span>
+</span><span id="line-224"></span><span id="getTime"><span class="annot"><span class="annottext">getTime :: Clock -&gt; IO AbsTime
+</span><a href="Streamly.Internal.Data.Time.Clock.html#getTime"><span class="hs-identifier hs-var hs-var">getTime</span></a></span></span><span> </span><span id="local-6989586621679360860"><span class="annot"><span class="annottext">clock :: Clock
+</span><a href="#local-6989586621679360860"><span class="hs-identifier hs-var">clock</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-225"></span><span>    </span><span class="annot"><span class="annottext">(Ptr TimeSpec -&gt; IO ()) -&gt; IO AbsTime
+</span><a href="Streamly.Internal.Data.Time.Clock.html#getTimeWith"><span class="hs-identifier hs-var">getTimeWith</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">String -&gt; IO CInt -&gt; IO ()
+forall a. (Eq a, Num a) =&gt; String -&gt; IO a -&gt; IO ()
+</span><span class="hs-identifier hs-var">throwErrnoIfMinus1_</span></span><span> </span><span class="annot"><span class="hs-string">&quot;clock_gettime&quot;</span></span><span> </span><span class="annot"><span class="annottext">(IO CInt -&gt; IO ())
+-&gt; (Ptr TimeSpec -&gt; IO CInt) -&gt; Ptr TimeSpec -&gt; IO ()
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span>
+</span><span id="line-226"></span><span>        </span><span class="annot"><span class="annottext">Int32 -&gt; Ptr TimeSpec -&gt; IO CInt
+</span><a href="Streamly.Internal.Data.Time.Clock.html#clock_gettime"><span class="hs-identifier hs-var">clock_gettime</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Clock -&gt; Int32
+</span><a href="Streamly.Internal.Data.Time.Clock.html#clockToPosixClockId"><span class="hs-identifier hs-var">clockToPosixClockId</span></a></span><span> </span><span class="annot"><span class="annottext">Clock
+</span><a href="#local-6989586621679360860"><span class="hs-identifier hs-var">clock</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-227"></span><span>
+</span><span id="line-228"></span><span>
+</span><span id="line-229"></span><span class="hs-pragma">{-# LINE 253 &quot;src/Streamly/Internal/Data/Time/Clock.hsc&quot; #-}</span><span>
+</span><span id="line-253"></span></pre></body></html>

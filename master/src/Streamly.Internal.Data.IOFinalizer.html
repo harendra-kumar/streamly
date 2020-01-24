@@ -1,0 +1,222 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-comment">-- |</span><span>
+</span><span id="line-2"></span><span class="hs-comment">-- Module      : Streamly.Internal.Data.IOFinalizer</span><span>
+</span><span id="line-3"></span><span class="hs-comment">-- Copyright   : (c) 2020 Composewell Technologies and Contributors</span><span>
+</span><span id="line-4"></span><span class="hs-comment">-- License     : BSD-3-Clause</span><span>
+</span><span id="line-5"></span><span class="hs-comment">-- Maintainer  : streamly@composewell.com</span><span>
+</span><span id="line-6"></span><span class="hs-comment">-- Stability   : experimental</span><span>
+</span><span id="line-7"></span><span class="hs-comment">-- Portability : GHC</span><span>
+</span><span id="line-8"></span><span class="hs-comment">--</span><span>
+</span><span id="line-9"></span><span class="hs-comment">-- A value associated with an IO action that is automatically called whenever</span><span>
+</span><span id="line-10"></span><span class="hs-comment">-- the value is garbage collected.</span><span>
+</span><span id="line-11"></span><span>
+</span><span id="line-12"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Streamly.Internal.Data.IOFinalizer</span><span>
+</span><span id="line-13"></span><span>    </span><span class="hs-special">(</span><span>
+</span><span id="line-14"></span><span>      </span><span class="annot"><a href="Streamly.Internal.Data.IOFinalizer.html#IOFinalizer"><span class="hs-identifier">IOFinalizer</span></a></span><span>
+</span><span id="line-15"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.IOFinalizer.html#newIOFinalizer"><span class="hs-identifier">newIOFinalizer</span></a></span><span>
+</span><span id="line-16"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.IOFinalizer.html#runIOFinalizer"><span class="hs-identifier">runIOFinalizer</span></a></span><span>
+</span><span id="line-17"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.IOFinalizer.html#clearingIOFinalizer"><span class="hs-identifier">clearingIOFinalizer</span></a></span><span>
+</span><span id="line-18"></span><span>    </span><span class="hs-special">)</span><span>
+</span><span id="line-19"></span><span class="hs-keyword">where</span><span>
+</span><span id="line-20"></span><span>
+</span><span id="line-21"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Exception</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">mask_</span></span><span class="hs-special">)</span><span>
+</span><span id="line-22"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">void</span></span><span class="hs-special">)</span><span>
+</span><span id="line-23"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad.IO.Class</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">MonadIO</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-24"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad.Trans.Control</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">MonadBaseControl</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">control</span></span><span class="hs-special">)</span><span>
+</span><span id="line-25"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.IORef</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">newIORef</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">readIORef</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">mkWeakIORef</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">writeIORef</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">IORef</span></span><span class="hs-special">)</span><span>
+</span><span id="line-26"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.SVar.html"><span class="hs-identifier">Streamly.Internal.Data.SVar</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.SVar.html#captureMonadState"><span class="hs-identifier">captureMonadState</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.SVar.html#runInIO"><span class="hs-identifier">runInIO</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-27"></span><span>
+</span><span id="line-28"></span><span class="hs-comment">-- | An 'IOFinalizer' has an associated IO action that is automatically called</span><span>
+</span><span id="line-29"></span><span class="hs-comment">-- whenever the finalizer is garbage collected. The action can be run and</span><span>
+</span><span id="line-30"></span><span class="hs-comment">-- cleared prematurely.</span><span>
+</span><span id="line-31"></span><span class="hs-comment">--</span><span>
+</span><span id="line-32"></span><span class="hs-comment">-- You can hold a reference to the finalizer in your data structure, if the</span><span>
+</span><span id="line-33"></span><span class="hs-comment">-- data structure gets garbage collected the finalizer will be called.</span><span>
+</span><span id="line-34"></span><span class="hs-comment">--</span><span>
+</span><span id="line-35"></span><span class="hs-comment">-- It is implemented using 'mkWeakIORef'.</span><span>
+</span><span id="line-36"></span><span class="hs-comment">--</span><span>
+</span><span id="line-37"></span><span class="hs-comment">-- /Internal/</span><span>
+</span><span id="line-38"></span><span class="hs-keyword">newtype</span><span> </span><span id="IOFinalizer"><span class="annot"><a href="Streamly.Internal.Data.IOFinalizer.html#IOFinalizer"><span class="hs-identifier hs-var">IOFinalizer</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="IOFinalizer"><span class="annot"><a href="Streamly.Internal.Data.IOFinalizer.html#IOFinalizer"><span class="hs-identifier hs-var">IOFinalizer</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">IORef</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-39"></span><span>
+</span><span id="line-40"></span><span class="hs-comment">-- | Make a finalizer from a monadic action @m a@ that can run in IO monad.</span><span>
+</span><span id="line-41"></span><span id="local-6989586621679364003"><span id="local-6989586621679364004"><span class="annot"><a href="Streamly.Internal.Data.IOFinalizer.html#mkIOFinalizer"><span class="hs-identifier hs-type">mkIOFinalizer</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadBaseControl</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="#local-6989586621679364004"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679364004"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679364003"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679364004"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span></span></span><span>
+</span><span id="line-42"></span><span id="mkIOFinalizer"><span class="annot"><span class="annottext">mkIOFinalizer :: m b -&gt; m (IO ())
+</span><a href="Streamly.Internal.Data.IOFinalizer.html#mkIOFinalizer"><span class="hs-identifier hs-var hs-var">mkIOFinalizer</span></a></span></span><span> </span><span id="local-6989586621679363972"><span class="annot"><span class="annottext">f :: m b
+</span><a href="#local-6989586621679363972"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-43"></span><span>    </span><span id="local-6989586621679363971"><span class="annot"><span class="annottext">RunInIO m
+</span><a href="#local-6989586621679363971"><span class="hs-identifier hs-var">mrun</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">m (RunInIO m)
+forall (m :: * -&gt; *). MonadBaseControl IO m =&gt; m (RunInIO m)
+</span><a href="Streamly.Internal.Data.SVar.html#captureMonadState"><span class="hs-identifier hs-var">captureMonadState</span></a></span><span>
+</span><span id="line-44"></span><span>    </span><span class="annot"><span class="annottext">IO () -&gt; m (IO ())
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">(IO () -&gt; m (IO ())) -&gt; IO () -&gt; m (IO ())
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span>
+</span><span id="line-45"></span><span>        </span><span class="annot"><span class="annottext">IO () -&gt; IO ()
+forall (f :: * -&gt; *) a. Functor f =&gt; f a -&gt; f ()
+</span><span class="hs-identifier hs-var">void</span></span><span> </span><span class="annot"><span class="annottext">(IO () -&gt; IO ()) -&gt; IO () -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-46"></span><span>            </span><span class="annot"><span class="annottext">StM m b
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">RunInIO m -&gt; m b -&gt; IO (StM m b)
+forall (m :: * -&gt; *). RunInIO m -&gt; forall b. m b -&gt; IO (StM m b)
+</span><a href="Streamly.Internal.Data.SVar.html#runInIO"><span class="hs-identifier hs-var hs-var">runInIO</span></a></span><span> </span><span class="annot"><span class="annottext">RunInIO m
+</span><a href="#local-6989586621679363971"><span class="hs-identifier hs-var">mrun</span></a></span><span> </span><span class="annot"><span class="annottext">m b
+</span><a href="#local-6989586621679363972"><span class="hs-identifier hs-var">f</span></a></span><span>
+</span><span id="line-47"></span><span>            </span><span class="annot"><span class="annottext">() -&gt; IO ()
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-48"></span><span>
+</span><span id="line-49"></span><span class="hs-comment">-- | GC hook to run an IO action stored in a finalized IORef.</span><span>
+</span><span id="line-50"></span><span class="annot"><a href="Streamly.Internal.Data.IOFinalizer.html#runFinalizerGC"><span class="hs-identifier hs-type">runFinalizerGC</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IORef</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-51"></span><span id="runFinalizerGC"><span class="annot"><span class="annottext">runFinalizerGC :: IORef (Maybe (IO ())) -&gt; IO ()
+</span><a href="Streamly.Internal.Data.IOFinalizer.html#runFinalizerGC"><span class="hs-identifier hs-var hs-var">runFinalizerGC</span></a></span></span><span> </span><span id="local-6989586621679363969"><span class="annot"><span class="annottext">ref :: IORef (Maybe (IO ()))
+</span><a href="#local-6989586621679363969"><span class="hs-identifier hs-var">ref</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-52"></span><span>    </span><span id="local-6989586621679363968"><span class="annot"><span class="annottext">Maybe (IO ())
+</span><a href="#local-6989586621679363968"><span class="hs-identifier hs-var">res</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IORef (Maybe (IO ())) -&gt; IO (Maybe (IO ()))
+forall a. IORef a -&gt; IO a
+</span><span class="hs-identifier hs-var">readIORef</span></span><span> </span><span class="annot"><span class="annottext">IORef (Maybe (IO ()))
+</span><a href="#local-6989586621679363969"><span class="hs-identifier hs-var">ref</span></a></span><span>
+</span><span id="line-53"></span><span>    </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">Maybe (IO ())
+</span><a href="#local-6989586621679363968"><span class="hs-identifier hs-var">res</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-54"></span><span>        </span><span class="annot"><span class="hs-identifier hs-type">Nothing</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">() -&gt; IO ()
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-55"></span><span>        </span><span class="annot"><span class="hs-identifier hs-type">Just</span></span><span> </span><span id="local-6989586621679363967"><span class="annot"><span class="annottext">f :: IO ()
+</span><a href="#local-6989586621679363967"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">IO ()
+</span><a href="#local-6989586621679363967"><span class="hs-identifier hs-var">f</span></a></span><span>
+</span><span id="line-56"></span><span>
+</span><span id="line-57"></span><span class="hs-comment">-- | Create a finalizer that calls the supplied function automatically when the</span><span>
+</span><span id="line-58"></span><span class="hs-comment">-- it is garbage collected.</span><span>
+</span><span id="line-59"></span><span class="hs-comment">--</span><span>
+</span><span id="line-60"></span><span class="hs-comment">-- /The finalizer is always run using the state of the monad that is captured</span><span>
+</span><span id="line-61"></span><span class="hs-comment">-- at the time of calling 'newFinalizer'./</span><span>
+</span><span id="line-62"></span><span class="hs-comment">--</span><span>
+</span><span id="line-63"></span><span class="hs-comment">-- Note: To run it on garbage collection we have no option but to use the monad</span><span>
+</span><span id="line-64"></span><span class="hs-comment">-- state captured at some earlier point of time.  For the case when the</span><span>
+</span><span id="line-65"></span><span class="hs-comment">-- finalizer is run manually before GC we could run it with the current state</span><span>
+</span><span id="line-66"></span><span class="hs-comment">-- of the monad but we want to keep both the cases consistent.</span><span>
+</span><span id="line-67"></span><span class="hs-comment">--</span><span>
+</span><span id="line-68"></span><span class="hs-comment">-- /Internal/</span><span>
+</span><span id="line-69"></span><span id="local-6989586621679363965"><span id="local-6989586621679363966"><span class="annot"><a href="Streamly.Internal.Data.IOFinalizer.html#newIOFinalizer"><span class="hs-identifier hs-type">newIOFinalizer</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">MonadIO</span></span><span> </span><span class="annot"><a href="#local-6989586621679363966"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadBaseControl</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="#local-6989586621679363966"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679363966"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679363965"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679363966"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="Streamly.Internal.Data.IOFinalizer.html#IOFinalizer"><span class="hs-identifier hs-type">IOFinalizer</span></a></span></span></span><span>
+</span><span id="line-70"></span><span id="newIOFinalizer"><span class="annot"><span class="annottext">newIOFinalizer :: m a -&gt; m IOFinalizer
+</span><a href="Streamly.Internal.Data.IOFinalizer.html#newIOFinalizer"><span class="hs-identifier hs-var hs-var">newIOFinalizer</span></a></span></span><span> </span><span id="local-6989586621679363964"><span class="annot"><span class="annottext">finalizer :: m a
+</span><a href="#local-6989586621679363964"><span class="hs-identifier hs-var">finalizer</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-71"></span><span>    </span><span id="local-6989586621679363963"><span class="annot"><span class="annottext">IO ()
+</span><a href="#local-6989586621679363963"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">m a -&gt; m (IO ())
+forall (m :: * -&gt; *) b. MonadBaseControl IO m =&gt; m b -&gt; m (IO ())
+</span><a href="Streamly.Internal.Data.IOFinalizer.html#mkIOFinalizer"><span class="hs-identifier hs-var">mkIOFinalizer</span></a></span><span> </span><span class="annot"><span class="annottext">m a
+</span><a href="#local-6989586621679363964"><span class="hs-identifier hs-var">finalizer</span></a></span><span>
+</span><span id="line-72"></span><span>    </span><span id="local-6989586621679363962"><span class="annot"><span class="annottext">IORef (Maybe (IO ()))
+</span><a href="#local-6989586621679363962"><span class="hs-identifier hs-var">ref</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IO (IORef (Maybe (IO ()))) -&gt; m (IORef (Maybe (IO ())))
+forall (m :: * -&gt; *) a. MonadIO m =&gt; IO a -&gt; m a
+</span><span class="hs-identifier hs-var">liftIO</span></span><span> </span><span class="annot"><span class="annottext">(IO (IORef (Maybe (IO ()))) -&gt; m (IORef (Maybe (IO ()))))
+-&gt; IO (IORef (Maybe (IO ()))) -&gt; m (IORef (Maybe (IO ())))
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Maybe (IO ()) -&gt; IO (IORef (Maybe (IO ())))
+forall a. a -&gt; IO (IORef a)
+</span><span class="hs-identifier hs-var">newIORef</span></span><span> </span><span class="annot"><span class="annottext">(Maybe (IO ()) -&gt; IO (IORef (Maybe (IO ()))))
+-&gt; Maybe (IO ()) -&gt; IO (IORef (Maybe (IO ())))
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">IO () -&gt; Maybe (IO ())
+forall a. a -&gt; Maybe a
+</span><span class="hs-identifier hs-var">Just</span></span><span> </span><span class="annot"><span class="annottext">IO ()
+</span><a href="#local-6989586621679363963"><span class="hs-identifier hs-var">f</span></a></span><span>
+</span><span id="line-73"></span><span>    </span><span class="annot"><span class="annottext">Weak (IORef (Maybe (IO ())))
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IO (Weak (IORef (Maybe (IO ()))))
+-&gt; m (Weak (IORef (Maybe (IO ()))))
+forall (m :: * -&gt; *) a. MonadIO m =&gt; IO a -&gt; m a
+</span><span class="hs-identifier hs-var">liftIO</span></span><span> </span><span class="annot"><span class="annottext">(IO (Weak (IORef (Maybe (IO ()))))
+ -&gt; m (Weak (IORef (Maybe (IO ())))))
+-&gt; IO (Weak (IORef (Maybe (IO ()))))
+-&gt; m (Weak (IORef (Maybe (IO ()))))
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">IORef (Maybe (IO ())) -&gt; IO () -&gt; IO (Weak (IORef (Maybe (IO ()))))
+forall a. IORef a -&gt; IO () -&gt; IO (Weak (IORef a))
+</span><span class="hs-identifier hs-var">mkWeakIORef</span></span><span> </span><span class="annot"><span class="annottext">IORef (Maybe (IO ()))
+</span><a href="#local-6989586621679363962"><span class="hs-identifier hs-var">ref</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">IORef (Maybe (IO ())) -&gt; IO ()
+</span><a href="Streamly.Internal.Data.IOFinalizer.html#runFinalizerGC"><span class="hs-identifier hs-var">runFinalizerGC</span></a></span><span> </span><span class="annot"><span class="annottext">IORef (Maybe (IO ()))
+</span><a href="#local-6989586621679363962"><span class="hs-identifier hs-var">ref</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-74"></span><span>    </span><span class="annot"><span class="annottext">IOFinalizer -&gt; m IOFinalizer
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">(IOFinalizer -&gt; m IOFinalizer) -&gt; IOFinalizer -&gt; m IOFinalizer
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">IORef (Maybe (IO ())) -&gt; IOFinalizer
+</span><a href="Streamly.Internal.Data.IOFinalizer.html#IOFinalizer"><span class="hs-identifier hs-var">IOFinalizer</span></a></span><span> </span><span class="annot"><span class="annottext">IORef (Maybe (IO ()))
+</span><a href="#local-6989586621679363962"><span class="hs-identifier hs-var">ref</span></a></span><span>
+</span><span id="line-75"></span><span>
+</span><span id="line-76"></span><span class="hs-comment">-- | Run the action associated with the finalizer and deactivate it so that it</span><span>
+</span><span id="line-77"></span><span class="hs-comment">-- never runs again.  Note, the finalizing action runs with async exceptions</span><span>
+</span><span id="line-78"></span><span class="hs-comment">-- masked.</span><span>
+</span><span id="line-79"></span><span class="hs-comment">--</span><span>
+</span><span id="line-80"></span><span class="hs-comment">-- /Internal/</span><span>
+</span><span id="line-81"></span><span id="local-6989586621679363960"><span class="annot"><a href="Streamly.Internal.Data.IOFinalizer.html#runIOFinalizer"><span class="hs-identifier hs-type">runIOFinalizer</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadIO</span></span><span> </span><span class="annot"><a href="#local-6989586621679363960"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.IOFinalizer.html#IOFinalizer"><span class="hs-identifier hs-type">IOFinalizer</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679363960"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
+</span><span id="line-82"></span><span id="runIOFinalizer"><span class="annot"><span class="annottext">runIOFinalizer :: IOFinalizer -&gt; m ()
+</span><a href="Streamly.Internal.Data.IOFinalizer.html#runIOFinalizer"><span class="hs-identifier hs-var hs-var">runIOFinalizer</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.IOFinalizer.html#IOFinalizer"><span class="hs-identifier hs-type">IOFinalizer</span></a></span><span> </span><span id="local-6989586621679363959"><span class="annot"><span class="annottext">ref :: IORef (Maybe (IO ()))
+</span><a href="#local-6989586621679363959"><span class="hs-identifier hs-var">ref</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IO () -&gt; m ()
+forall (m :: * -&gt; *) a. MonadIO m =&gt; IO a -&gt; m a
+</span><span class="hs-identifier hs-var">liftIO</span></span><span> </span><span class="annot"><span class="annottext">(IO () -&gt; m ()) -&gt; IO () -&gt; m ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-83"></span><span>    </span><span id="local-6989586621679363958"><span class="annot"><span class="annottext">Maybe (IO ())
+</span><a href="#local-6989586621679363958"><span class="hs-identifier hs-var">res</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IORef (Maybe (IO ())) -&gt; IO (Maybe (IO ()))
+forall a. IORef a -&gt; IO a
+</span><span class="hs-identifier hs-var">readIORef</span></span><span> </span><span class="annot"><span class="annottext">IORef (Maybe (IO ()))
+</span><a href="#local-6989586621679363959"><span class="hs-identifier hs-var">ref</span></a></span><span>
+</span><span id="line-84"></span><span>    </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">Maybe (IO ())
+</span><a href="#local-6989586621679363958"><span class="hs-identifier hs-var">res</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-85"></span><span>        </span><span class="annot"><span class="hs-identifier hs-type">Nothing</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">() -&gt; IO ()
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-86"></span><span>        </span><span class="annot"><span class="hs-identifier hs-type">Just</span></span><span> </span><span id="local-6989586621679363957"><span class="annot"><span class="annottext">action :: IO ()
+</span><a href="#local-6989586621679363957"><span class="hs-identifier hs-var">action</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-87"></span><span>            </span><span class="hs-comment">-- if an async exception comes after writing 'Nothing' then the</span><span>
+</span><span id="line-88"></span><span>            </span><span class="hs-comment">-- finalizing action will never be run. We need to do this</span><span>
+</span><span id="line-89"></span><span>            </span><span class="hs-comment">-- atomically wrt async exceptions.</span><span>
+</span><span id="line-90"></span><span>            </span><span class="annot"><span class="annottext">IO () -&gt; IO ()
+forall a. IO a -&gt; IO a
+</span><span class="hs-identifier hs-var">mask_</span></span><span> </span><span class="annot"><span class="annottext">(IO () -&gt; IO ()) -&gt; IO () -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-91"></span><span>                </span><span class="annot"><span class="annottext">IORef (Maybe (IO ())) -&gt; Maybe (IO ()) -&gt; IO ()
+forall a. IORef a -&gt; a -&gt; IO ()
+</span><span class="hs-identifier hs-var">writeIORef</span></span><span> </span><span class="annot"><span class="annottext">IORef (Maybe (IO ()))
+</span><a href="#local-6989586621679363959"><span class="hs-identifier hs-var">ref</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe (IO ())
+forall a. Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span>
+</span><span id="line-92"></span><span>                </span><span class="annot"><span class="annottext">IO ()
+</span><a href="#local-6989586621679363957"><span class="hs-identifier hs-var">action</span></a></span><span>
+</span><span id="line-93"></span><span>
+</span><span id="line-94"></span><span class="hs-comment">-- | Run an action clearing the finalizer atomically wrt async exceptions. The</span><span>
+</span><span id="line-95"></span><span class="hs-comment">-- action is run with async exceptions masked.</span><span>
+</span><span id="line-96"></span><span class="hs-comment">--</span><span>
+</span><span id="line-97"></span><span class="hs-comment">-- /Internal/</span><span>
+</span><span id="line-98"></span><span id="local-6989586621679363955"><span id="local-6989586621679363956"><span class="annot"><a href="Streamly.Internal.Data.IOFinalizer.html#clearingIOFinalizer"><span class="hs-identifier hs-type">clearingIOFinalizer</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadBaseControl</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="#local-6989586621679363956"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.IOFinalizer.html#IOFinalizer"><span class="hs-identifier hs-type">IOFinalizer</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679363956"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679363955"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679363956"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679363955"><span class="hs-identifier hs-type">a</span></a></span></span></span><span>
+</span><span id="line-99"></span><span id="clearingIOFinalizer"><span class="annot"><span class="annottext">clearingIOFinalizer :: IOFinalizer -&gt; m a -&gt; m a
+</span><a href="Streamly.Internal.Data.IOFinalizer.html#clearingIOFinalizer"><span class="hs-identifier hs-var hs-var">clearingIOFinalizer</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.IOFinalizer.html#IOFinalizer"><span class="hs-identifier hs-type">IOFinalizer</span></a></span><span> </span><span id="local-6989586621679363954"><span class="annot"><span class="annottext">ref :: IORef (Maybe (IO ()))
+</span><a href="#local-6989586621679363954"><span class="hs-identifier hs-var">ref</span></a></span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621679363953"><span class="annot"><span class="annottext">action :: m a
+</span><a href="#local-6989586621679363953"><span class="hs-identifier hs-var">action</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-100"></span><span>    </span><span class="annot"><span class="annottext">(RunInBase m IO -&gt; IO (StM m a)) -&gt; m a
+forall (b :: * -&gt; *) (m :: * -&gt; *) a.
+MonadBaseControl b m =&gt;
+(RunInBase m b -&gt; b (StM m a)) -&gt; m a
+</span><span class="hs-identifier hs-var">control</span></span><span> </span><span class="annot"><span class="annottext">((RunInBase m IO -&gt; IO (StM m a)) -&gt; m a)
+-&gt; (RunInBase m IO -&gt; IO (StM m a)) -&gt; m a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679363952"><span class="annot"><span class="annottext">runinio :: RunInBase m IO
+</span><a href="#local-6989586621679363952"><span class="hs-identifier hs-var">runinio</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-101"></span><span>        </span><span class="annot"><span class="annottext">IO (StM m a) -&gt; IO (StM m a)
+forall a. IO a -&gt; IO a
+</span><span class="hs-identifier hs-var">mask_</span></span><span> </span><span class="annot"><span class="annottext">(IO (StM m a) -&gt; IO (StM m a)) -&gt; IO (StM m a) -&gt; IO (StM m a)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-102"></span><span>            </span><span class="annot"><span class="annottext">IORef (Maybe (IO ())) -&gt; Maybe (IO ()) -&gt; IO ()
+forall a. IORef a -&gt; a -&gt; IO ()
+</span><span class="hs-identifier hs-var">writeIORef</span></span><span> </span><span class="annot"><span class="annottext">IORef (Maybe (IO ()))
+</span><a href="#local-6989586621679363954"><span class="hs-identifier hs-var">ref</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe (IO ())
+forall a. Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span>
+</span><span id="line-103"></span><span>            </span><span class="annot"><span class="annottext">m a -&gt; IO (StM m a)
+RunInBase m IO
+</span><a href="#local-6989586621679363952"><span class="hs-identifier hs-var">runinio</span></a></span><span> </span><span class="annot"><span class="annottext">m a
+</span><a href="#local-6989586621679363953"><span class="hs-identifier hs-var">action</span></a></span><span>
+</span><span id="line-104"></span></pre></body></html>

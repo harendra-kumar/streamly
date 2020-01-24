@@ -1,0 +1,421 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-cpp">#include &quot;inline.hs&quot;
+</span><span>
+</span><span id="line-3"></span><span class="hs-comment">-- |</span><span>
+</span><span id="line-4"></span><span class="hs-comment">-- Module      : Streamly.Internal.FileSystem.FDIO</span><span>
+</span><span id="line-5"></span><span class="hs-comment">-- Copyright   : (c) 2019 Composewell Technologies</span><span>
+</span><span id="line-6"></span><span class="hs-comment">-- Copyright   : (c) 1994-2008 The University of Glasgow</span><span>
+</span><span id="line-7"></span><span class="hs-comment">--</span><span>
+</span><span id="line-8"></span><span class="hs-comment">-- License     : BSD3</span><span>
+</span><span id="line-9"></span><span class="hs-comment">-- Maintainer  : streamly@composewell.com</span><span>
+</span><span id="line-10"></span><span class="hs-comment">-- Stability   : experimental</span><span>
+</span><span id="line-11"></span><span class="hs-comment">-- Portability : GHC</span><span>
+</span><span id="line-12"></span><span class="hs-comment">--</span><span>
+</span><span id="line-13"></span><span class="hs-comment">-- Low level IO routines interfacing the operating system.</span><span>
+</span><span id="line-14"></span><span class="hs-comment">--</span><span>
+</span><span id="line-15"></span><span>
+</span><span id="line-16"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Streamly.Internal.FileSystem.FDIO</span><span>
+</span><span id="line-17"></span><span>    </span><span class="hs-special">(</span><span> </span><span class="annot"><a href="Streamly.Internal.FileSystem.FDIO.html#write"><span class="hs-identifier">write</span></a></span><span>
+</span><span id="line-18"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.FileSystem.FDIO.html#writeAll"><span class="hs-identifier">writeAll</span></a></span><span>
+</span><span id="line-19"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.FileSystem.IOVec.html#IOVec"><span class="hs-identifier">IOVec</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-20"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.FileSystem.FDIO.html#writev"><span class="hs-identifier">writev</span></a></span><span>
+</span><span id="line-21"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.FileSystem.FDIO.html#writevAll"><span class="hs-identifier">writevAll</span></a></span><span>
+</span><span id="line-22"></span><span>    </span><span class="hs-special">)</span><span>
+</span><span id="line-23"></span><span class="hs-keyword">where</span><span>
+</span><span id="line-24"></span><span>
+</span><span id="line-25"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">when</span></span><span class="hs-special">)</span><span class="hs-cpp">
+#if !defined(mingw32_HOST_OS)
+</span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Concurrent</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">threadWaitWrite</span></span><span class="hs-special">)</span><span>
+</span><span id="line-28"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Int</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Int64</span></span><span class="hs-special">)</span><span>
+</span><span id="line-29"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Foreign.C.Error</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">throwErrnoIfMinus1RetryMayBlock</span></span><span class="hs-special">)</span><span class="hs-cpp">
+#if __GLASGOW_HASKELL__ &gt;= 802
+</span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Foreign.C.Types</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">CBool</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-cpp">
+#endif
+</span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">System.Posix.Internals</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">c_write</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">c_safe_write</span></span><span class="hs-special">)</span><span>
+</span><span id="line-34"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Streamly.Internal.FileSystem.IOVec.html"><span class="hs-identifier">Streamly.Internal.FileSystem.IOVec</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.FileSystem.IOVec.html#c_writev"><span class="hs-identifier">c_writev</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.FileSystem.IOVec.html#c_safe_writev"><span class="hs-identifier">c_safe_writev</span></a></span><span class="hs-special">)</span><span class="hs-cpp">
+#endif
+</span><span>
+</span><span id="line-37"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Foreign.C.Types</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">CSize</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">CInt</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-38"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Word</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Word8</span></span><span class="hs-special">)</span><span>
+</span><span id="line-39"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Foreign.Ptr</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">plusPtr</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">Ptr</span></span><span class="hs-special">)</span><span>
+</span><span id="line-40"></span><span>
+</span><span id="line-41"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">GHC.IO.FD</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">FD</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-42"></span><span>
+</span><span id="line-43"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Streamly.Internal.FileSystem.IOVec.html"><span class="hs-identifier">Streamly.Internal.FileSystem.IOVec</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.FileSystem.IOVec.html#IOVec"><span class="hs-identifier">IOVec</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-44"></span><span>
+</span><span id="line-45"></span><span class="hs-comment">-------------------------------------------------------------------------------</span><span>
+</span><span id="line-46"></span><span class="hs-comment">-- IO Routines</span><span>
+</span><span id="line-47"></span><span class="hs-comment">-------------------------------------------------------------------------------</span><span>
+</span><span id="line-48"></span><span>
+</span><span id="line-49"></span><span class="hs-comment">-- See System.POSIX.Internals in GHC base package</span><span>
+</span><span id="line-50"></span><span>
+</span><span id="line-51"></span><span class="hs-comment">-------------------------------------------------------------------------------</span><span>
+</span><span id="line-52"></span><span class="hs-comment">-- Write without blocking the underlying OS thread</span><span>
+</span><span id="line-53"></span><span class="hs-comment">-------------------------------------------------------------------------------</span><span class="hs-cpp">
+
+#if !defined(mingw32_HOST_OS)
+</span><span>
+</span><span id="line-57"></span><span class="hs-keyword">foreign</span><span> </span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-keyword">ccall</span></span><span> </span><span class="annot"><span class="hs-keyword">unsafe</span></span><span> </span><span class="annot"><span class="hs-string">&quot;rtsSupportsBoundThreads&quot;</span></span><span> </span><span id="threaded"><span class="annot"><a href="Streamly.Internal.FileSystem.FDIO.html#threaded"><span class="hs-identifier hs-var">threaded</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span><span>
+</span><span id="line-58"></span><span>
+</span><span id="line-59"></span><span class="annot"><a href="Streamly.Internal.FileSystem.FDIO.html#isNonBlocking"><span class="hs-identifier hs-type">isNonBlocking</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">FD</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span><span>
+</span><span id="line-60"></span><span id="isNonBlocking"><span class="annot"><span class="annottext">isNonBlocking :: FD -&gt; Bool
+</span><a href="Streamly.Internal.FileSystem.FDIO.html#isNonBlocking"><span class="hs-identifier hs-var hs-var">isNonBlocking</span></a></span></span><span> </span><span id="local-6989586621679379482"><span class="annot"><span class="annottext">fd :: FD
+</span><a href="#local-6989586621679379482"><span class="hs-identifier hs-var">fd</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">FD -&gt; Int
+</span><span class="hs-identifier hs-var hs-var">fdIsNonBlocking</span></span><span> </span><span class="annot"><span class="annottext">FD
+</span><a href="#local-6989586621679379482"><span class="hs-identifier hs-var">fd</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">/=</span></span><span> </span><span class="annot"><span class="hs-number">0</span></span><span>
+</span><span id="line-61"></span><span>
+</span><span id="line-62"></span><span class="hs-comment">-- &quot;poll&quot;s the fd for data to become available or timeout</span><span>
+</span><span id="line-63"></span><span class="hs-comment">-- See cbits/inputReady.c in base package</span><span class="hs-cpp">
+#if __GLASGOW_HASKELL__ &gt;= 804
+</span><span class="hs-keyword">foreign</span><span> </span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-keyword">ccall</span></span><span> </span><span class="annot"><span class="hs-keyword">unsafe</span></span><span> </span><span class="annot"><span class="hs-string">&quot;fdReady&quot;</span></span><span>
+</span><span id="line-66"></span><span>    </span><span id="unsafe_fdReady"><span class="annot"><a href="Streamly.Internal.FileSystem.FDIO.html#unsafe_fdReady"><span class="hs-identifier hs-var">unsafe_fdReady</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">CInt</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">CBool</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int64</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">CBool</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">CInt</span></span><span class="hs-cpp">
+#else
+</span><span class="hs-keyword">foreign</span><span> </span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">ccall</span><span> </span><span class="hs-keyword">safe</span><span> </span><span class="hs-string">&quot;fdReady&quot;</span><span>
+</span><span id="line-69"></span><span>    </span><span class="hs-identifier">unsafe_fdReady</span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier">CInt</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier">CInt</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier">CInt</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier">CInt</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier">IO</span><span> </span><span class="hs-identifier">CInt</span><span class="hs-cpp">
+#endif
+</span><span>
+</span><span id="line-72"></span><span class="annot"><a href="Streamly.Internal.FileSystem.FDIO.html#writeNonBlocking"><span class="hs-identifier hs-type">writeNonBlocking</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">String</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">FD</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Ptr</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">CSize</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">CInt</span></span><span>
+</span><span id="line-73"></span><span id="writeNonBlocking"><span class="annot"><span class="annottext">writeNonBlocking :: String -&gt; FD -&gt; Ptr Word8 -&gt; Int -&gt; CSize -&gt; IO CInt
+</span><a href="Streamly.Internal.FileSystem.FDIO.html#writeNonBlocking"><span class="hs-identifier hs-var hs-var">writeNonBlocking</span></a></span></span><span> </span><span id="local-6989586621679379477"><span class="annot"><span class="annottext">loc :: String
+</span><a href="#local-6989586621679379477"><span class="hs-identifier hs-var">loc</span></a></span></span><span> </span><span class="hs-glyph">!</span><span id="local-6989586621679379476"><span class="annot"><span class="annottext">FD
+</span><a href="#local-6989586621679379476"><span class="hs-identifier hs-var">fd</span></a></span></span><span> </span><span class="hs-glyph">!</span><span id="local-6989586621679379475"><span class="annot"><span class="annottext">Ptr Word8
+</span><a href="#local-6989586621679379475"><span class="hs-identifier hs-var">buf</span></a></span></span><span> </span><span class="hs-glyph">!</span><span id="local-6989586621679379474"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679379474"><span class="hs-identifier hs-var">off</span></a></span></span><span> </span><span class="hs-glyph">!</span><span id="local-6989586621679379473"><span class="annot"><span class="annottext">CSize
+</span><a href="#local-6989586621679379473"><span class="hs-identifier hs-var">len</span></a></span></span><span>
+</span><span id="line-74"></span><span>    </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">FD -&gt; Bool
+</span><a href="Streamly.Internal.FileSystem.FDIO.html#isNonBlocking"><span class="hs-identifier hs-var">isNonBlocking</span></a></span><span> </span><span class="annot"><span class="annottext">FD
+</span><a href="#local-6989586621679379476"><span class="hs-identifier hs-var">fd</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IO CInt
+</span><a href="#local-6989586621679379472"><span class="hs-identifier hs-var">unsafe_write</span></a></span><span> </span><span class="hs-comment">-- unsafe is ok, it can't block</span><span>
+</span><span id="line-75"></span><span>    </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">otherwise</span></span><span>   </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-76"></span><span>        </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679379471"><span class="annot"><span class="annottext">isWrite :: CBool
+</span><a href="#local-6989586621679379471"><span class="hs-identifier hs-var hs-var">isWrite</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-number">1</span></span><span>
+</span><span id="line-77"></span><span>            </span><span id="local-6989586621679379470"><span class="annot"><span class="annottext">isSocket :: CBool
+</span><a href="#local-6989586621679379470"><span class="hs-identifier hs-var hs-var">isSocket</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-number">0</span></span><span>
+</span><span id="line-78"></span><span>            </span><span id="local-6989586621679379469"><span class="annot"><span class="annottext">msecs :: Int64
+</span><a href="#local-6989586621679379469"><span class="hs-identifier hs-var hs-var">msecs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-number">0</span></span><span>
+</span><span id="line-79"></span><span>        </span><span id="local-6989586621679379468"><span class="annot"><span class="annottext">CInt
+</span><a href="#local-6989586621679379468"><span class="hs-identifier hs-var">r</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">CInt -&gt; CBool -&gt; Int64 -&gt; CBool -&gt; IO CInt
+</span><a href="Streamly.Internal.FileSystem.FDIO.html#unsafe_fdReady"><span class="hs-identifier hs-var">unsafe_fdReady</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">FD -&gt; CInt
+</span><span class="hs-identifier hs-var hs-var">fdFD</span></span><span> </span><span class="annot"><span class="annottext">FD
+</span><a href="#local-6989586621679379476"><span class="hs-identifier hs-var">fd</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">CBool
+</span><a href="#local-6989586621679379471"><span class="hs-identifier hs-var">isWrite</span></a></span><span> </span><span class="annot"><span class="annottext">Int64
+</span><a href="#local-6989586621679379469"><span class="hs-identifier hs-var">msecs</span></a></span><span> </span><span class="annot"><span class="annottext">CBool
+</span><a href="#local-6989586621679379470"><span class="hs-identifier hs-var">isSocket</span></a></span><span>
+</span><span id="line-80"></span><span>        </span><span class="annot"><span class="annottext">Bool -&gt; IO () -&gt; IO ()
+forall (f :: * -&gt; *). Applicative f =&gt; Bool -&gt; f () -&gt; f ()
+</span><span class="hs-identifier hs-var">when</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">CInt
+</span><a href="#local-6989586621679379468"><span class="hs-identifier hs-var">r</span></a></span><span> </span><span class="annot"><span class="annottext">CInt -&gt; CInt -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">==</span></span><span> </span><span class="annot"><span class="hs-number">0</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(IO () -&gt; IO ()) -&gt; IO () -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Fd -&gt; IO ()
+</span><span class="hs-identifier hs-var">threadWaitWrite</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">CInt -&gt; Fd
+forall a b. (Integral a, Num b) =&gt; a -&gt; b
+</span><span class="hs-identifier hs-var">fromIntegral</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">FD -&gt; CInt
+</span><span class="hs-identifier hs-var hs-var">fdFD</span></span><span> </span><span class="annot"><span class="annottext">FD
+</span><a href="#local-6989586621679379476"><span class="hs-identifier hs-var">fd</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-81"></span><span>        </span><span class="hs-keyword">if</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><a href="Streamly.Internal.FileSystem.FDIO.html#threaded"><span class="hs-identifier hs-var">threaded</span></a></span><span> </span><span class="hs-keyword">then</span><span> </span><span class="annot"><span class="annottext">IO CInt
+</span><a href="#local-6989586621679379466"><span class="hs-identifier hs-var">safe_write</span></a></span><span> </span><span class="hs-keyword">else</span><span> </span><span class="annot"><span class="annottext">IO CInt
+</span><a href="#local-6989586621679379472"><span class="hs-identifier hs-var">unsafe_write</span></a></span><span>
+</span><span id="line-82"></span><span>
+</span><span id="line-83"></span><span>    </span><span class="hs-keyword">where</span><span>
+</span><span id="line-84"></span><span>
+</span><span id="line-85"></span><span>    </span><span id="local-6989586621679379465"><span class="annot"><span class="annottext">do_write :: IO a -&gt; IO b
+</span><a href="#local-6989586621679379465"><span class="hs-identifier hs-var hs-var">do_write</span></a></span></span><span> </span><span id="local-6989586621679379464"><span class="annot"><span class="annottext">call :: IO a
+</span><a href="#local-6989586621679379464"><span class="hs-identifier hs-var">call</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">a -&gt; b
+forall a b. (Integral a, Num b) =&gt; a -&gt; b
+</span><span class="hs-identifier hs-var">fromIntegral</span></span><span> </span><span class="annot"><span class="annottext">(a -&gt; b) -&gt; IO a -&gt; IO b
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">`fmap`</span></span><span>
+</span><span id="line-86"></span><span>                      </span><span class="annot"><span class="annottext">String -&gt; IO a -&gt; IO () -&gt; IO a
+forall a b. (Eq a, Num a) =&gt; String -&gt; IO a -&gt; IO b -&gt; IO a
+</span><span class="hs-identifier hs-var">throwErrnoIfMinus1RetryMayBlock</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679379477"><span class="hs-identifier hs-var">loc</span></a></span><span> </span><span class="annot"><span class="annottext">IO a
+</span><a href="#local-6989586621679379464"><span class="hs-identifier hs-var">call</span></a></span><span>
+</span><span id="line-87"></span><span>                        </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Fd -&gt; IO ()
+</span><span class="hs-identifier hs-var">threadWaitWrite</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">CInt -&gt; Fd
+forall a b. (Integral a, Num b) =&gt; a -&gt; b
+</span><span class="hs-identifier hs-var">fromIntegral</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">FD -&gt; CInt
+</span><span class="hs-identifier hs-var hs-var">fdFD</span></span><span> </span><span class="annot"><span class="annottext">FD
+</span><a href="#local-6989586621679379476"><span class="hs-identifier hs-var">fd</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-88"></span><span>    </span><span id="local-6989586621679379472"><span class="annot"><span class="annottext">unsafe_write :: IO CInt
+</span><a href="#local-6989586621679379472"><span class="hs-identifier hs-var hs-var">unsafe_write</span></a></span></span><span>  </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IO CSsize -&gt; IO CInt
+forall a b. (Integral a, Num b) =&gt; IO a -&gt; IO b
+</span><a href="#local-6989586621679379465"><span class="hs-identifier hs-var">do_write</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">CInt -&gt; Ptr Word8 -&gt; CSize -&gt; IO CSsize
+</span><span class="hs-identifier hs-var">c_write</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">FD -&gt; CInt
+</span><span class="hs-identifier hs-var hs-var">fdFD</span></span><span> </span><span class="annot"><span class="annottext">FD
+</span><a href="#local-6989586621679379476"><span class="hs-identifier hs-var">fd</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Ptr Word8
+</span><a href="#local-6989586621679379475"><span class="hs-identifier hs-var">buf</span></a></span><span> </span><span class="annot"><span class="annottext">Ptr Word8 -&gt; Int -&gt; Ptr Word8
+forall a b. Ptr a -&gt; Int -&gt; Ptr b
+</span><span class="hs-operator hs-var">`plusPtr`</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679379474"><span class="hs-identifier hs-var">off</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">CSize
+</span><a href="#local-6989586621679379473"><span class="hs-identifier hs-var">len</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-89"></span><span>    </span><span id="local-6989586621679379466"><span class="annot"><span class="annottext">safe_write :: IO CInt
+</span><a href="#local-6989586621679379466"><span class="hs-identifier hs-var hs-var">safe_write</span></a></span></span><span>    </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IO CSsize -&gt; IO CInt
+forall a b. (Integral a, Num b) =&gt; IO a -&gt; IO b
+</span><a href="#local-6989586621679379465"><span class="hs-identifier hs-var">do_write</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">CInt -&gt; Ptr Word8 -&gt; CSize -&gt; IO CSsize
+</span><span class="hs-identifier hs-var">c_safe_write</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">FD -&gt; CInt
+</span><span class="hs-identifier hs-var hs-var">fdFD</span></span><span> </span><span class="annot"><span class="annottext">FD
+</span><a href="#local-6989586621679379476"><span class="hs-identifier hs-var">fd</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Ptr Word8
+</span><a href="#local-6989586621679379475"><span class="hs-identifier hs-var">buf</span></a></span><span> </span><span class="annot"><span class="annottext">Ptr Word8 -&gt; Int -&gt; Ptr Word8
+forall a b. Ptr a -&gt; Int -&gt; Ptr b
+</span><span class="hs-operator hs-var">`plusPtr`</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679379474"><span class="hs-identifier hs-var">off</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">CSize
+</span><a href="#local-6989586621679379473"><span class="hs-identifier hs-var">len</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-90"></span><span>
+</span><span id="line-91"></span><span class="annot"><a href="Streamly.Internal.FileSystem.FDIO.html#writevNonBlocking"><span class="hs-identifier hs-type">writevNonBlocking</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">String</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">FD</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Ptr</span></span><span> </span><span class="annot"><a href="Streamly.Internal.FileSystem.IOVec.html#IOVec"><span class="hs-identifier hs-type">IOVec</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">CInt</span></span><span>
+</span><span id="line-92"></span><span id="writevNonBlocking"><span class="annot"><span class="annottext">writevNonBlocking :: String -&gt; FD -&gt; Ptr IOVec -&gt; Int -&gt; IO CInt
+</span><a href="Streamly.Internal.FileSystem.FDIO.html#writevNonBlocking"><span class="hs-identifier hs-var hs-var">writevNonBlocking</span></a></span></span><span> </span><span id="local-6989586621679379462"><span class="annot"><span class="annottext">loc :: String
+</span><a href="#local-6989586621679379462"><span class="hs-identifier hs-var">loc</span></a></span></span><span> </span><span class="hs-glyph">!</span><span id="local-6989586621679379461"><span class="annot"><span class="annottext">FD
+</span><a href="#local-6989586621679379461"><span class="hs-identifier hs-var">fd</span></a></span></span><span> </span><span class="hs-glyph">!</span><span id="local-6989586621679379460"><span class="annot"><span class="annottext">Ptr IOVec
+</span><a href="#local-6989586621679379460"><span class="hs-identifier hs-var">iov</span></a></span></span><span> </span><span class="hs-glyph">!</span><span id="local-6989586621679379459"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679379459"><span class="hs-identifier hs-var">cnt</span></a></span></span><span>
+</span><span id="line-93"></span><span>    </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">FD -&gt; Bool
+</span><a href="Streamly.Internal.FileSystem.FDIO.html#isNonBlocking"><span class="hs-identifier hs-var">isNonBlocking</span></a></span><span> </span><span class="annot"><span class="annottext">FD
+</span><a href="#local-6989586621679379461"><span class="hs-identifier hs-var">fd</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IO CInt
+</span><a href="#local-6989586621679379458"><span class="hs-identifier hs-var">unsafe_write</span></a></span><span> </span><span class="hs-comment">-- unsafe is ok, it can't block</span><span>
+</span><span id="line-94"></span><span>    </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">otherwise</span></span><span>   </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-95"></span><span>        </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679379457"><span class="annot"><span class="annottext">isWrite :: CBool
+</span><a href="#local-6989586621679379457"><span class="hs-identifier hs-var hs-var">isWrite</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-number">1</span></span><span>
+</span><span id="line-96"></span><span>            </span><span id="local-6989586621679379456"><span class="annot"><span class="annottext">isSocket :: CBool
+</span><a href="#local-6989586621679379456"><span class="hs-identifier hs-var hs-var">isSocket</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-number">0</span></span><span>
+</span><span id="line-97"></span><span>            </span><span id="local-6989586621679379455"><span class="annot"><span class="annottext">msecs :: Int64
+</span><a href="#local-6989586621679379455"><span class="hs-identifier hs-var hs-var">msecs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-number">0</span></span><span>
+</span><span id="line-98"></span><span>        </span><span id="local-6989586621679379454"><span class="annot"><span class="annottext">CInt
+</span><a href="#local-6989586621679379454"><span class="hs-identifier hs-var">r</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">CInt -&gt; CBool -&gt; Int64 -&gt; CBool -&gt; IO CInt
+</span><a href="Streamly.Internal.FileSystem.FDIO.html#unsafe_fdReady"><span class="hs-identifier hs-var">unsafe_fdReady</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">FD -&gt; CInt
+</span><span class="hs-identifier hs-var hs-var">fdFD</span></span><span> </span><span class="annot"><span class="annottext">FD
+</span><a href="#local-6989586621679379461"><span class="hs-identifier hs-var">fd</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">CBool
+</span><a href="#local-6989586621679379457"><span class="hs-identifier hs-var">isWrite</span></a></span><span> </span><span class="annot"><span class="annottext">Int64
+</span><a href="#local-6989586621679379455"><span class="hs-identifier hs-var">msecs</span></a></span><span> </span><span class="annot"><span class="annottext">CBool
+</span><a href="#local-6989586621679379456"><span class="hs-identifier hs-var">isSocket</span></a></span><span>
+</span><span id="line-99"></span><span>        </span><span class="annot"><span class="annottext">Bool -&gt; IO () -&gt; IO ()
+forall (f :: * -&gt; *). Applicative f =&gt; Bool -&gt; f () -&gt; f ()
+</span><span class="hs-identifier hs-var">when</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">CInt
+</span><a href="#local-6989586621679379454"><span class="hs-identifier hs-var">r</span></a></span><span> </span><span class="annot"><span class="annottext">CInt -&gt; CInt -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">==</span></span><span> </span><span class="annot"><span class="hs-number">0</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(IO () -&gt; IO ()) -&gt; IO () -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Fd -&gt; IO ()
+</span><span class="hs-identifier hs-var">threadWaitWrite</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">CInt -&gt; Fd
+forall a b. (Integral a, Num b) =&gt; a -&gt; b
+</span><span class="hs-identifier hs-var">fromIntegral</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">FD -&gt; CInt
+</span><span class="hs-identifier hs-var hs-var">fdFD</span></span><span> </span><span class="annot"><span class="annottext">FD
+</span><a href="#local-6989586621679379461"><span class="hs-identifier hs-var">fd</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-100"></span><span>        </span><span class="hs-keyword">if</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><a href="Streamly.Internal.FileSystem.FDIO.html#threaded"><span class="hs-identifier hs-var">threaded</span></a></span><span> </span><span class="hs-keyword">then</span><span> </span><span class="annot"><span class="annottext">IO CInt
+</span><a href="#local-6989586621679379453"><span class="hs-identifier hs-var">safe_write</span></a></span><span> </span><span class="hs-keyword">else</span><span> </span><span class="annot"><span class="annottext">IO CInt
+</span><a href="#local-6989586621679379458"><span class="hs-identifier hs-var">unsafe_write</span></a></span><span>
+</span><span id="line-101"></span><span>
+</span><span id="line-102"></span><span>    </span><span class="hs-keyword">where</span><span>
+</span><span id="line-103"></span><span>
+</span><span id="line-104"></span><span>    </span><span id="local-6989586621679379452"><span class="annot"><span class="annottext">do_write :: IO a -&gt; IO b
+</span><a href="#local-6989586621679379452"><span class="hs-identifier hs-var hs-var">do_write</span></a></span></span><span> </span><span id="local-6989586621679379451"><span class="annot"><span class="annottext">call :: IO a
+</span><a href="#local-6989586621679379451"><span class="hs-identifier hs-var">call</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">a -&gt; b
+forall a b. (Integral a, Num b) =&gt; a -&gt; b
+</span><span class="hs-identifier hs-var">fromIntegral</span></span><span> </span><span class="annot"><span class="annottext">(a -&gt; b) -&gt; IO a -&gt; IO b
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">`fmap`</span></span><span>
+</span><span id="line-105"></span><span>                      </span><span class="annot"><span class="annottext">String -&gt; IO a -&gt; IO () -&gt; IO a
+forall a b. (Eq a, Num a) =&gt; String -&gt; IO a -&gt; IO b -&gt; IO a
+</span><span class="hs-identifier hs-var">throwErrnoIfMinus1RetryMayBlock</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679379462"><span class="hs-identifier hs-var">loc</span></a></span><span> </span><span class="annot"><span class="annottext">IO a
+</span><a href="#local-6989586621679379451"><span class="hs-identifier hs-var">call</span></a></span><span>
+</span><span id="line-106"></span><span>                        </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Fd -&gt; IO ()
+</span><span class="hs-identifier hs-var">threadWaitWrite</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">CInt -&gt; Fd
+forall a b. (Integral a, Num b) =&gt; a -&gt; b
+</span><span class="hs-identifier hs-var">fromIntegral</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">FD -&gt; CInt
+</span><span class="hs-identifier hs-var hs-var">fdFD</span></span><span> </span><span class="annot"><span class="annottext">FD
+</span><a href="#local-6989586621679379461"><span class="hs-identifier hs-var">fd</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-107"></span><span>    </span><span id="local-6989586621679379458"><span class="annot"><span class="annottext">unsafe_write :: IO CInt
+</span><a href="#local-6989586621679379458"><span class="hs-identifier hs-var hs-var">unsafe_write</span></a></span></span><span>  </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IO CSsize -&gt; IO CInt
+forall a b. (Integral a, Num b) =&gt; IO a -&gt; IO b
+</span><a href="#local-6989586621679379452"><span class="hs-identifier hs-var">do_write</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">CInt -&gt; Ptr IOVec -&gt; CInt -&gt; IO CSsize
+</span><a href="Streamly.Internal.FileSystem.IOVec.html#c_writev"><span class="hs-identifier hs-var">c_writev</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">FD -&gt; CInt
+</span><span class="hs-identifier hs-var hs-var">fdFD</span></span><span> </span><span class="annot"><span class="annottext">FD
+</span><a href="#local-6989586621679379461"><span class="hs-identifier hs-var">fd</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Ptr IOVec
+</span><a href="#local-6989586621679379460"><span class="hs-identifier hs-var">iov</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; CInt
+forall a b. (Integral a, Num b) =&gt; a -&gt; b
+</span><span class="hs-identifier hs-var">fromIntegral</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679379459"><span class="hs-identifier hs-var">cnt</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-108"></span><span>    </span><span id="local-6989586621679379453"><span class="annot"><span class="annottext">safe_write :: IO CInt
+</span><a href="#local-6989586621679379453"><span class="hs-identifier hs-var hs-var">safe_write</span></a></span></span><span>    </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IO CSsize -&gt; IO CInt
+forall a b. (Integral a, Num b) =&gt; IO a -&gt; IO b
+</span><a href="#local-6989586621679379452"><span class="hs-identifier hs-var">do_write</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">CInt -&gt; Ptr IOVec -&gt; CInt -&gt; IO CSsize
+</span><a href="Streamly.Internal.FileSystem.IOVec.html#c_safe_writev"><span class="hs-identifier hs-var">c_safe_writev</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">FD -&gt; CInt
+</span><span class="hs-identifier hs-var hs-var">fdFD</span></span><span> </span><span class="annot"><span class="annottext">FD
+</span><a href="#local-6989586621679379461"><span class="hs-identifier hs-var">fd</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Ptr IOVec
+</span><a href="#local-6989586621679379460"><span class="hs-identifier hs-var">iov</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; CInt
+forall a b. (Integral a, Num b) =&gt; a -&gt; b
+</span><span class="hs-identifier hs-var">fromIntegral</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679379459"><span class="hs-identifier hs-var">cnt</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-cpp">
+
+#else
+</span><span class="hs-identifier">writeNonBlocking</span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier">String</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier">FD</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier">Ptr</span><span> </span><span class="hs-identifier">Word8</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier">Int</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier">CSize</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier">IO</span><span> </span><span class="hs-identifier">CInt</span><span>
+</span><span id="line-112"></span><span class="hs-identifier">writeNonBlocking</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-identifier">undefined</span><span>
+</span><span id="line-113"></span><span>
+</span><span id="line-114"></span><span class="hs-identifier">writevNonBlocking</span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier">String</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier">FD</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier">Ptr</span><span> </span><span class="hs-identifier">IOVec</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier">Int</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier">IO</span><span> </span><span class="hs-identifier">CInt</span><span>
+</span><span id="line-115"></span><span class="hs-identifier">writevNonBlocking</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-identifier">undefined</span><span class="hs-cpp">
+#endif
+</span><span>
+</span><span id="line-118"></span><span class="hs-comment">-- Windows code is disabled for now</span><span class="hs-cpp">
+#if 0
+</span><span class="hs-cpp">
+#if defined(mingw32_HOST_OS)
+</span><span class="hs-cpp"># if defined(i386_HOST_ARCH)
+</span><span class="hs-cpp">#  define WINDOWS_CCONV stdcall
+</span><span class="hs-cpp"># elif defined(x86_64_HOST_ARCH)
+</span><span class="hs-cpp">#  define WINDOWS_CCONV ccall
+</span><span class="hs-cpp"># else
+</span><span class="hs-cpp">#  error Unknown mingw32 arch
+</span><span class="hs-cpp"># endif
+</span><span class="hs-cpp">#endif
+</span><span>
+</span><span id="line-131"></span><span class="hs-keyword">foreign</span><span> </span><span class="hs-keyword">import</span><span> </span><span class="hs-identifier">WINDOWS_CCONV</span><span> </span><span class="hs-keyword">safe</span><span> </span><span class="hs-string">&quot;recv&quot;</span><span>
+</span><span id="line-132"></span><span>   </span><span class="hs-identifier">c_safe_recv</span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier">CInt</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier">Ptr</span><span> </span><span class="hs-identifier">Word8</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier">CInt</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier">CInt</span><span class="hs-comment">{-flags-}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier">IO</span><span> </span><span class="hs-identifier">CInt</span><span>
+</span><span id="line-133"></span><span>
+</span><span id="line-134"></span><span class="hs-keyword">foreign</span><span> </span><span class="hs-keyword">import</span><span> </span><span class="hs-identifier">WINDOWS_CCONV</span><span> </span><span class="hs-keyword">safe</span><span> </span><span class="hs-string">&quot;send&quot;</span><span>
+</span><span id="line-135"></span><span>   </span><span class="hs-identifier">c_safe_send</span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier">CInt</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier">Ptr</span><span> </span><span class="hs-identifier">Word8</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier">CInt</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier">CInt</span><span class="hs-comment">{-flags-}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier">IO</span><span> </span><span class="hs-identifier">CInt</span><span>
+</span><span id="line-136"></span><span>
+</span><span id="line-137"></span><span class="hs-identifier">blockingWriteRawBufferPtr</span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier">String</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier">FD</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier">Ptr</span><span> </span><span class="hs-identifier">Word8</span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier">Int</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier">CSize</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier">IO</span><span> </span><span class="hs-identifier">CInt</span><span>
+</span><span id="line-138"></span><span class="hs-identifier">blockingWriteRawBufferPtr</span><span> </span><span class="hs-identifier">loc</span><span> </span><span class="hs-glyph">!</span><span class="hs-identifier">fd</span><span> </span><span class="hs-glyph">!</span><span class="hs-identifier">buf</span><span> </span><span class="hs-glyph">!</span><span class="hs-identifier">off</span><span> </span><span class="hs-glyph">!</span><span class="hs-identifier">len</span><span>
+</span><span id="line-139"></span><span>  </span><span class="hs-glyph">=</span><span> </span><span class="hs-identifier">throwErrnoIfMinus1Retry</span><span> </span><span class="hs-identifier">loc</span><span> </span><span class="hs-operator">$</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-140"></span><span>        </span><span class="hs-keyword">let</span><span> </span><span class="hs-identifier">start_ptr</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-identifier">buf</span><span> </span><span class="hs-special">`</span><span class="hs-identifier">plusPtr</span><span class="hs-special">`</span><span> </span><span class="hs-identifier">off</span><span>
+</span><span id="line-141"></span><span>            </span><span class="hs-identifier">send_ret</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-identifier">c_safe_send</span><span>  </span><span class="hs-special">(</span><span class="hs-identifier">fdFD</span><span> </span><span class="hs-identifier">fd</span><span class="hs-special">)</span><span> </span><span class="hs-identifier">start_ptr</span><span> </span><span class="hs-special">(</span><span class="hs-identifier">fromIntegral</span><span> </span><span class="hs-identifier">len</span><span class="hs-special">)</span><span> </span><span class="hs-number">0</span><span>
+</span><span id="line-142"></span><span>            </span><span class="hs-identifier">write_ret</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-identifier">c_safe_write</span><span> </span><span class="hs-special">(</span><span class="hs-identifier">fdFD</span><span> </span><span class="hs-identifier">fd</span><span class="hs-special">)</span><span> </span><span class="hs-identifier">start_ptr</span><span> </span><span class="hs-special">(</span><span class="hs-identifier">fromIntegral</span><span> </span><span class="hs-identifier">len</span><span class="hs-special">)</span><span>
+</span><span id="line-143"></span><span>        </span><span class="hs-identifier">r</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="hs-identifier">bool</span><span> </span><span class="hs-identifier">write_ret</span><span> </span><span class="hs-identifier">send_ret</span><span> </span><span class="hs-special">(</span><span class="hs-identifier">fdIsSocket</span><span> </span><span class="hs-identifier">fd</span><span class="hs-special">)</span><span>
+</span><span id="line-144"></span><span>        </span><span class="hs-identifier">when</span><span> </span><span class="hs-special">(</span><span class="hs-identifier">r</span><span> </span><span class="hs-operator">==</span><span> </span><span class="hs-glyph">-</span><span class="hs-number">1</span><span class="hs-special">)</span><span> </span><span class="hs-identifier">c_maperrno</span><span>
+</span><span id="line-145"></span><span>        </span><span class="hs-identifier">return</span><span> </span><span class="hs-identifier">r</span><span>
+</span><span id="line-146"></span><span>      </span><span class="hs-comment">-- We don't trust write() to give us the correct errno, and</span><span>
+</span><span id="line-147"></span><span>      </span><span class="hs-comment">-- instead do the errno conversion from GetLastError()</span><span>
+</span><span id="line-148"></span><span>      </span><span class="hs-comment">-- ourselves. The main reason is that we treat ERROR_NO_DATA</span><span>
+</span><span id="line-149"></span><span>      </span><span class="hs-comment">-- (pipe is closing) as EPIPE, whereas write() returns EINVAL</span><span>
+</span><span id="line-150"></span><span>      </span><span class="hs-comment">-- for this case. We need to detect EPIPE correctly, because it</span><span>
+</span><span id="line-151"></span><span>      </span><span class="hs-comment">-- shouldn't be reported as an error when it happens on stdout.</span><span>
+</span><span id="line-152"></span><span>      </span><span class="hs-comment">-- As for send()'s case, Winsock functions don't do errno</span><span>
+</span><span id="line-153"></span><span>      </span><span class="hs-comment">-- conversion in any case so we have to do it ourselves.</span><span>
+</span><span id="line-154"></span><span>      </span><span class="hs-comment">-- That means we're doing the errno conversion no matter if the</span><span>
+</span><span id="line-155"></span><span>      </span><span class="hs-comment">-- fd is from a socket or not.</span><span>
+</span><span id="line-156"></span><span>
+</span><span id="line-157"></span><span class="hs-comment">-- NOTE: &quot;safe&quot; versions of the read/write calls for use by the threaded RTS.</span><span>
+</span><span id="line-158"></span><span class="hs-comment">-- These calls may block, but that's ok.</span><span>
+</span><span id="line-159"></span><span>
+</span><span id="line-160"></span><span class="hs-identifier">asyncWriteRawBufferPtr</span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier">String</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier">FD</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier">Ptr</span><span> </span><span class="hs-identifier">Word8</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier">Int</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier">CSize</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier">IO</span><span> </span><span class="hs-identifier">CInt</span><span>
+</span><span id="line-161"></span><span class="hs-identifier">asyncWriteRawBufferPtr</span><span> </span><span class="hs-identifier">loc</span><span> </span><span class="hs-glyph">!</span><span class="hs-identifier">fd</span><span> </span><span class="hs-glyph">!</span><span class="hs-identifier">buf</span><span> </span><span class="hs-glyph">!</span><span class="hs-identifier">off</span><span> </span><span class="hs-glyph">!</span><span class="hs-identifier">len</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-162"></span><span>    </span><span class="hs-special">(</span><span class="hs-identifier">l</span><span class="hs-special">,</span><span> </span><span class="hs-identifier">rc</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="hs-identifier">asyncWrite</span><span> </span><span class="hs-special">(</span><span class="hs-identifier">fromIntegral</span><span> </span><span class="hs-special">(</span><span class="hs-identifier">fdFD</span><span> </span><span class="hs-identifier">fd</span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="hs-identifier">fdIsSocket_</span><span> </span><span class="hs-identifier">fd</span><span class="hs-special">)</span><span>
+</span><span id="line-163"></span><span>                  </span><span class="hs-special">(</span><span class="hs-identifier">fromIntegral</span><span> </span><span class="hs-identifier">len</span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="hs-identifier">buf</span><span> </span><span class="hs-special">`</span><span class="hs-identifier">plusPtr</span><span class="hs-special">`</span><span> </span><span class="hs-identifier">off</span><span class="hs-special">)</span><span>
+</span><span id="line-164"></span><span>    </span><span class="hs-keyword">if</span><span> </span><span class="hs-identifier">l</span><span> </span><span class="hs-operator">==</span><span> </span><span class="hs-special">(</span><span class="hs-glyph">-</span><span class="hs-number">1</span><span class="hs-special">)</span><span>
+</span><span id="line-165"></span><span>      </span><span class="hs-keyword">then</span><span> </span><span class="hs-keyword">let</span><span> </span><span class="hs-identifier">sock_errno</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-identifier">c_maperrno_func</span><span> </span><span class="hs-special">(</span><span class="hs-identifier">fromIntegral</span><span> </span><span class="hs-identifier">rc</span><span class="hs-special">)</span><span>
+</span><span id="line-166"></span><span>               </span><span class="hs-identifier">non_sock_errno</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-identifier">Errno</span><span> </span><span class="hs-special">(</span><span class="hs-identifier">fromIntegral</span><span> </span><span class="hs-identifier">rc</span><span class="hs-special">)</span><span>
+</span><span id="line-167"></span><span>               </span><span class="hs-identifier">errno</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-identifier">bool</span><span> </span><span class="hs-identifier">non_sock_errno</span><span> </span><span class="hs-identifier">sock_errno</span><span> </span><span class="hs-special">(</span><span class="hs-identifier">fdIsSocket</span><span> </span><span class="hs-identifier">fd</span><span class="hs-special">)</span><span>
+</span><span id="line-168"></span><span>           </span><span class="hs-keyword">in</span><span>  </span><span class="hs-identifier">ioError</span><span> </span><span class="hs-special">(</span><span class="hs-identifier">errnoToIOError</span><span> </span><span class="hs-identifier">loc</span><span> </span><span class="hs-identifier">errno</span><span> </span><span class="hs-identifier">Nothing</span><span> </span><span class="hs-identifier">Nothing</span><span class="hs-special">)</span><span>
+</span><span id="line-169"></span><span>      </span><span class="hs-keyword">else</span><span> </span><span class="hs-identifier">return</span><span> </span><span class="hs-special">(</span><span class="hs-identifier">fromIntegral</span><span> </span><span class="hs-identifier">l</span><span class="hs-special">)</span><span>
+</span><span id="line-170"></span><span>
+</span><span id="line-171"></span><span class="hs-identifier">writeNonBlocking</span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier">String</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier">FD</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier">Ptr</span><span> </span><span class="hs-identifier">Word8</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier">Int</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier">CSize</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier">IO</span><span> </span><span class="hs-identifier">CInt</span><span>
+</span><span id="line-172"></span><span class="hs-identifier">writeNonBlocking</span><span> </span><span class="hs-identifier">loc</span><span> </span><span class="hs-glyph">!</span><span class="hs-identifier">fd</span><span> </span><span class="hs-glyph">!</span><span class="hs-identifier">buf</span><span> </span><span class="hs-glyph">!</span><span class="hs-identifier">off</span><span> </span><span class="hs-glyph">!</span><span class="hs-identifier">len</span><span>
+</span><span id="line-173"></span><span>    </span><span class="hs-glyph">|</span><span> </span><span class="hs-identifier">threaded</span><span>  </span><span class="hs-glyph">=</span><span> </span><span class="hs-identifier">blockingWriteRawBufferPtr</span><span> </span><span class="hs-identifier">loc</span><span> </span><span class="hs-identifier">fd</span><span> </span><span class="hs-identifier">buf</span><span> </span><span class="hs-identifier">off</span><span> </span><span class="hs-identifier">len</span><span>
+</span><span id="line-174"></span><span>    </span><span class="hs-glyph">|</span><span> </span><span class="hs-identifier">otherwise</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-identifier">asyncWriteRawBufferPtr</span><span>    </span><span class="hs-identifier">loc</span><span> </span><span class="hs-identifier">fd</span><span> </span><span class="hs-identifier">buf</span><span> </span><span class="hs-identifier">off</span><span> </span><span class="hs-identifier">len</span><span class="hs-cpp">
+
+#endif
+</span><span>
+</span><span id="line-178"></span><span class="hs-comment">-- | @write FD buffer offset length@ tries to write data on the given</span><span>
+</span><span id="line-179"></span><span class="hs-comment">-- filesystem fd (cannot be a socket) up to sepcified length starting from the</span><span>
+</span><span id="line-180"></span><span class="hs-comment">-- given offset in the buffer. The write will not block the OS thread, it may</span><span>
+</span><span id="line-181"></span><span class="hs-comment">-- suspend the Haskell thread until write can proceed.  Returns the actual</span><span>
+</span><span id="line-182"></span><span class="hs-comment">-- amount of data written.</span><span>
+</span><span id="line-183"></span><span class="annot"><a href="Streamly.Internal.FileSystem.FDIO.html#write"><span class="hs-identifier hs-type">write</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">FD</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Ptr</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">CSize</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">CInt</span></span><span>
+</span><span id="line-184"></span><span id="write"><span class="annot"><span class="annottext">write :: FD -&gt; Ptr Word8 -&gt; Int -&gt; CSize -&gt; IO CInt
+</span><a href="Streamly.Internal.FileSystem.FDIO.html#write"><span class="hs-identifier hs-var hs-var">write</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String -&gt; FD -&gt; Ptr Word8 -&gt; Int -&gt; CSize -&gt; IO CInt
+</span><a href="Streamly.Internal.FileSystem.FDIO.html#writeNonBlocking"><span class="hs-identifier hs-var">writeNonBlocking</span></a></span><span> </span><span class="annot"><span class="hs-string">&quot;Streamly.Internal.FileSystem.FDIO&quot;</span></span><span>
+</span><span id="line-185"></span><span>
+</span><span id="line-186"></span><span class="hs-comment">-- XXX sendAll for sockets has a similar code, we can deduplicate the two.</span><span>
+</span><span id="line-187"></span><span class="hs-comment">-- XXX we need to check the errno to determine if the loop should continue. For</span><span>
+</span><span id="line-188"></span><span class="hs-comment">-- example, write may return without writing all data if the process file-size</span><span>
+</span><span id="line-189"></span><span class="hs-comment">-- limit has reached, in that case keep writing in a loop is fruitless.</span><span>
+</span><span id="line-190"></span><span class="hs-comment">--</span><span>
+</span><span id="line-191"></span><span class="hs-comment">-- | Keep writing in a loop until all data in the buffer has been written.</span><span>
+</span><span id="line-192"></span><span class="annot"><a href="Streamly.Internal.FileSystem.FDIO.html#writeAll"><span class="hs-identifier hs-type">writeAll</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">FD</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Ptr</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-193"></span><span id="writeAll"><span class="annot"><span class="annottext">writeAll :: FD -&gt; Ptr Word8 -&gt; Int -&gt; IO ()
+</span><a href="Streamly.Internal.FileSystem.FDIO.html#writeAll"><span class="hs-identifier hs-var hs-var">writeAll</span></a></span></span><span> </span><span id="local-6989586621679379450"><span class="annot"><span class="annottext">fd :: FD
+</span><a href="#local-6989586621679379450"><span class="hs-identifier hs-var">fd</span></a></span></span><span> </span><span id="local-6989586621679379449"><span class="annot"><span class="annottext">ptr :: Ptr Word8
+</span><a href="#local-6989586621679379449"><span class="hs-identifier hs-var">ptr</span></a></span></span><span> </span><span id="local-6989586621679379448"><span class="annot"><span class="annottext">bytes :: Int
+</span><a href="#local-6989586621679379448"><span class="hs-identifier hs-var">bytes</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-194"></span><span>    </span><span id="local-6989586621679379447"><span class="annot"><span class="annottext">CInt
+</span><a href="#local-6989586621679379447"><span class="hs-identifier hs-var">res</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">FD -&gt; Ptr Word8 -&gt; Int -&gt; CSize -&gt; IO CInt
+</span><a href="Streamly.Internal.FileSystem.FDIO.html#write"><span class="hs-identifier hs-var">write</span></a></span><span> </span><span class="annot"><span class="annottext">FD
+</span><a href="#local-6989586621679379450"><span class="hs-identifier hs-var">fd</span></a></span><span> </span><span class="annot"><span class="annottext">Ptr Word8
+</span><a href="#local-6989586621679379449"><span class="hs-identifier hs-var">ptr</span></a></span><span> </span><span class="annot"><span class="hs-number">0</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; CSize
+forall a b. (Integral a, Num b) =&gt; a -&gt; b
+</span><span class="hs-identifier hs-var">fromIntegral</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679379448"><span class="hs-identifier hs-var">bytes</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-195"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679379446"><span class="annot"><span class="annottext">res' :: Int
+</span><a href="#local-6989586621679379446"><span class="hs-identifier hs-var hs-var">res'</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">CInt -&gt; Int
+forall a b. (Integral a, Num b) =&gt; a -&gt; b
+</span><span class="hs-identifier hs-var">fromIntegral</span></span><span> </span><span class="annot"><span class="annottext">CInt
+</span><a href="#local-6989586621679379447"><span class="hs-identifier hs-var">res</span></a></span><span>
+</span><span id="line-196"></span><span>    </span><span class="annot"><span class="annottext">Bool -&gt; IO () -&gt; IO ()
+forall (f :: * -&gt; *). Applicative f =&gt; Bool -&gt; f () -&gt; f ()
+</span><span class="hs-identifier hs-var">when</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679379446"><span class="hs-identifier hs-var">res'</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">&lt;</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679379448"><span class="hs-identifier hs-var">bytes</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(IO () -&gt; IO ()) -&gt; IO () -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span>
+</span><span id="line-197"></span><span>      </span><span class="annot"><span class="annottext">FD -&gt; Ptr Word8 -&gt; Int -&gt; IO ()
+</span><a href="Streamly.Internal.FileSystem.FDIO.html#writeAll"><span class="hs-identifier hs-var">writeAll</span></a></span><span> </span><span class="annot"><span class="annottext">FD
+</span><a href="#local-6989586621679379450"><span class="hs-identifier hs-var">fd</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Ptr Word8
+</span><a href="#local-6989586621679379449"><span class="hs-identifier hs-var">ptr</span></a></span><span> </span><span class="annot"><span class="annottext">Ptr Word8 -&gt; Int -&gt; Ptr Word8
+forall a b. Ptr a -&gt; Int -&gt; Ptr b
+</span><span class="hs-operator hs-var">`plusPtr`</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679379446"><span class="hs-identifier hs-var">res'</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679379448"><span class="hs-identifier hs-var">bytes</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-glyph hs-var">-</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679379446"><span class="hs-identifier hs-var">res'</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-198"></span><span>
+</span><span id="line-199"></span><span class="hs-comment">-------------------------------------------------------------------------------</span><span>
+</span><span id="line-200"></span><span class="hs-comment">-- Vector IO</span><span>
+</span><span id="line-201"></span><span class="hs-comment">-------------------------------------------------------------------------------</span><span>
+</span><span id="line-202"></span><span>
+</span><span id="line-203"></span><span class="hs-comment">-- | @write FD iovec count@ tries to write data on the given filesystem fd</span><span>
+</span><span id="line-204"></span><span class="hs-comment">-- (cannot be a socket) from an iovec with specified number of entries.  The</span><span>
+</span><span id="line-205"></span><span class="hs-comment">-- write will not block the OS thread, it may suspend the Haskell thread until</span><span>
+</span><span id="line-206"></span><span class="hs-comment">-- write can proceed.  Returns the actual amount of data written.</span><span>
+</span><span id="line-207"></span><span class="annot"><a href="Streamly.Internal.FileSystem.FDIO.html#writev"><span class="hs-identifier hs-type">writev</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">FD</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Ptr</span></span><span> </span><span class="annot"><a href="Streamly.Internal.FileSystem.IOVec.html#IOVec"><span class="hs-identifier hs-type">IOVec</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">CInt</span></span><span>
+</span><span id="line-208"></span><span id="writev"><span class="annot"><span class="annottext">writev :: FD -&gt; Ptr IOVec -&gt; Int -&gt; IO CInt
+</span><a href="Streamly.Internal.FileSystem.FDIO.html#writev"><span class="hs-identifier hs-var hs-var">writev</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String -&gt; FD -&gt; Ptr IOVec -&gt; Int -&gt; IO CInt
+</span><a href="Streamly.Internal.FileSystem.FDIO.html#writevNonBlocking"><span class="hs-identifier hs-var">writevNonBlocking</span></a></span><span> </span><span class="annot"><span class="hs-string">&quot;Streamly.Internal.FileSystem.FDIO&quot;</span></span><span>
+</span><span id="line-209"></span><span>
+</span><span id="line-210"></span><span class="hs-comment">-- XXX incomplete</span><span>
+</span><span id="line-211"></span><span class="hs-comment">-- | Keep writing an iovec in a loop until all the iovec entries are written.</span><span>
+</span><span id="line-212"></span><span class="annot"><a href="Streamly.Internal.FileSystem.FDIO.html#writevAll"><span class="hs-identifier hs-type">writevAll</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">FD</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Ptr</span></span><span> </span><span class="annot"><a href="Streamly.Internal.FileSystem.IOVec.html#IOVec"><span class="hs-identifier hs-type">IOVec</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-213"></span><span id="writevAll"><span class="annot"><span class="annottext">writevAll :: FD -&gt; Ptr IOVec -&gt; Int -&gt; IO ()
+</span><a href="Streamly.Internal.FileSystem.FDIO.html#writevAll"><span class="hs-identifier hs-var hs-var">writevAll</span></a></span></span><span> </span><span id="local-6989586621679379444"><span class="annot"><span class="annottext">fd :: FD
+</span><a href="#local-6989586621679379444"><span class="hs-identifier hs-var">fd</span></a></span></span><span> </span><span id="local-6989586621679379443"><span class="annot"><span class="annottext">iovec :: Ptr IOVec
+</span><a href="#local-6989586621679379443"><span class="hs-identifier hs-var">iovec</span></a></span></span><span> </span><span id="local-6989586621679379442"><span class="annot"><span class="annottext">count :: Int
+</span><a href="#local-6989586621679379442"><span class="hs-identifier hs-var">count</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-214"></span><span>    </span><span id="local-6989586621679379441"><span class="annot"><span class="annottext">CInt
+</span><a href="#local-6989586621679379441"><span class="hs-identifier hs-var">_res</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">FD -&gt; Ptr IOVec -&gt; Int -&gt; IO CInt
+</span><a href="Streamly.Internal.FileSystem.FDIO.html#writev"><span class="hs-identifier hs-var">writev</span></a></span><span> </span><span class="annot"><span class="annottext">FD
+</span><a href="#local-6989586621679379444"><span class="hs-identifier hs-var">fd</span></a></span><span> </span><span class="annot"><span class="annottext">Ptr IOVec
+</span><a href="#local-6989586621679379443"><span class="hs-identifier hs-var">iovec</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679379442"><span class="hs-identifier hs-var">count</span></a></span><span>
+</span><span id="line-215"></span><span>    </span><span class="hs-comment">{-
+    let res' = fromIntegral res
+    totalBytes = countIOVecBytes
+    if res' &lt; totalBytes
+     then do
+        let iovec' = createModifiedIOVec
+            count' = ...
+        writeAll fd iovec' count'
+     else return ()
+    -}</span><span>
+</span><span id="line-225"></span><span>    </span><span class="annot"><span class="annottext">() -&gt; IO ()
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-226"></span></pre></body></html>

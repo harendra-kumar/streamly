@@ -1,0 +1,89 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE CPP #-}</span><span>
+</span><a name="line-2"></a><span>
+</span><a name="line-3"></a><span class="hs-cpp">#include &quot;inline.hs&quot;
+</span><span>
+</span><a name="line-5"></a><span class="hs-comment">-- |</span><span>
+</span><a name="line-6"></a><span class="hs-comment">-- Module      : Streamly.FileSystem.Handle</span><span>
+</span><a name="line-7"></a><span class="hs-comment">-- Copyright   : (c) 2018 Composewell Technologies</span><span>
+</span><a name="line-8"></a><span class="hs-comment">--</span><span>
+</span><a name="line-9"></a><span class="hs-comment">-- License     : BSD3</span><span>
+</span><a name="line-10"></a><span class="hs-comment">-- Maintainer  : streamly@composewell.com</span><span>
+</span><a name="line-11"></a><span class="hs-comment">-- Stability   : experimental</span><span>
+</span><a name="line-12"></a><span class="hs-comment">-- Portability : GHC</span><span>
+</span><a name="line-13"></a><span class="hs-comment">--</span><span>
+</span><a name="line-14"></a><span class="hs-comment">-- Read and write streams and arrays to and from file handles. File handle IO</span><span>
+</span><a name="line-15"></a><span class="hs-comment">-- APIs are quite similar to &quot;Streamly.Memory.Array&quot; read write APIs. In that</span><span>
+</span><a name="line-16"></a><span class="hs-comment">-- regard, arrays can be considered as in-memory files or files can be</span><span>
+</span><a name="line-17"></a><span class="hs-comment">-- considered as on-disk arrays.</span><span>
+</span><a name="line-18"></a><span class="hs-comment">--</span><span>
+</span><a name="line-19"></a><span class="hs-comment">-- Control over file reading and writing behavior in terms of buffering,</span><span>
+</span><a name="line-20"></a><span class="hs-comment">-- encoding, decoding is in the hands of the programmer, the 'TextEncoding',</span><span>
+</span><a name="line-21"></a><span class="hs-comment">-- 'NewLineMode', and 'Buffering' options of the underlying handle provided by</span><span>
+</span><a name="line-22"></a><span class="hs-comment">-- GHC are not needed and ignored.</span><span>
+</span><a name="line-23"></a><span class="hs-comment">--</span><span>
+</span><a name="line-24"></a><span class="hs-comment">-- = Programmer Notes</span><span>
+</span><a name="line-25"></a><span class="hs-comment">--</span><span>
+</span><a name="line-26"></a><span class="hs-comment">-- &gt; import qualified Streamly.FileSystem.Handle as FH</span><span>
+</span><a name="line-27"></a><span class="hs-comment">--</span><span>
+</span><a name="line-28"></a><span class="hs-comment">-- For additional, experimental APIs take a look at</span><span>
+</span><a name="line-29"></a><span class="hs-comment">-- &quot;Streamly.Internal.FileSystem.Handle&quot; module.</span><span>
+</span><a name="line-30"></a><span class="hs-comment">--</span><span>
+</span><a name="line-31"></a><span class="hs-comment">-- = Performance Notes</span><span>
+</span><a name="line-32"></a><span class="hs-comment">--</span><span>
+</span><a name="line-33"></a><span class="hs-comment">-- In some cases the stream type based APIs in the</span><span>
+</span><a name="line-34"></a><span class="hs-comment">-- &quot;Streamly.Internal.FileSystem.Handle&quot; module may be more efficient compared</span><span>
+</span><a name="line-35"></a><span class="hs-comment">-- to the unfold/fold based APIs exposed from this module because of better</span><span>
+</span><a name="line-36"></a><span class="hs-comment">-- fusion by GHC. However, with the streamly fusion GHC plugin (upcoming) these</span><span>
+</span><a name="line-37"></a><span class="hs-comment">-- APIs would perform as well as the stream based APIs in all cases.</span><span>
+</span><a name="line-38"></a><span>
+</span><a name="line-39"></a><span class="hs-comment">-- IO APIs are divided into two categories, sequential streaming IO APIs and</span><span>
+</span><a name="line-40"></a><span class="hs-comment">-- random access IO APIs.</span><span>
+</span><a name="line-41"></a><span>
+</span><a name="line-42"></a><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Streamly.FileSystem.Handle</span><span>
+</span><a name="line-43"></a><span>    </span><span class="hs-special">(</span><span>
+</span><a name="line-44"></a><span>    </span><span class="hs-comment">-- * Sequential/Streaming IO</span><span>
+</span><a name="line-45"></a><span>    </span><span class="hs-comment">-- | Stream data to or from a file or device sequentially.  When reading,</span><span>
+</span><a name="line-46"></a><span>    </span><span class="hs-comment">-- the stream is lazy and generated on-demand as the consumer consumes it.</span><span>
+</span><a name="line-47"></a><span>    </span><span class="hs-comment">-- Read IO requests to the IO device are performed in chunks limited to a</span><span>
+</span><a name="line-48"></a><span>    </span><span class="hs-comment">-- maximum size of 32KiB, this is referred to as</span><span>
+</span><a name="line-49"></a><span>    </span><span class="hs-comment">-- 'Streamly.Internal.Memory.Array.Types.defaultChunkSize' in the</span><span>
+</span><a name="line-50"></a><span>    </span><span class="hs-comment">-- documentation. One IO request may or may not read the full</span><span>
+</span><a name="line-51"></a><span>    </span><span class="hs-comment">-- chunk. If the whole stream is not consumed, it is possible that we may</span><span>
+</span><a name="line-52"></a><span>    </span><span class="hs-comment">-- read slightly more from the IO device than what the consumer needed.</span><span>
+</span><a name="line-53"></a><span>    </span><span class="hs-comment">-- Unless specified otherwise in the API, writes are collected into chunks</span><span>
+</span><a name="line-54"></a><span>    </span><span class="hs-comment">-- of 'Streamly.Internal.Memory.Array.Types.defaultChunkSize' before they</span><span>
+</span><a name="line-55"></a><span>    </span><span class="hs-comment">-- are written to the IO device.</span><span>
+</span><a name="line-56"></a><span>
+</span><a name="line-57"></a><span>    </span><span class="hs-comment">-- Streaming APIs work for all kind of devices, seekable or non-seekable;</span><span>
+</span><a name="line-58"></a><span>    </span><span class="hs-comment">-- including disks, files, memory devices, terminals, pipes, sockets and</span><span>
+</span><a name="line-59"></a><span>    </span><span class="hs-comment">-- fifos. While random access APIs work only for files or devices that have</span><span>
+</span><a name="line-60"></a><span>    </span><span class="hs-comment">-- random access or seek capability for example disks, memory devices.</span><span>
+</span><a name="line-61"></a><span>    </span><span class="hs-comment">-- Devices like terminals, pipes, sockets and fifos do not have random</span><span>
+</span><a name="line-62"></a><span>    </span><span class="hs-comment">-- access capability.</span><span>
+</span><a name="line-63"></a><span>
+</span><a name="line-64"></a><span>    </span><span class="hs-comment">-- ** Read From Handle</span><span>
+</span><a name="line-65"></a><span>    </span><span class="hs-comment">-- | 'TextEncoding', 'NewLineMode', and 'Buffering' options of the</span><span>
+</span><a name="line-66"></a><span>    </span><span class="hs-comment">-- underlying handle are ignored. The read occurs from the current seek</span><span>
+</span><a name="line-67"></a><span>    </span><span class="hs-comment">-- position of the file handle. The stream ends as soon as EOF is</span><span>
+</span><a name="line-68"></a><span>    </span><span class="hs-comment">-- encountered.</span><span>
+</span><a name="line-69"></a><span>
+</span><a name="line-70"></a><span>      </span><a href="Streamly.Internal.FileSystem.Handle.html#read"><span class="hs-identifier hs-var">read</span></a><span>
+</span><a name="line-71"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.FileSystem.Handle.html#readWithBufferOf"><span class="hs-identifier hs-var">readWithBufferOf</span></a><span>
+</span><a name="line-72"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.FileSystem.Handle.html#readChunks"><span class="hs-identifier hs-var">readChunks</span></a><span>
+</span><a name="line-73"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.FileSystem.Handle.html#readChunksWithBufferOf"><span class="hs-identifier hs-var">readChunksWithBufferOf</span></a><span>
+</span><a name="line-74"></a><span>
+</span><a name="line-75"></a><span>    </span><span class="hs-comment">-- ** Write to Handle</span><span>
+</span><a name="line-76"></a><span>    </span><span class="hs-comment">-- | 'TextEncoding', 'NewLineMode', and 'Buffering' options of the</span><span>
+</span><a name="line-77"></a><span>    </span><span class="hs-comment">-- underlying handle are ignored. The write occurs from the current seek</span><span>
+</span><a name="line-78"></a><span>    </span><span class="hs-comment">-- position of the file handle.  The write behavior depends on the 'IOMode'</span><span>
+</span><a name="line-79"></a><span>    </span><span class="hs-comment">-- of the handle.</span><span>
+</span><a name="line-80"></a><span>
+</span><a name="line-81"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.FileSystem.Handle.html#write"><span class="hs-identifier hs-var">write</span></a><span>
+</span><a name="line-82"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.FileSystem.Handle.html#writeWithBufferOf"><span class="hs-identifier hs-var">writeWithBufferOf</span></a><span>
+</span><a name="line-83"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.FileSystem.Handle.html#writeChunks"><span class="hs-identifier hs-var">writeChunks</span></a><span>
+</span><a name="line-84"></a><span>    </span><span class="hs-special">)</span><span>
+</span><a name="line-85"></a><span class="hs-keyword">where</span><span>
+</span><a name="line-86"></a><span>
+</span><a name="line-87"></a><span class="hs-keyword">import</span><span> </span><a href="Streamly.Internal.FileSystem.Handle.html"><span class="hs-identifier">Streamly.Internal.FileSystem.Handle</span></a><span>
+</span><a name="line-88"></a><span class="hs-keyword">import</span><span> </span><span class="hs-identifier">Prelude</span><span> </span><span class="hs-keyword">hiding</span><span> </span><span class="hs-special">(</span><span class="hs-identifier hs-var">read</span><span class="hs-special">)</span><span>
+</span><a name="line-89"></a></pre></body></html>

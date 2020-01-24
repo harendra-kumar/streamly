@@ -1,0 +1,842 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-comment">-- |</span><span>
+</span><span id="line-2"></span><span class="hs-comment">-- Module      : Streamly.Internal.Data.Stream.Enumeration</span><span>
+</span><span id="line-3"></span><span class="hs-comment">-- Copyright   : (c) 2018 Composewell Technologies</span><span>
+</span><span id="line-4"></span><span class="hs-comment">--</span><span>
+</span><span id="line-5"></span><span class="hs-comment">-- License     : BSD3</span><span>
+</span><span id="line-6"></span><span class="hs-comment">-- Maintainer  : streamly@composewell.com</span><span>
+</span><span id="line-7"></span><span class="hs-comment">-- Stability   : experimental</span><span>
+</span><span id="line-8"></span><span class="hs-comment">-- Portability : GHC</span><span>
+</span><span id="line-9"></span><span class="hs-comment">--</span><span>
+</span><span id="line-10"></span><span class="hs-comment">-- The functions defined in this module should be rarely needed for direct use,</span><span>
+</span><span id="line-11"></span><span class="hs-comment">-- try to use the operations from the 'Enumerable' type class</span><span>
+</span><span id="line-12"></span><span class="hs-comment">-- instances instead.</span><span>
+</span><span id="line-13"></span><span class="hs-comment">--</span><span>
+</span><span id="line-14"></span><span class="hs-comment">-- This module provides an 'Enumerable' type class to enumerate 'Enum' types</span><span>
+</span><span id="line-15"></span><span class="hs-comment">-- into a stream. The operations in this type class correspond to similar</span><span>
+</span><span id="line-16"></span><span class="hs-comment">-- perations in the 'Enum' type class, the only difference is that they produce</span><span>
+</span><span id="line-17"></span><span class="hs-comment">-- a stream instead of a list. These operations cannot be defined generically</span><span>
+</span><span id="line-18"></span><span class="hs-comment">-- based on the 'Enum' type class. We provide instances for commonly used</span><span>
+</span><span id="line-19"></span><span class="hs-comment">-- types. If instances for other types are needed convenience functions defined</span><span>
+</span><span id="line-20"></span><span class="hs-comment">-- in this module can be used to define them. Alternatively, these functions</span><span>
+</span><span id="line-21"></span><span class="hs-comment">-- can be used directly.</span><span>
+</span><span id="line-22"></span><span>
+</span><span id="line-23"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Streamly.Internal.Data.Stream.IsStream.Enumeration</span><span>
+</span><span id="line-24"></span><span>    </span><span class="hs-special">(</span><span>
+</span><span id="line-25"></span><span>      </span><span class="annot"><a href="Streamly.Internal.Data.Stream.IsStream.Enumeration.html#Enumerable"><span class="hs-identifier">Enumerable</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-26"></span><span>
+</span><span id="line-27"></span><span>    </span><span class="annot"><span class="hs-comment">-- ** Enumerating 'Bounded' 'Enum' Types</span></span><span>
+</span><span id="line-28"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.IsStream.Enumeration.html#enumerate"><span class="hs-identifier">enumerate</span></a></span><span>
+</span><span id="line-29"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.IsStream.Enumeration.html#enumerateTo"><span class="hs-identifier">enumerateTo</span></a></span><span>
+</span><span id="line-30"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.IsStream.Enumeration.html#enumerateFromBounded"><span class="hs-identifier">enumerateFromBounded</span></a></span><span>
+</span><span id="line-31"></span><span>
+</span><span id="line-32"></span><span>    </span><span class="annot"><span class="hs-comment">-- ** Enumerating 'Enum' Types not larger than 'Int'</span></span><span>
+</span><span id="line-33"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.IsStream.Enumeration.html#enumerateFromToSmall"><span class="hs-identifier">enumerateFromToSmall</span></a></span><span>
+</span><span id="line-34"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.IsStream.Enumeration.html#enumerateFromThenToSmall"><span class="hs-identifier">enumerateFromThenToSmall</span></a></span><span>
+</span><span id="line-35"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.IsStream.Enumeration.html#enumerateFromThenSmallBounded"><span class="hs-identifier">enumerateFromThenSmallBounded</span></a></span><span>
+</span><span id="line-36"></span><span>
+</span><span id="line-37"></span><span>    </span><span class="annot"><span class="hs-comment">-- ** Enumerating 'Bounded' 'Integral' Types</span></span><span>
+</span><span id="line-38"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.IsStream.Enumeration.html#enumerateFromIntegral"><span class="hs-identifier">enumerateFromIntegral</span></a></span><span>
+</span><span id="line-39"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.IsStream.Enumeration.html#enumerateFromThenIntegral"><span class="hs-identifier">enumerateFromThenIntegral</span></a></span><span>
+</span><span id="line-40"></span><span>
+</span><span id="line-41"></span><span>    </span><span class="annot"><span class="hs-comment">-- ** Enumerating 'Integral' Types</span></span><span>
+</span><span id="line-42"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.IsStream.Enumeration.html#enumerateFromToIntegral"><span class="hs-identifier">enumerateFromToIntegral</span></a></span><span>
+</span><span id="line-43"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.IsStream.Enumeration.html#enumerateFromThenToIntegral"><span class="hs-identifier">enumerateFromThenToIntegral</span></a></span><span>
+</span><span id="line-44"></span><span>
+</span><span id="line-45"></span><span>    </span><span class="annot"><span class="hs-comment">-- ** Enumerating unbounded 'Integral' Types</span></span><span>
+</span><span id="line-46"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.IsStream.Enumeration.html#enumerateFromStepIntegral"><span class="hs-identifier">enumerateFromStepIntegral</span></a></span><span>
+</span><span id="line-47"></span><span>
+</span><span id="line-48"></span><span>    </span><span class="annot"><span class="hs-comment">-- ** Enumerating 'Fractional' Types</span></span><span>
+</span><span id="line-49"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.IsStream.Enumeration.html#enumerateFromFractional"><span class="hs-identifier">enumerateFromFractional</span></a></span><span>
+</span><span id="line-50"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.IsStream.Enumeration.html#enumerateFromToFractional"><span class="hs-identifier">enumerateFromToFractional</span></a></span><span>
+</span><span id="line-51"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.IsStream.Enumeration.html#enumerateFromThenFractional"><span class="hs-identifier">enumerateFromThenFractional</span></a></span><span>
+</span><span id="line-52"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.IsStream.Enumeration.html#enumerateFromThenToFractional"><span class="hs-identifier">enumerateFromThenToFractional</span></a></span><span>
+</span><span id="line-53"></span><span>    </span><span class="hs-special">)</span><span>
+</span><span id="line-54"></span><span class="hs-keyword">where</span><span>
+</span><span id="line-55"></span><span>
+</span><span id="line-56"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Fixed</span></span><span>
+</span><span id="line-57"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Int</span></span><span>
+</span><span id="line-58"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Ratio</span></span><span>
+</span><span id="line-59"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Word</span></span><span>
+</span><span id="line-60"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Numeric.Natural</span></span><span>
+</span><span id="line-61"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Functor.Identity</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Identity</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-62"></span><span>
+</span><span id="line-63"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.StreamD.Type.html"><span class="hs-identifier">Streamly.Internal.Data.Stream.StreamD.Type</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.Stream.StreamD.Type.html#fromStreamD"><span class="hs-identifier">fromStreamD</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-64"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.StreamK.Type.html"><span class="hs-identifier">Streamly.Internal.Data.Stream.StreamK.Type</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.Stream.StreamK.Type.html#IsStream"><span class="hs-identifier">IsStream</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-65"></span><span>
+</span><span id="line-66"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.StreamD.Generate.html"><span class="hs-identifier">Streamly.Internal.Data.Stream.StreamD.Generate</span></a></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">D</span></span><span>
+</span><span id="line-67"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Serial.html"><span class="hs-identifier">Streamly.Internal.Data.Stream.Serial</span></a></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Serial</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.Stream.Serial.html#map"><span class="hs-identifier">map</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-68"></span><span>
+</span><span id="line-69"></span><span class="hs-comment">-------------------------------------------------------------------------------</span><span>
+</span><span id="line-70"></span><span class="hs-comment">-- Enumeration of Integral types</span><span>
+</span><span id="line-71"></span><span class="hs-comment">-------------------------------------------------------------------------------</span><span>
+</span><span id="line-72"></span><span class="hs-comment">--</span><span>
+</span><span id="line-73"></span><span class="hs-comment">-- | @enumerateFromStepIntegral from step@ generates an infinite stream whose</span><span>
+</span><span id="line-74"></span><span class="hs-comment">-- first element is @from@ and the successive elements are in increments of</span><span>
+</span><span id="line-75"></span><span class="hs-comment">-- @step@.</span><span>
+</span><span id="line-76"></span><span class="hs-comment">--</span><span>
+</span><span id="line-77"></span><span class="hs-comment">-- CAUTION: This function is not safe for finite integral types. It does not</span><span>
+</span><span id="line-78"></span><span class="hs-comment">-- check for overflow, underflow or bounds.</span><span>
+</span><span id="line-79"></span><span class="hs-comment">--</span><span>
+</span><span id="line-80"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-81"></span><span class="hs-comment">-- &gt; S.toList $ S.take 4 $ S.enumerateFromStepIntegral 0 2</span><span>
+</span><span id="line-82"></span><span class="hs-comment">-- [0,2,4,6]</span><span>
+</span><span id="line-83"></span><span class="hs-comment">-- &gt; S.toList $ S.take 3 $ S.enumerateFromStepIntegral 0 (-2)</span><span>
+</span><span id="line-84"></span><span class="hs-comment">-- [0,-2,-4]</span><span>
+</span><span id="line-85"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-86"></span><span class="hs-comment">--</span><span>
+</span><span id="line-87"></span><span class="hs-comment">-- @since 0.6.0</span><span>
+</span><span id="line-88"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.IsStream.Enumeration.html#enumerateFromStepIntegral"><span class="hs-pragma hs-type">enumerateFromStepIntegral</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-89"></span><span id="local-6989586621679387252"><span id="local-6989586621679387253"><span id="local-6989586621679387254"><span class="annot"><a href="Streamly.Internal.Data.Stream.IsStream.Enumeration.html#enumerateFromStepIntegral"><span class="hs-identifier hs-type">enumerateFromStepIntegral</span></a></span><span>
+</span><span id="line-90"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.Stream.StreamK.Type.html#IsStream"><span class="hs-identifier hs-type">IsStream</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679387254"><span class="hs-identifier hs-type">t</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Monad</span></span><span> </span><span class="annot"><a href="#local-6989586621679387253"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Integral</span></span><span> </span><span class="annot"><a href="#local-6989586621679387252"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-91"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679387252"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679387252"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679387254"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679387253"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679387252"><span class="hs-identifier hs-type">a</span></a></span></span></span></span><span>
+</span><span id="line-92"></span><span id="enumerateFromStepIntegral"><span class="annot"><span class="annottext">enumerateFromStepIntegral :: a -&gt; a -&gt; t m a
+</span><a href="Streamly.Internal.Data.Stream.IsStream.Enumeration.html#enumerateFromStepIntegral"><span class="hs-identifier hs-var hs-var">enumerateFromStepIntegral</span></a></span></span><span> </span><span id="local-6989586621679387251"><span class="annot"><span class="annottext">from :: a
+</span><a href="#local-6989586621679387251"><span class="hs-identifier hs-var">from</span></a></span></span><span> </span><span id="local-6989586621679387250"><span class="annot"><span class="annottext">stride :: a
+</span><a href="#local-6989586621679387250"><span class="hs-identifier hs-var">stride</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-93"></span><span>    </span><span class="annot"><span class="annottext">Stream m a -&gt; t m a
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) (m :: * -&gt; *) a.
+(IsStream t, Monad m) =&gt;
+Stream m a -&gt; t m a
+</span><a href="Streamly.Internal.Data.Stream.StreamD.Type.html#fromStreamD"><span class="hs-identifier hs-var">fromStreamD</span></a></span><span> </span><span class="annot"><span class="annottext">(Stream m a -&gt; t m a) -&gt; Stream m a -&gt; t m a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; a -&gt; Stream m a
+forall a (m :: * -&gt; *).
+(Integral a, Monad m) =&gt;
+a -&gt; a -&gt; Stream m a
+</span><a href="Streamly.Internal.Data.Stream.StreamD.Generate.html#enumerateFromStepIntegral"><span class="hs-identifier hs-var">D.enumerateFromStepIntegral</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679387251"><span class="hs-identifier hs-var">from</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679387250"><span class="hs-identifier hs-var">stride</span></a></span><span>
+</span><span id="line-94"></span><span>
+</span><span id="line-95"></span><span class="hs-comment">-- | Enumerate an 'Integral' type. @enumerateFromIntegral from@ generates a</span><span>
+</span><span id="line-96"></span><span class="hs-comment">-- stream whose first element is @from@ and the successive elements are in</span><span>
+</span><span id="line-97"></span><span class="hs-comment">-- increments of @1@. The stream is bounded by the size of the 'Integral' type.</span><span>
+</span><span id="line-98"></span><span class="hs-comment">--</span><span>
+</span><span id="line-99"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-100"></span><span class="hs-comment">-- &gt; S.toList $ S.take 4 $ S.enumerateFromIntegral (0 :: Int)</span><span>
+</span><span id="line-101"></span><span class="hs-comment">-- [0,1,2,3]</span><span>
+</span><span id="line-102"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-103"></span><span class="hs-comment">--</span><span>
+</span><span id="line-104"></span><span class="hs-comment">-- @since 0.6.0</span><span>
+</span><span id="line-105"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.IsStream.Enumeration.html#enumerateFromIntegral"><span class="hs-pragma hs-type">enumerateFromIntegral</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-106"></span><span id="local-6989586621679387429"><span id="local-6989586621679387430"><span id="local-6989586621679387431"><span class="annot"><a href="Streamly.Internal.Data.Stream.IsStream.Enumeration.html#enumerateFromIntegral"><span class="hs-identifier hs-type">enumerateFromIntegral</span></a></span><span>
+</span><span id="line-107"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.Stream.StreamK.Type.html#IsStream"><span class="hs-identifier hs-type">IsStream</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679387431"><span class="hs-identifier hs-type">t</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Monad</span></span><span> </span><span class="annot"><a href="#local-6989586621679387430"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Integral</span></span><span> </span><span class="annot"><a href="#local-6989586621679387429"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bounded</span></span><span> </span><span class="annot"><a href="#local-6989586621679387429"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-108"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679387429"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679387431"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679387430"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679387429"><span class="hs-identifier hs-type">a</span></a></span></span></span></span><span>
+</span><span id="line-109"></span><span id="enumerateFromIntegral"><span class="annot"><span class="annottext">enumerateFromIntegral :: a -&gt; t m a
+</span><a href="Streamly.Internal.Data.Stream.IsStream.Enumeration.html#enumerateFromIntegral"><span class="hs-identifier hs-var hs-var">enumerateFromIntegral</span></a></span></span><span> </span><span id="local-6989586621679387248"><span class="annot"><span class="annottext">from :: a
+</span><a href="#local-6989586621679387248"><span class="hs-identifier hs-var">from</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Stream m a -&gt; t m a
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) (m :: * -&gt; *) a.
+(IsStream t, Monad m) =&gt;
+Stream m a -&gt; t m a
+</span><a href="Streamly.Internal.Data.Stream.StreamD.Type.html#fromStreamD"><span class="hs-identifier hs-var">fromStreamD</span></a></span><span> </span><span class="annot"><span class="annottext">(Stream m a -&gt; t m a) -&gt; Stream m a -&gt; t m a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; Stream m a
+forall (m :: * -&gt; *) a.
+(Monad m, Integral a, Bounded a) =&gt;
+a -&gt; Stream m a
+</span><a href="Streamly.Internal.Data.Stream.StreamD.Generate.html#enumerateFromIntegral"><span class="hs-identifier hs-var">D.enumerateFromIntegral</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679387248"><span class="hs-identifier hs-var">from</span></a></span><span>
+</span><span id="line-110"></span><span>
+</span><span id="line-111"></span><span class="hs-comment">-- | Enumerate an 'Integral' type in steps. @enumerateFromThenIntegral from</span><span>
+</span><span id="line-112"></span><span class="hs-comment">-- then@ generates a stream whose first element is @from@, the second element</span><span>
+</span><span id="line-113"></span><span class="hs-comment">-- is @then@ and the successive elements are in increments of @then - from@.</span><span>
+</span><span id="line-114"></span><span class="hs-comment">-- The stream is bounded by the size of the 'Integral' type.</span><span>
+</span><span id="line-115"></span><span class="hs-comment">--</span><span>
+</span><span id="line-116"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-117"></span><span class="hs-comment">-- &gt; S.toList $ S.take 4 $ S.enumerateFromThenIntegral (0 :: Int) 2</span><span>
+</span><span id="line-118"></span><span class="hs-comment">-- [0,2,4,6]</span><span>
+</span><span id="line-119"></span><span class="hs-comment">-- &gt; S.toList $ S.take 4 $ S.enumerateFromThenIntegral (0 :: Int) (-2)</span><span>
+</span><span id="line-120"></span><span class="hs-comment">-- [0,-2,-4,-6]</span><span>
+</span><span id="line-121"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-122"></span><span class="hs-comment">--</span><span>
+</span><span id="line-123"></span><span class="hs-comment">-- @since 0.6.0</span><span>
+</span><span id="line-124"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.IsStream.Enumeration.html#enumerateFromThenIntegral"><span class="hs-pragma hs-type">enumerateFromThenIntegral</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-125"></span><span id="local-6989586621679387424"><span id="local-6989586621679387425"><span id="local-6989586621679387426"><span class="annot"><a href="Streamly.Internal.Data.Stream.IsStream.Enumeration.html#enumerateFromThenIntegral"><span class="hs-identifier hs-type">enumerateFromThenIntegral</span></a></span><span>
+</span><span id="line-126"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.Stream.StreamK.Type.html#IsStream"><span class="hs-identifier hs-type">IsStream</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679387426"><span class="hs-identifier hs-type">t</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Monad</span></span><span> </span><span class="annot"><a href="#local-6989586621679387425"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Integral</span></span><span> </span><span class="annot"><a href="#local-6989586621679387424"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bounded</span></span><span> </span><span class="annot"><a href="#local-6989586621679387424"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-127"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679387424"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679387424"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679387426"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679387425"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679387424"><span class="hs-identifier hs-type">a</span></a></span></span></span></span><span>
+</span><span id="line-128"></span><span id="enumerateFromThenIntegral"><span class="annot"><span class="annottext">enumerateFromThenIntegral :: a -&gt; a -&gt; t m a
+</span><a href="Streamly.Internal.Data.Stream.IsStream.Enumeration.html#enumerateFromThenIntegral"><span class="hs-identifier hs-var hs-var">enumerateFromThenIntegral</span></a></span></span><span> </span><span id="local-6989586621679387246"><span class="annot"><span class="annottext">from :: a
+</span><a href="#local-6989586621679387246"><span class="hs-identifier hs-var">from</span></a></span></span><span> </span><span id="local-6989586621679387245"><span class="annot"><span class="annottext">next :: a
+</span><a href="#local-6989586621679387245"><span class="hs-identifier hs-var">next</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-129"></span><span>    </span><span class="annot"><span class="annottext">Stream m a -&gt; t m a
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) (m :: * -&gt; *) a.
+(IsStream t, Monad m) =&gt;
+Stream m a -&gt; t m a
+</span><a href="Streamly.Internal.Data.Stream.StreamD.Type.html#fromStreamD"><span class="hs-identifier hs-var">fromStreamD</span></a></span><span> </span><span class="annot"><span class="annottext">(Stream m a -&gt; t m a) -&gt; Stream m a -&gt; t m a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; a -&gt; Stream m a
+forall (m :: * -&gt; *) a.
+(Monad m, Integral a, Bounded a) =&gt;
+a -&gt; a -&gt; Stream m a
+</span><a href="Streamly.Internal.Data.Stream.StreamD.Generate.html#enumerateFromThenIntegral"><span class="hs-identifier hs-var">D.enumerateFromThenIntegral</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679387246"><span class="hs-identifier hs-var">from</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679387245"><span class="hs-identifier hs-var">next</span></a></span><span>
+</span><span id="line-130"></span><span>
+</span><span id="line-131"></span><span class="hs-comment">-- | Enumerate an 'Integral' type up to a given limit.</span><span>
+</span><span id="line-132"></span><span class="hs-comment">-- @enumerateFromToIntegral from to@ generates a finite stream whose first</span><span>
+</span><span id="line-133"></span><span class="hs-comment">-- element is @from@ and successive elements are in increments of @1@ up to</span><span>
+</span><span id="line-134"></span><span class="hs-comment">-- @to@.</span><span>
+</span><span id="line-135"></span><span class="hs-comment">--</span><span>
+</span><span id="line-136"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-137"></span><span class="hs-comment">-- &gt; S.toList $ S.enumerateFromToIntegral 0 4</span><span>
+</span><span id="line-138"></span><span class="hs-comment">-- [0,1,2,3,4]</span><span>
+</span><span id="line-139"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-140"></span><span class="hs-comment">--</span><span>
+</span><span id="line-141"></span><span class="hs-comment">-- @since 0.6.0</span><span>
+</span><span id="line-142"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.IsStream.Enumeration.html#enumerateFromToIntegral"><span class="hs-pragma hs-type">enumerateFromToIntegral</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-143"></span><span id="local-6989586621679387506"><span id="local-6989586621679387507"><span id="local-6989586621679387508"><span class="annot"><a href="Streamly.Internal.Data.Stream.IsStream.Enumeration.html#enumerateFromToIntegral"><span class="hs-identifier hs-type">enumerateFromToIntegral</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.Stream.StreamK.Type.html#IsStream"><span class="hs-identifier hs-type">IsStream</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679387508"><span class="hs-identifier hs-type">t</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Monad</span></span><span> </span><span class="annot"><a href="#local-6989586621679387507"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Integral</span></span><span> </span><span class="annot"><a href="#local-6989586621679387506"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679387506"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679387506"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679387508"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679387507"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679387506"><span class="hs-identifier hs-type">a</span></a></span></span></span></span><span>
+</span><span id="line-144"></span><span id="enumerateFromToIntegral"><span class="annot"><span class="annottext">enumerateFromToIntegral :: a -&gt; a -&gt; t m a
+</span><a href="Streamly.Internal.Data.Stream.IsStream.Enumeration.html#enumerateFromToIntegral"><span class="hs-identifier hs-var hs-var">enumerateFromToIntegral</span></a></span></span><span> </span><span id="local-6989586621679387243"><span class="annot"><span class="annottext">from :: a
+</span><a href="#local-6989586621679387243"><span class="hs-identifier hs-var">from</span></a></span></span><span> </span><span id="local-6989586621679387242"><span class="annot"><span class="annottext">to :: a
+</span><a href="#local-6989586621679387242"><span class="hs-identifier hs-var">to</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-145"></span><span>    </span><span class="annot"><span class="annottext">Stream m a -&gt; t m a
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) (m :: * -&gt; *) a.
+(IsStream t, Monad m) =&gt;
+Stream m a -&gt; t m a
+</span><a href="Streamly.Internal.Data.Stream.StreamD.Type.html#fromStreamD"><span class="hs-identifier hs-var">fromStreamD</span></a></span><span> </span><span class="annot"><span class="annottext">(Stream m a -&gt; t m a) -&gt; Stream m a -&gt; t m a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; a -&gt; Stream m a
+forall (m :: * -&gt; *) a.
+(Monad m, Integral a) =&gt;
+a -&gt; a -&gt; Stream m a
+</span><a href="Streamly.Internal.Data.Stream.StreamD.Generate.html#enumerateFromToIntegral"><span class="hs-identifier hs-var">D.enumerateFromToIntegral</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679387243"><span class="hs-identifier hs-var">from</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679387242"><span class="hs-identifier hs-var">to</span></a></span><span>
+</span><span id="line-146"></span><span>
+</span><span id="line-147"></span><span class="hs-comment">-- | Enumerate an 'Integral' type in steps up to a given limit.</span><span>
+</span><span id="line-148"></span><span class="hs-comment">-- @enumerateFromThenToIntegral from then to@ generates a finite stream whose</span><span>
+</span><span id="line-149"></span><span class="hs-comment">-- first element is @from@, the second element is @then@ and the successive</span><span>
+</span><span id="line-150"></span><span class="hs-comment">-- elements are in increments of @then - from@ up to @to@.</span><span>
+</span><span id="line-151"></span><span class="hs-comment">--</span><span>
+</span><span id="line-152"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-153"></span><span class="hs-comment">-- &gt; S.toList $ S.enumerateFromThenToIntegral 0 2 6</span><span>
+</span><span id="line-154"></span><span class="hs-comment">-- [0,2,4,6]</span><span>
+</span><span id="line-155"></span><span class="hs-comment">-- &gt; S.toList $ S.enumerateFromThenToIntegral 0 (-2) (-6)</span><span>
+</span><span id="line-156"></span><span class="hs-comment">-- [0,-2,-4,-6]</span><span>
+</span><span id="line-157"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-158"></span><span class="hs-comment">--</span><span>
+</span><span id="line-159"></span><span class="hs-comment">-- @since 0.6.0</span><span>
+</span><span id="line-160"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.IsStream.Enumeration.html#enumerateFromThenToIntegral"><span class="hs-pragma hs-type">enumerateFromThenToIntegral</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-161"></span><span id="local-6989586621679387500"><span id="local-6989586621679387501"><span id="local-6989586621679387502"><span class="annot"><a href="Streamly.Internal.Data.Stream.IsStream.Enumeration.html#enumerateFromThenToIntegral"><span class="hs-identifier hs-type">enumerateFromThenToIntegral</span></a></span><span>
+</span><span id="line-162"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.Stream.StreamK.Type.html#IsStream"><span class="hs-identifier hs-type">IsStream</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679387502"><span class="hs-identifier hs-type">t</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Monad</span></span><span> </span><span class="annot"><a href="#local-6989586621679387501"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Integral</span></span><span> </span><span class="annot"><a href="#local-6989586621679387500"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-163"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679387500"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679387500"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679387500"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679387502"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679387501"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679387500"><span class="hs-identifier hs-type">a</span></a></span></span></span></span><span>
+</span><span id="line-164"></span><span id="enumerateFromThenToIntegral"><span class="annot"><span class="annottext">enumerateFromThenToIntegral :: a -&gt; a -&gt; a -&gt; t m a
+</span><a href="Streamly.Internal.Data.Stream.IsStream.Enumeration.html#enumerateFromThenToIntegral"><span class="hs-identifier hs-var hs-var">enumerateFromThenToIntegral</span></a></span></span><span> </span><span id="local-6989586621679387240"><span class="annot"><span class="annottext">from :: a
+</span><a href="#local-6989586621679387240"><span class="hs-identifier hs-var">from</span></a></span></span><span> </span><span id="local-6989586621679387239"><span class="annot"><span class="annottext">next :: a
+</span><a href="#local-6989586621679387239"><span class="hs-identifier hs-var">next</span></a></span></span><span> </span><span id="local-6989586621679387238"><span class="annot"><span class="annottext">to :: a
+</span><a href="#local-6989586621679387238"><span class="hs-identifier hs-var">to</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-165"></span><span>    </span><span class="annot"><span class="annottext">Stream m a -&gt; t m a
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) (m :: * -&gt; *) a.
+(IsStream t, Monad m) =&gt;
+Stream m a -&gt; t m a
+</span><a href="Streamly.Internal.Data.Stream.StreamD.Type.html#fromStreamD"><span class="hs-identifier hs-var">fromStreamD</span></a></span><span> </span><span class="annot"><span class="annottext">(Stream m a -&gt; t m a) -&gt; Stream m a -&gt; t m a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; a -&gt; a -&gt; Stream m a
+forall (m :: * -&gt; *) a.
+(Monad m, Integral a) =&gt;
+a -&gt; a -&gt; a -&gt; Stream m a
+</span><a href="Streamly.Internal.Data.Stream.StreamD.Generate.html#enumerateFromThenToIntegral"><span class="hs-identifier hs-var">D.enumerateFromThenToIntegral</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679387240"><span class="hs-identifier hs-var">from</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679387239"><span class="hs-identifier hs-var">next</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679387238"><span class="hs-identifier hs-var">to</span></a></span><span>
+</span><span id="line-166"></span><span>
+</span><span id="line-167"></span><span class="hs-comment">-------------------------------------------------------------------------------</span><span>
+</span><span id="line-168"></span><span class="hs-comment">-- Enumeration of Fractional types</span><span>
+</span><span id="line-169"></span><span class="hs-comment">-------------------------------------------------------------------------------</span><span>
+</span><span id="line-170"></span><span class="hs-comment">--</span><span>
+</span><span id="line-171"></span><span class="hs-comment">-- Even though the underlying implementation of enumerateFromFractional and</span><span>
+</span><span id="line-172"></span><span class="hs-comment">-- enumerateFromThenFractional works for any 'Num' we have restricted these to</span><span>
+</span><span id="line-173"></span><span class="hs-comment">-- 'Fractional' because these do not perform any bounds check, in contrast to</span><span>
+</span><span id="line-174"></span><span class="hs-comment">-- integral versions and are therefore not equivalent substitutes for those.</span><span>
+</span><span id="line-175"></span><span class="hs-comment">--</span><span>
+</span><span id="line-176"></span><span class="hs-comment">-- | Numerically stable enumeration from a 'Fractional' number in steps of size</span><span>
+</span><span id="line-177"></span><span class="hs-comment">-- @1@. @enumerateFromFractional from@ generates a stream whose first element</span><span>
+</span><span id="line-178"></span><span class="hs-comment">-- is @from@ and the successive elements are in increments of @1@.  No overflow</span><span>
+</span><span id="line-179"></span><span class="hs-comment">-- or underflow checks are performed.</span><span>
+</span><span id="line-180"></span><span class="hs-comment">--</span><span>
+</span><span id="line-181"></span><span class="hs-comment">-- This is the equivalent to 'enumFrom' for 'Fractional' types. For example:</span><span>
+</span><span id="line-182"></span><span class="hs-comment">--</span><span>
+</span><span id="line-183"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-184"></span><span class="hs-comment">-- &gt; S.toList $ S.take 4 $ S.enumerateFromFractional 1.1</span><span>
+</span><span id="line-185"></span><span class="hs-comment">-- [1.1,2.1,3.1,4.1]</span><span>
+</span><span id="line-186"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-187"></span><span class="hs-comment">--</span><span>
+</span><span id="line-188"></span><span class="hs-comment">--</span><span>
+</span><span id="line-189"></span><span class="hs-comment">-- @since 0.6.0</span><span>
+</span><span id="line-190"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.IsStream.Enumeration.html#enumerateFromFractional"><span class="hs-pragma hs-type">enumerateFromFractional</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-191"></span><span id="local-6989586621679387326"><span id="local-6989586621679387327"><span id="local-6989586621679387328"><span class="annot"><a href="Streamly.Internal.Data.Stream.IsStream.Enumeration.html#enumerateFromFractional"><span class="hs-identifier hs-type">enumerateFromFractional</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.Stream.StreamK.Type.html#IsStream"><span class="hs-identifier hs-type">IsStream</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679387328"><span class="hs-identifier hs-type">t</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Monad</span></span><span> </span><span class="annot"><a href="#local-6989586621679387327"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Fractional</span></span><span> </span><span class="annot"><a href="#local-6989586621679387326"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679387326"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679387328"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679387327"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679387326"><span class="hs-identifier hs-type">a</span></a></span></span></span></span><span>
+</span><span id="line-192"></span><span id="enumerateFromFractional"><span class="annot"><span class="annottext">enumerateFromFractional :: a -&gt; t m a
+</span><a href="Streamly.Internal.Data.Stream.IsStream.Enumeration.html#enumerateFromFractional"><span class="hs-identifier hs-var hs-var">enumerateFromFractional</span></a></span></span><span> </span><span id="local-6989586621679387236"><span class="annot"><span class="annottext">from :: a
+</span><a href="#local-6989586621679387236"><span class="hs-identifier hs-var">from</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Stream m a -&gt; t m a
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) (m :: * -&gt; *) a.
+(IsStream t, Monad m) =&gt;
+Stream m a -&gt; t m a
+</span><a href="Streamly.Internal.Data.Stream.StreamD.Type.html#fromStreamD"><span class="hs-identifier hs-var">fromStreamD</span></a></span><span> </span><span class="annot"><span class="annottext">(Stream m a -&gt; t m a) -&gt; Stream m a -&gt; t m a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; Stream m a
+forall (m :: * -&gt; *) a. (Monad m, Num a) =&gt; a -&gt; Stream m a
+</span><a href="Streamly.Internal.Data.Stream.StreamD.Generate.html#numFrom"><span class="hs-identifier hs-var">D.numFrom</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679387236"><span class="hs-identifier hs-var">from</span></a></span><span>
+</span><span id="line-193"></span><span>
+</span><span id="line-194"></span><span class="hs-comment">-- | Numerically stable enumeration from a 'Fractional' number in steps.</span><span>
+</span><span id="line-195"></span><span class="hs-comment">-- @enumerateFromThenFractional from then@ generates a stream whose first</span><span>
+</span><span id="line-196"></span><span class="hs-comment">-- element is @from@, the second element is @then@ and the successive elements</span><span>
+</span><span id="line-197"></span><span class="hs-comment">-- are in increments of @then - from@.  No overflow or underflow checks are</span><span>
+</span><span id="line-198"></span><span class="hs-comment">-- performed.</span><span>
+</span><span id="line-199"></span><span class="hs-comment">--</span><span>
+</span><span id="line-200"></span><span class="hs-comment">-- This is the equivalent of 'enumFromThen' for 'Fractional' types. For</span><span>
+</span><span id="line-201"></span><span class="hs-comment">-- example:</span><span>
+</span><span id="line-202"></span><span class="hs-comment">--</span><span>
+</span><span id="line-203"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-204"></span><span class="hs-comment">-- &gt; S.toList $ S.take 4 $ S.enumerateFromThenFractional 1.1 2.1</span><span>
+</span><span id="line-205"></span><span class="hs-comment">-- [1.1,2.1,3.1,4.1]</span><span>
+</span><span id="line-206"></span><span class="hs-comment">-- &gt; S.toList $ S.take 4 $ S.enumerateFromThenFractional 1.1 (-2.1)</span><span>
+</span><span id="line-207"></span><span class="hs-comment">-- [1.1,-2.1,-5.300000000000001,-8.500000000000002]</span><span>
+</span><span id="line-208"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-209"></span><span class="hs-comment">--</span><span>
+</span><span id="line-210"></span><span class="hs-comment">-- @since 0.6.0</span><span>
+</span><span id="line-211"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.IsStream.Enumeration.html#enumerateFromThenFractional"><span class="hs-pragma hs-type">enumerateFromThenFractional</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-212"></span><span id="local-6989586621679387321"><span id="local-6989586621679387322"><span id="local-6989586621679387323"><span class="annot"><a href="Streamly.Internal.Data.Stream.IsStream.Enumeration.html#enumerateFromThenFractional"><span class="hs-identifier hs-type">enumerateFromThenFractional</span></a></span><span>
+</span><span id="line-213"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.Stream.StreamK.Type.html#IsStream"><span class="hs-identifier hs-type">IsStream</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679387323"><span class="hs-identifier hs-type">t</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Monad</span></span><span> </span><span class="annot"><a href="#local-6989586621679387322"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Fractional</span></span><span> </span><span class="annot"><a href="#local-6989586621679387321"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-214"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679387321"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679387321"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679387323"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679387322"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679387321"><span class="hs-identifier hs-type">a</span></a></span></span></span></span><span>
+</span><span id="line-215"></span><span id="enumerateFromThenFractional"><span class="annot"><span class="annottext">enumerateFromThenFractional :: a -&gt; a -&gt; t m a
+</span><a href="Streamly.Internal.Data.Stream.IsStream.Enumeration.html#enumerateFromThenFractional"><span class="hs-identifier hs-var hs-var">enumerateFromThenFractional</span></a></span></span><span> </span><span id="local-6989586621679387234"><span class="annot"><span class="annottext">from :: a
+</span><a href="#local-6989586621679387234"><span class="hs-identifier hs-var">from</span></a></span></span><span> </span><span id="local-6989586621679387233"><span class="annot"><span class="annottext">next :: a
+</span><a href="#local-6989586621679387233"><span class="hs-identifier hs-var">next</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Stream m a -&gt; t m a
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) (m :: * -&gt; *) a.
+(IsStream t, Monad m) =&gt;
+Stream m a -&gt; t m a
+</span><a href="Streamly.Internal.Data.Stream.StreamD.Type.html#fromStreamD"><span class="hs-identifier hs-var">fromStreamD</span></a></span><span> </span><span class="annot"><span class="annottext">(Stream m a -&gt; t m a) -&gt; Stream m a -&gt; t m a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; a -&gt; Stream m a
+forall (m :: * -&gt; *) a. (Monad m, Num a) =&gt; a -&gt; a -&gt; Stream m a
+</span><a href="Streamly.Internal.Data.Stream.StreamD.Generate.html#numFromThen"><span class="hs-identifier hs-var">D.numFromThen</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679387234"><span class="hs-identifier hs-var">from</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679387233"><span class="hs-identifier hs-var">next</span></a></span><span>
+</span><span id="line-216"></span><span>
+</span><span id="line-217"></span><span class="hs-comment">-- | Numerically stable enumeration from a 'Fractional' number to a given</span><span>
+</span><span id="line-218"></span><span class="hs-comment">-- limit.  @enumerateFromToFractional from to@ generates a finite stream whose</span><span>
+</span><span id="line-219"></span><span class="hs-comment">-- first element is @from@ and successive elements are in increments of @1@ up</span><span>
+</span><span id="line-220"></span><span class="hs-comment">-- to @to@.</span><span>
+</span><span id="line-221"></span><span class="hs-comment">--</span><span>
+</span><span id="line-222"></span><span class="hs-comment">-- This is the equivalent of 'enumFromTo' for 'Fractional' types. For</span><span>
+</span><span id="line-223"></span><span class="hs-comment">-- example:</span><span>
+</span><span id="line-224"></span><span class="hs-comment">--</span><span>
+</span><span id="line-225"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-226"></span><span class="hs-comment">-- &gt; S.toList $ S.enumerateFromToFractional 1.1 4</span><span>
+</span><span id="line-227"></span><span class="hs-comment">-- [1.1,2.1,3.1,4.1]</span><span>
+</span><span id="line-228"></span><span class="hs-comment">-- &gt; S.toList $ S.enumerateFromToFractional 1.1 4.6</span><span>
+</span><span id="line-229"></span><span class="hs-comment">-- [1.1,2.1,3.1,4.1,5.1]</span><span>
+</span><span id="line-230"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-231"></span><span class="hs-comment">--</span><span>
+</span><span id="line-232"></span><span class="hs-comment">-- Notice that the last element is equal to the specified @to@ value after</span><span>
+</span><span id="line-233"></span><span class="hs-comment">-- rounding to the nearest integer.</span><span>
+</span><span id="line-234"></span><span class="hs-comment">--</span><span>
+</span><span id="line-235"></span><span class="hs-comment">-- @since 0.6.0</span><span>
+</span><span id="line-236"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.IsStream.Enumeration.html#enumerateFromToFractional"><span class="hs-pragma hs-type">enumerateFromToFractional</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-237"></span><span id="local-6989586621679387316"><span id="local-6989586621679387317"><span id="local-6989586621679387318"><span class="annot"><a href="Streamly.Internal.Data.Stream.IsStream.Enumeration.html#enumerateFromToFractional"><span class="hs-identifier hs-type">enumerateFromToFractional</span></a></span><span>
+</span><span id="line-238"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.Stream.StreamK.Type.html#IsStream"><span class="hs-identifier hs-type">IsStream</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679387318"><span class="hs-identifier hs-type">t</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Monad</span></span><span> </span><span class="annot"><a href="#local-6989586621679387317"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Fractional</span></span><span> </span><span class="annot"><a href="#local-6989586621679387316"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Ord</span></span><span> </span><span class="annot"><a href="#local-6989586621679387316"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-239"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679387316"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679387316"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679387318"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679387317"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679387316"><span class="hs-identifier hs-type">a</span></a></span></span></span></span><span>
+</span><span id="line-240"></span><span id="enumerateFromToFractional"><span class="annot"><span class="annottext">enumerateFromToFractional :: a -&gt; a -&gt; t m a
+</span><a href="Streamly.Internal.Data.Stream.IsStream.Enumeration.html#enumerateFromToFractional"><span class="hs-identifier hs-var hs-var">enumerateFromToFractional</span></a></span></span><span> </span><span id="local-6989586621679387231"><span class="annot"><span class="annottext">from :: a
+</span><a href="#local-6989586621679387231"><span class="hs-identifier hs-var">from</span></a></span></span><span> </span><span id="local-6989586621679387230"><span class="annot"><span class="annottext">to :: a
+</span><a href="#local-6989586621679387230"><span class="hs-identifier hs-var">to</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-241"></span><span>    </span><span class="annot"><span class="annottext">Stream m a -&gt; t m a
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) (m :: * -&gt; *) a.
+(IsStream t, Monad m) =&gt;
+Stream m a -&gt; t m a
+</span><a href="Streamly.Internal.Data.Stream.StreamD.Type.html#fromStreamD"><span class="hs-identifier hs-var">fromStreamD</span></a></span><span> </span><span class="annot"><span class="annottext">(Stream m a -&gt; t m a) -&gt; Stream m a -&gt; t m a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; a -&gt; Stream m a
+forall (m :: * -&gt; *) a.
+(Monad m, Fractional a, Ord a) =&gt;
+a -&gt; a -&gt; Stream m a
+</span><a href="Streamly.Internal.Data.Stream.StreamD.Generate.html#enumerateFromToFractional"><span class="hs-identifier hs-var">D.enumerateFromToFractional</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679387231"><span class="hs-identifier hs-var">from</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679387230"><span class="hs-identifier hs-var">to</span></a></span><span>
+</span><span id="line-242"></span><span>
+</span><span id="line-243"></span><span class="hs-comment">-- | Numerically stable enumeration from a 'Fractional' number in steps up to a</span><span>
+</span><span id="line-244"></span><span class="hs-comment">-- given limit.  @enumerateFromThenToFractional from then to@ generates a</span><span>
+</span><span id="line-245"></span><span class="hs-comment">-- finite stream whose first element is @from@, the second element is @then@</span><span>
+</span><span id="line-246"></span><span class="hs-comment">-- and the successive elements are in increments of @then - from@ up to @to@.</span><span>
+</span><span id="line-247"></span><span class="hs-comment">--</span><span>
+</span><span id="line-248"></span><span class="hs-comment">-- This is the equivalent of 'enumFromThenTo' for 'Fractional' types. For</span><span>
+</span><span id="line-249"></span><span class="hs-comment">-- example:</span><span>
+</span><span id="line-250"></span><span class="hs-comment">--</span><span>
+</span><span id="line-251"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-252"></span><span class="hs-comment">-- &gt; S.toList $ S.enumerateFromThenToFractional 0.1 2 6</span><span>
+</span><span id="line-253"></span><span class="hs-comment">-- [0.1,2.0,3.9,5.799999999999999]</span><span>
+</span><span id="line-254"></span><span class="hs-comment">-- &gt; S.toList $ S.enumerateFromThenToFractional 0.1 (-2) (-6)</span><span>
+</span><span id="line-255"></span><span class="hs-comment">-- [0.1,-2.0,-4.1000000000000005,-6.200000000000001]</span><span>
+</span><span id="line-256"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-257"></span><span class="hs-comment">--</span><span>
+</span><span id="line-258"></span><span class="hs-comment">--</span><span>
+</span><span id="line-259"></span><span class="hs-comment">-- @since 0.6.0</span><span>
+</span><span id="line-260"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.IsStream.Enumeration.html#enumerateFromThenToFractional"><span class="hs-pragma hs-type">enumerateFromThenToFractional</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-261"></span><span id="local-6989586621679387311"><span id="local-6989586621679387312"><span id="local-6989586621679387313"><span class="annot"><a href="Streamly.Internal.Data.Stream.IsStream.Enumeration.html#enumerateFromThenToFractional"><span class="hs-identifier hs-type">enumerateFromThenToFractional</span></a></span><span>
+</span><span id="line-262"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.Stream.StreamK.Type.html#IsStream"><span class="hs-identifier hs-type">IsStream</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679387313"><span class="hs-identifier hs-type">t</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Monad</span></span><span> </span><span class="annot"><a href="#local-6989586621679387312"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Fractional</span></span><span> </span><span class="annot"><a href="#local-6989586621679387311"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Ord</span></span><span> </span><span class="annot"><a href="#local-6989586621679387311"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-263"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679387311"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679387311"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679387311"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679387313"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679387312"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679387311"><span class="hs-identifier hs-type">a</span></a></span></span></span></span><span>
+</span><span id="line-264"></span><span id="enumerateFromThenToFractional"><span class="annot"><span class="annottext">enumerateFromThenToFractional :: a -&gt; a -&gt; a -&gt; t m a
+</span><a href="Streamly.Internal.Data.Stream.IsStream.Enumeration.html#enumerateFromThenToFractional"><span class="hs-identifier hs-var hs-var">enumerateFromThenToFractional</span></a></span></span><span> </span><span id="local-6989586621679387228"><span class="annot"><span class="annottext">from :: a
+</span><a href="#local-6989586621679387228"><span class="hs-identifier hs-var">from</span></a></span></span><span> </span><span id="local-6989586621679387227"><span class="annot"><span class="annottext">next :: a
+</span><a href="#local-6989586621679387227"><span class="hs-identifier hs-var">next</span></a></span></span><span> </span><span id="local-6989586621679387226"><span class="annot"><span class="annottext">to :: a
+</span><a href="#local-6989586621679387226"><span class="hs-identifier hs-var">to</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-265"></span><span>    </span><span class="annot"><span class="annottext">Stream m a -&gt; t m a
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) (m :: * -&gt; *) a.
+(IsStream t, Monad m) =&gt;
+Stream m a -&gt; t m a
+</span><a href="Streamly.Internal.Data.Stream.StreamD.Type.html#fromStreamD"><span class="hs-identifier hs-var">fromStreamD</span></a></span><span> </span><span class="annot"><span class="annottext">(Stream m a -&gt; t m a) -&gt; Stream m a -&gt; t m a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; a -&gt; a -&gt; Stream m a
+forall (m :: * -&gt; *) a.
+(Monad m, Fractional a, Ord a) =&gt;
+a -&gt; a -&gt; a -&gt; Stream m a
+</span><a href="Streamly.Internal.Data.Stream.StreamD.Generate.html#enumerateFromThenToFractional"><span class="hs-identifier hs-var">D.enumerateFromThenToFractional</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679387228"><span class="hs-identifier hs-var">from</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679387227"><span class="hs-identifier hs-var">next</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679387226"><span class="hs-identifier hs-var">to</span></a></span><span>
+</span><span id="line-266"></span><span>
+</span><span id="line-267"></span><span class="hs-comment">-------------------------------------------------------------------------------</span><span>
+</span><span id="line-268"></span><span class="hs-comment">-- Enumeration of Enum types not larger than Int</span><span>
+</span><span id="line-269"></span><span class="hs-comment">-------------------------------------------------------------------------------</span><span>
+</span><span id="line-270"></span><span class="hs-comment">--</span><span>
+</span><span id="line-271"></span><span class="hs-comment">-- | 'enumerateFromTo' for 'Enum' types not larger than 'Int'.</span><span>
+</span><span id="line-272"></span><span class="hs-comment">--</span><span>
+</span><span id="line-273"></span><span class="hs-comment">-- @since 0.6.0</span><span>
+</span><span id="line-274"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.IsStream.Enumeration.html#enumerateFromToSmall"><span class="hs-pragma hs-type">enumerateFromToSmall</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-275"></span><span id="local-6989586621679387463"><span id="local-6989586621679387464"><span id="local-6989586621679387465"><span class="annot"><a href="Streamly.Internal.Data.Stream.IsStream.Enumeration.html#enumerateFromToSmall"><span class="hs-identifier hs-type">enumerateFromToSmall</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.Stream.StreamK.Type.html#IsStream"><span class="hs-identifier hs-type">IsStream</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679387465"><span class="hs-identifier hs-type">t</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Monad</span></span><span> </span><span class="annot"><a href="#local-6989586621679387464"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Enum</span></span><span> </span><span class="annot"><a href="#local-6989586621679387463"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679387463"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679387463"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679387465"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679387464"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679387463"><span class="hs-identifier hs-type">a</span></a></span></span></span></span><span>
+</span><span id="line-276"></span><span id="enumerateFromToSmall"><span class="annot"><span class="annottext">enumerateFromToSmall :: a -&gt; a -&gt; t m a
+</span><a href="Streamly.Internal.Data.Stream.IsStream.Enumeration.html#enumerateFromToSmall"><span class="hs-identifier hs-var hs-var">enumerateFromToSmall</span></a></span></span><span> </span><span id="local-6989586621679387224"><span class="annot"><span class="annottext">from :: a
+</span><a href="#local-6989586621679387224"><span class="hs-identifier hs-var">from</span></a></span></span><span> </span><span id="local-6989586621679387223"><span class="annot"><span class="annottext">to :: a
+</span><a href="#local-6989586621679387223"><span class="hs-identifier hs-var">to</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Int -&gt; a) -&gt; t m Int -&gt; t m a
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) (m :: * -&gt; *) a b.
+(IsStream t, Monad m) =&gt;
+(a -&gt; b) -&gt; t m a -&gt; t m b
+</span><a href="Streamly.Internal.Data.Stream.Serial.html#map"><span class="hs-identifier hs-var">Serial.map</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; a
+forall a. Enum a =&gt; Int -&gt; a
+</span><span class="hs-identifier hs-var">toEnum</span></span><span> </span><span class="annot"><span class="annottext">(t m Int -&gt; t m a) -&gt; t m Int -&gt; t m a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span>
+</span><span id="line-277"></span><span>    </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; t m Int
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) (m :: * -&gt; *) a.
+(IsStream t, Monad m, Integral a) =&gt;
+a -&gt; a -&gt; t m a
+</span><a href="Streamly.Internal.Data.Stream.IsStream.Enumeration.html#enumerateFromToIntegral"><span class="hs-identifier hs-var">enumerateFromToIntegral</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">a -&gt; Int
+forall a. Enum a =&gt; a -&gt; Int
+</span><span class="hs-identifier hs-var">fromEnum</span></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679387224"><span class="hs-identifier hs-var">from</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">a -&gt; Int
+forall a. Enum a =&gt; a -&gt; Int
+</span><span class="hs-identifier hs-var">fromEnum</span></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679387223"><span class="hs-identifier hs-var">to</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-278"></span><span>
+</span><span id="line-279"></span><span class="hs-comment">-- | 'enumerateFromThenTo' for 'Enum' types not larger than 'Int'.</span><span>
+</span><span id="line-280"></span><span class="hs-comment">--</span><span>
+</span><span id="line-281"></span><span class="hs-comment">-- @since 0.6.0</span><span>
+</span><span id="line-282"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.IsStream.Enumeration.html#enumerateFromThenToSmall"><span class="hs-pragma hs-type">enumerateFromThenToSmall</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-283"></span><span id="local-6989586621679387458"><span id="local-6989586621679387459"><span id="local-6989586621679387460"><span class="annot"><a href="Streamly.Internal.Data.Stream.IsStream.Enumeration.html#enumerateFromThenToSmall"><span class="hs-identifier hs-type">enumerateFromThenToSmall</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.Stream.StreamK.Type.html#IsStream"><span class="hs-identifier hs-type">IsStream</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679387460"><span class="hs-identifier hs-type">t</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Monad</span></span><span> </span><span class="annot"><a href="#local-6989586621679387459"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Enum</span></span><span> </span><span class="annot"><a href="#local-6989586621679387458"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-284"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679387458"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679387458"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679387458"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679387460"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679387459"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679387458"><span class="hs-identifier hs-type">a</span></a></span></span></span></span><span>
+</span><span id="line-285"></span><span id="enumerateFromThenToSmall"><span class="annot"><span class="annottext">enumerateFromThenToSmall :: a -&gt; a -&gt; a -&gt; t m a
+</span><a href="Streamly.Internal.Data.Stream.IsStream.Enumeration.html#enumerateFromThenToSmall"><span class="hs-identifier hs-var hs-var">enumerateFromThenToSmall</span></a></span></span><span> </span><span id="local-6989586621679387220"><span class="annot"><span class="annottext">from :: a
+</span><a href="#local-6989586621679387220"><span class="hs-identifier hs-var">from</span></a></span></span><span> </span><span id="local-6989586621679387219"><span class="annot"><span class="annottext">next :: a
+</span><a href="#local-6989586621679387219"><span class="hs-identifier hs-var">next</span></a></span></span><span> </span><span id="local-6989586621679387218"><span class="annot"><span class="annottext">to :: a
+</span><a href="#local-6989586621679387218"><span class="hs-identifier hs-var">to</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Int -&gt; a) -&gt; t m Int -&gt; t m a
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) (m :: * -&gt; *) a b.
+(IsStream t, Monad m) =&gt;
+(a -&gt; b) -&gt; t m a -&gt; t m b
+</span><a href="Streamly.Internal.Data.Stream.Serial.html#map"><span class="hs-identifier hs-var">Serial.map</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; a
+forall a. Enum a =&gt; Int -&gt; a
+</span><span class="hs-identifier hs-var">toEnum</span></span><span> </span><span class="annot"><span class="annottext">(t m Int -&gt; t m a) -&gt; t m Int -&gt; t m a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span>
+</span><span id="line-286"></span><span>    </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int -&gt; t m Int
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) (m :: * -&gt; *) a.
+(IsStream t, Monad m, Integral a) =&gt;
+a -&gt; a -&gt; a -&gt; t m a
+</span><a href="Streamly.Internal.Data.Stream.IsStream.Enumeration.html#enumerateFromThenToIntegral"><span class="hs-identifier hs-var">enumerateFromThenToIntegral</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">a -&gt; Int
+forall a. Enum a =&gt; a -&gt; Int
+</span><span class="hs-identifier hs-var">fromEnum</span></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679387220"><span class="hs-identifier hs-var">from</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">a -&gt; Int
+forall a. Enum a =&gt; a -&gt; Int
+</span><span class="hs-identifier hs-var">fromEnum</span></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679387219"><span class="hs-identifier hs-var">next</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">a -&gt; Int
+forall a. Enum a =&gt; a -&gt; Int
+</span><span class="hs-identifier hs-var">fromEnum</span></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679387218"><span class="hs-identifier hs-var">to</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-287"></span><span>
+</span><span id="line-288"></span><span class="hs-comment">-- | 'enumerateFromThen' for 'Enum' types not larger than 'Int'.</span><span>
+</span><span id="line-289"></span><span class="hs-comment">--</span><span>
+</span><span id="line-290"></span><span class="hs-comment">-- Note: We convert the 'Enum' to 'Int' and enumerate the 'Int'. If a</span><span>
+</span><span id="line-291"></span><span class="hs-comment">-- type is bounded but does not have a 'Bounded' instance then we can go on</span><span>
+</span><span id="line-292"></span><span class="hs-comment">-- enumerating it beyond the legal values of the type, resulting in the failure</span><span>
+</span><span id="line-293"></span><span class="hs-comment">-- of 'toEnum' when converting back to 'Enum'. Therefore we require a 'Bounded'</span><span>
+</span><span id="line-294"></span><span class="hs-comment">-- instance for this function to be safely used.</span><span>
+</span><span id="line-295"></span><span class="hs-comment">--</span><span>
+</span><span id="line-296"></span><span class="hs-comment">-- @since 0.6.0</span><span>
+</span><span id="line-297"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.IsStream.Enumeration.html#enumerateFromThenSmallBounded"><span class="hs-pragma hs-type">enumerateFromThenSmallBounded</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-298"></span><span id="local-6989586621679387468"><span id="local-6989586621679387469"><span id="local-6989586621679387470"><span class="annot"><a href="Streamly.Internal.Data.Stream.IsStream.Enumeration.html#enumerateFromThenSmallBounded"><span class="hs-identifier hs-type">enumerateFromThenSmallBounded</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.Stream.StreamK.Type.html#IsStream"><span class="hs-identifier hs-type">IsStream</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679387470"><span class="hs-identifier hs-type">t</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Monad</span></span><span> </span><span class="annot"><a href="#local-6989586621679387469"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.IsStream.Enumeration.html#Enumerable"><span class="hs-identifier hs-type">Enumerable</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679387468"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bounded</span></span><span> </span><span class="annot"><a href="#local-6989586621679387468"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-299"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679387468"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679387468"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679387470"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679387469"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679387468"><span class="hs-identifier hs-type">a</span></a></span></span></span></span><span>
+</span><span id="line-300"></span><span id="enumerateFromThenSmallBounded"><span class="annot"><span class="annottext">enumerateFromThenSmallBounded :: a -&gt; a -&gt; t m a
+</span><a href="Streamly.Internal.Data.Stream.IsStream.Enumeration.html#enumerateFromThenSmallBounded"><span class="hs-identifier hs-var hs-var">enumerateFromThenSmallBounded</span></a></span></span><span> </span><span id="local-6989586621679387217"><span class="annot"><span class="annottext">from :: a
+</span><a href="#local-6989586621679387217"><span class="hs-identifier hs-var">from</span></a></span></span><span> </span><span id="local-6989586621679387216"><span class="annot"><span class="annottext">next :: a
+</span><a href="#local-6989586621679387216"><span class="hs-identifier hs-var">next</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-301"></span><span>    </span><span class="hs-keyword">if</span><span> </span><span class="annot"><span class="annottext">a -&gt; Int
+forall a. Enum a =&gt; a -&gt; Int
+</span><span class="hs-identifier hs-var">fromEnum</span></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679387216"><span class="hs-identifier hs-var">next</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">&gt;=</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; Int
+forall a. Enum a =&gt; a -&gt; Int
+</span><span class="hs-identifier hs-var">fromEnum</span></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679387217"><span class="hs-identifier hs-var">from</span></a></span><span>
+</span><span id="line-302"></span><span>    </span><span class="hs-keyword">then</span><span> </span><span class="annot"><span class="annottext">a -&gt; a -&gt; a -&gt; t m a
+forall a (t :: (* -&gt; *) -&gt; * -&gt; *) (m :: * -&gt; *).
+(Enumerable a, IsStream t, Monad m) =&gt;
+a -&gt; a -&gt; a -&gt; t m a
+</span><a href="Streamly.Internal.Data.Stream.IsStream.Enumeration.html#enumerateFromThenTo"><span class="hs-identifier hs-var">enumerateFromThenTo</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679387217"><span class="hs-identifier hs-var">from</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679387216"><span class="hs-identifier hs-var">next</span></a></span><span> </span><span class="annot"><span class="annottext">a
+forall a. Bounded a =&gt; a
+</span><span class="hs-identifier hs-var">maxBound</span></span><span>
+</span><span id="line-303"></span><span>    </span><span class="hs-keyword">else</span><span> </span><span class="annot"><span class="annottext">a -&gt; a -&gt; a -&gt; t m a
+forall a (t :: (* -&gt; *) -&gt; * -&gt; *) (m :: * -&gt; *).
+(Enumerable a, IsStream t, Monad m) =&gt;
+a -&gt; a -&gt; a -&gt; t m a
+</span><a href="Streamly.Internal.Data.Stream.IsStream.Enumeration.html#enumerateFromThenTo"><span class="hs-identifier hs-var">enumerateFromThenTo</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679387217"><span class="hs-identifier hs-var">from</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679387216"><span class="hs-identifier hs-var">next</span></a></span><span> </span><span class="annot"><span class="annottext">a
+forall a. Bounded a =&gt; a
+</span><span class="hs-identifier hs-var">minBound</span></span><span>
+</span><span id="line-304"></span><span>
+</span><span id="line-305"></span><span class="hs-comment">-------------------------------------------------------------------------------</span><span>
+</span><span id="line-306"></span><span class="hs-comment">-- Enumerable type class</span><span>
+</span><span id="line-307"></span><span class="hs-comment">-------------------------------------------------------------------------------</span><span>
+</span><span id="line-308"></span><span class="hs-comment">--</span><span>
+</span><span id="line-309"></span><span class="hs-comment">-- NOTE: We would like to rewrite calls to fromList [1..] etc. to stream</span><span>
+</span><span id="line-310"></span><span class="hs-comment">-- enumerations like this:</span><span>
+</span><span id="line-311"></span><span class="hs-comment">--</span><span>
+</span><span id="line-312"></span><span class="hs-comment">-- {-# RULES &quot;fromList enumFrom&quot; [1]</span><span>
+</span><span id="line-313"></span><span class="hs-comment">--     forall (a :: Int). D.fromList (enumFrom a) = D.enumerateFromIntegral a #-}</span><span>
+</span><span id="line-314"></span><span class="hs-comment">--</span><span>
+</span><span id="line-315"></span><span class="hs-comment">-- But this does not work because enumFrom is a class method and GHC rewrites</span><span>
+</span><span id="line-316"></span><span class="hs-comment">-- it quickly, so we do not get a chance to have our rule fired.</span><span>
+</span><span id="line-317"></span><span>
+</span><span id="line-318"></span><span class="hs-comment">-- | Types that can be enumerated as a stream. The operations in this type</span><span>
+</span><span id="line-319"></span><span class="hs-comment">-- class are equivalent to those in the 'Enum' type class, except that these</span><span>
+</span><span id="line-320"></span><span class="hs-comment">-- generate a stream instead of a list. Use the functions in</span><span>
+</span><span id="line-321"></span><span class="hs-comment">-- &quot;Streamly.Internal.Data.Stream.Enumeration&quot; module to define new instances.</span><span>
+</span><span id="line-322"></span><span class="hs-comment">--</span><span>
+</span><span id="line-323"></span><span class="hs-comment">-- @since 0.6.0</span><span>
+</span><span id="line-324"></span><span class="hs-keyword">class</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Enum</span></span><span> </span><span class="annot"><a href="#local-6989586621679387495"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span id="Enumerable"><span class="annot"><a href="Streamly.Internal.Data.Stream.IsStream.Enumeration.html#Enumerable"><span class="hs-identifier hs-var">Enumerable</span></a></span></span><span> </span><span id="local-6989586621679387495"><span class="annot"><a href="#local-6989586621679387495"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-325"></span><span>    </span><span class="hs-comment">-- | @enumerateFrom from@ generates a stream starting with the element</span><span>
+</span><span id="line-326"></span><span>    </span><span class="hs-comment">-- @from@, enumerating up to 'maxBound' when the type is 'Bounded' or</span><span>
+</span><span id="line-327"></span><span>    </span><span class="hs-comment">-- generating an infinite stream when the type is not 'Bounded'.</span><span>
+</span><span id="line-328"></span><span>    </span><span class="hs-comment">--</span><span>
+</span><span id="line-329"></span><span>    </span><span class="hs-comment">-- @</span><span>
+</span><span id="line-330"></span><span>    </span><span class="hs-comment">-- &gt; S.toList $ S.take 4 $ S.enumerateFrom (0 :: Int)</span><span>
+</span><span id="line-331"></span><span>    </span><span class="hs-comment">-- [0,1,2,3]</span><span>
+</span><span id="line-332"></span><span>    </span><span class="hs-comment">-- @</span><span>
+</span><span id="line-333"></span><span>    </span><span class="hs-comment">--</span><span>
+</span><span id="line-334"></span><span>    </span><span class="hs-comment">-- For 'Fractional' types, enumeration is numerically stable. However, no</span><span>
+</span><span id="line-335"></span><span>    </span><span class="hs-comment">-- overflow or underflow checks are performed.</span><span>
+</span><span id="line-336"></span><span>    </span><span class="hs-comment">--</span><span>
+</span><span id="line-337"></span><span>    </span><span class="hs-comment">-- @</span><span>
+</span><span id="line-338"></span><span>    </span><span class="hs-comment">-- &gt; S.toList $ S.take 4 $ S.enumerateFrom 1.1</span><span>
+</span><span id="line-339"></span><span>    </span><span class="hs-comment">-- [1.1,2.1,3.1,4.1]</span><span>
+</span><span id="line-340"></span><span>    </span><span class="hs-comment">-- @</span><span>
+</span><span id="line-341"></span><span>    </span><span class="hs-comment">--</span><span>
+</span><span id="line-342"></span><span>    </span><span class="hs-comment">-- @since 0.6.0</span><span>
+</span><span id="line-343"></span><span>    </span><span id="local-6989586621679387486"><span id="local-6989586621679387487"><span id="enumerateFrom"><span class="annot"><a href="Streamly.Internal.Data.Stream.IsStream.Enumeration.html#enumerateFrom"><span class="hs-identifier hs-type">enumerateFrom</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.Stream.StreamK.Type.html#IsStream"><span class="hs-identifier hs-type">IsStream</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679387487"><span class="hs-identifier hs-type">t</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Monad</span></span><span> </span><span class="annot"><a href="#local-6989586621679387486"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679387495"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679387487"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679387486"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679387495"><span class="hs-identifier hs-type">a</span></a></span></span></span><span>
+</span><span id="line-344"></span><span>
+</span><span id="line-345"></span><span>    </span><span class="hs-comment">-- | Generate a finite stream starting with the element @from@, enumerating</span><span>
+</span><span id="line-346"></span><span>    </span><span class="hs-comment">-- the type up to the value @to@. If @to@ is smaller than @from@ then an</span><span>
+</span><span id="line-347"></span><span>    </span><span class="hs-comment">-- empty stream is returned.</span><span>
+</span><span id="line-348"></span><span>    </span><span class="hs-comment">--</span><span>
+</span><span id="line-349"></span><span>    </span><span class="hs-comment">-- @</span><span>
+</span><span id="line-350"></span><span>    </span><span class="hs-comment">-- &gt; S.toList $ S.enumerateFromTo 0 4</span><span>
+</span><span id="line-351"></span><span>    </span><span class="hs-comment">-- [0,1,2,3,4]</span><span>
+</span><span id="line-352"></span><span>    </span><span class="hs-comment">-- @</span><span>
+</span><span id="line-353"></span><span>    </span><span class="hs-comment">--</span><span>
+</span><span id="line-354"></span><span>    </span><span class="hs-comment">-- For 'Fractional' types, the last element is equal to the specified @to@</span><span>
+</span><span id="line-355"></span><span>    </span><span class="hs-comment">-- value after rounding to the nearest integral value.</span><span>
+</span><span id="line-356"></span><span>    </span><span class="hs-comment">--</span><span>
+</span><span id="line-357"></span><span>    </span><span class="hs-comment">-- @</span><span>
+</span><span id="line-358"></span><span>    </span><span class="hs-comment">-- &gt; S.toList $ S.enumerateFromTo 1.1 4</span><span>
+</span><span id="line-359"></span><span>    </span><span class="hs-comment">-- [1.1,2.1,3.1,4.1]</span><span>
+</span><span id="line-360"></span><span>    </span><span class="hs-comment">-- &gt; S.toList $ S.enumerateFromTo 1.1 4.6</span><span>
+</span><span id="line-361"></span><span>    </span><span class="hs-comment">-- [1.1,2.1,3.1,4.1,5.1]</span><span>
+</span><span id="line-362"></span><span>    </span><span class="hs-comment">-- @</span><span>
+</span><span id="line-363"></span><span>    </span><span class="hs-comment">--</span><span>
+</span><span id="line-364"></span><span>    </span><span class="hs-comment">-- @since 0.6.0</span><span>
+</span><span id="line-365"></span><span>    </span><span id="local-6989586621679387481"><span id="local-6989586621679387482"><span id="enumerateFromTo"><span class="annot"><a href="Streamly.Internal.Data.Stream.IsStream.Enumeration.html#enumerateFromTo"><span class="hs-identifier hs-type">enumerateFromTo</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.Stream.StreamK.Type.html#IsStream"><span class="hs-identifier hs-type">IsStream</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679387482"><span class="hs-identifier hs-type">t</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Monad</span></span><span> </span><span class="annot"><a href="#local-6989586621679387481"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679387495"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679387495"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679387482"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679387481"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679387495"><span class="hs-identifier hs-type">a</span></a></span></span></span><span>
+</span><span id="line-366"></span><span>
+</span><span id="line-367"></span><span>    </span><span class="hs-comment">-- | @enumerateFromThen from then@ generates a stream whose first element</span><span>
+</span><span id="line-368"></span><span>    </span><span class="hs-comment">-- is @from@, the second element is @then@ and the successive elements are</span><span>
+</span><span id="line-369"></span><span>    </span><span class="hs-comment">-- in increments of @then - from@.  Enumeration can occur downwards or</span><span>
+</span><span id="line-370"></span><span>    </span><span class="hs-comment">-- upwards depending on whether @then@ comes before or after @from@. For</span><span>
+</span><span id="line-371"></span><span>    </span><span class="hs-comment">-- 'Bounded' types the stream ends when 'maxBound' is reached, for</span><span>
+</span><span id="line-372"></span><span>    </span><span class="hs-comment">-- unbounded types it keeps enumerating infinitely.</span><span>
+</span><span id="line-373"></span><span>    </span><span class="hs-comment">--</span><span>
+</span><span id="line-374"></span><span>    </span><span class="hs-comment">-- @</span><span>
+</span><span id="line-375"></span><span>    </span><span class="hs-comment">-- &gt; S.toList $ S.take 4 $ S.enumerateFromThen 0 2</span><span>
+</span><span id="line-376"></span><span>    </span><span class="hs-comment">-- [0,2,4,6]</span><span>
+</span><span id="line-377"></span><span>    </span><span class="hs-comment">-- &gt; S.toList $ S.take 4 $ S.enumerateFromThen 0 (-2)</span><span>
+</span><span id="line-378"></span><span>    </span><span class="hs-comment">-- [0,-2,-4,-6]</span><span>
+</span><span id="line-379"></span><span>    </span><span class="hs-comment">-- @</span><span>
+</span><span id="line-380"></span><span>    </span><span class="hs-comment">--</span><span>
+</span><span id="line-381"></span><span>    </span><span class="hs-comment">-- @since 0.6.0</span><span>
+</span><span id="line-382"></span><span>    </span><span id="local-6989586621679387209"><span id="local-6989586621679387210"><span id="enumerateFromThen"><span class="annot"><a href="Streamly.Internal.Data.Stream.IsStream.Enumeration.html#enumerateFromThen"><span class="hs-identifier hs-type">enumerateFromThen</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.Stream.StreamK.Type.html#IsStream"><span class="hs-identifier hs-type">IsStream</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679387210"><span class="hs-identifier hs-type">t</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Monad</span></span><span> </span><span class="annot"><a href="#local-6989586621679387209"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679387495"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679387495"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679387210"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679387209"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679387495"><span class="hs-identifier hs-type">a</span></a></span></span></span><span>
+</span><span id="line-383"></span><span>
+</span><span id="line-384"></span><span>    </span><span class="hs-comment">-- | @enumerateFromThenTo from then to@ generates a finite stream whose</span><span>
+</span><span id="line-385"></span><span>    </span><span class="hs-comment">-- first element is @from@, the second element is @then@ and the successive</span><span>
+</span><span id="line-386"></span><span>    </span><span class="hs-comment">-- elements are in increments of @then - from@ up to @to@. Enumeration can</span><span>
+</span><span id="line-387"></span><span>    </span><span class="hs-comment">-- occur downwards or upwards depending on whether @then@ comes before or</span><span>
+</span><span id="line-388"></span><span>    </span><span class="hs-comment">-- after @from@.</span><span>
+</span><span id="line-389"></span><span>    </span><span class="hs-comment">--</span><span>
+</span><span id="line-390"></span><span>    </span><span class="hs-comment">-- @</span><span>
+</span><span id="line-391"></span><span>    </span><span class="hs-comment">-- &gt; S.toList $ S.enumerateFromThenTo 0 2 6</span><span>
+</span><span id="line-392"></span><span>    </span><span class="hs-comment">-- [0,2,4,6]</span><span>
+</span><span id="line-393"></span><span>    </span><span class="hs-comment">-- &gt; S.toList $ S.enumerateFromThenTo 0 (-2) (-6)</span><span>
+</span><span id="line-394"></span><span>    </span><span class="hs-comment">-- [0,-2,-4,-6]</span><span>
+</span><span id="line-395"></span><span>    </span><span class="hs-comment">-- @</span><span>
+</span><span id="line-396"></span><span>    </span><span class="hs-comment">--</span><span>
+</span><span id="line-397"></span><span>    </span><span class="hs-comment">-- @since 0.6.0</span><span>
+</span><span id="line-398"></span><span>    </span><span id="local-6989586621679387492"><span id="local-6989586621679387493"><span id="enumerateFromThenTo"><span class="annot"><a href="Streamly.Internal.Data.Stream.IsStream.Enumeration.html#enumerateFromThenTo"><span class="hs-identifier hs-type">enumerateFromThenTo</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.Stream.StreamK.Type.html#IsStream"><span class="hs-identifier hs-type">IsStream</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679387493"><span class="hs-identifier hs-type">t</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Monad</span></span><span> </span><span class="annot"><a href="#local-6989586621679387492"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679387495"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679387495"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679387495"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679387493"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679387492"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679387495"><span class="hs-identifier hs-type">a</span></a></span></span></span><span>
+</span><span id="line-399"></span><span>
+</span><span id="line-400"></span><span class="hs-comment">-- MAYBE: Sometimes it is more convenient to know the count rather then the</span><span>
+</span><span id="line-401"></span><span class="hs-comment">-- ending or starting element. For those cases we can define the folllowing</span><span>
+</span><span id="line-402"></span><span class="hs-comment">-- APIs. All of these will work only for bounded types if we represent the</span><span>
+</span><span id="line-403"></span><span class="hs-comment">-- count by Int.</span><span>
+</span><span id="line-404"></span><span class="hs-comment">--</span><span>
+</span><span id="line-405"></span><span class="hs-comment">-- enumerateN</span><span>
+</span><span id="line-406"></span><span class="hs-comment">-- enumerateFromN</span><span>
+</span><span id="line-407"></span><span class="hs-comment">-- enumerateToN</span><span>
+</span><span id="line-408"></span><span class="hs-comment">-- enumerateFromStep</span><span>
+</span><span id="line-409"></span><span class="hs-comment">-- enumerateFromStepN</span><span>
+</span><span id="line-410"></span><span>
+</span><span id="line-411"></span><span class="hs-comment">-------------------------------------------------------------------------------</span><span>
+</span><span id="line-412"></span><span class="hs-comment">-- Convenient functions for bounded types</span><span>
+</span><span id="line-413"></span><span class="hs-comment">-------------------------------------------------------------------------------</span><span>
+</span><span id="line-414"></span><span class="hs-comment">--</span><span>
+</span><span id="line-415"></span><span class="hs-comment">-- |</span><span>
+</span><span id="line-416"></span><span class="hs-comment">-- &gt; enumerate = enumerateFrom minBound</span><span>
+</span><span id="line-417"></span><span class="hs-comment">--</span><span>
+</span><span id="line-418"></span><span class="hs-comment">-- Enumerate a 'Bounded' type from its 'minBound' to 'maxBound'</span><span>
+</span><span id="line-419"></span><span class="hs-comment">--</span><span>
+</span><span id="line-420"></span><span class="hs-comment">-- @since 0.6.0</span><span>
+</span><span id="line-421"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.IsStream.Enumeration.html#enumerate"><span class="hs-pragma hs-type">enumerate</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-422"></span><span id="local-6989586621679387205"><span id="local-6989586621679387206"><span id="local-6989586621679387207"><span class="annot"><a href="Streamly.Internal.Data.Stream.IsStream.Enumeration.html#enumerate"><span class="hs-identifier hs-type">enumerate</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.Stream.StreamK.Type.html#IsStream"><span class="hs-identifier hs-type">IsStream</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679387207"><span class="hs-identifier hs-type">t</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Monad</span></span><span> </span><span class="annot"><a href="#local-6989586621679387206"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bounded</span></span><span> </span><span class="annot"><a href="#local-6989586621679387205"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.IsStream.Enumeration.html#Enumerable"><span class="hs-identifier hs-type">Enumerable</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679387205"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679387207"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679387206"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679387205"><span class="hs-identifier hs-type">a</span></a></span></span></span></span><span>
+</span><span id="line-423"></span><span id="enumerate"><span class="annot"><span class="annottext">enumerate :: t m a
+</span><a href="Streamly.Internal.Data.Stream.IsStream.Enumeration.html#enumerate"><span class="hs-identifier hs-var hs-var">enumerate</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">a -&gt; t m a
+forall a (t :: (* -&gt; *) -&gt; * -&gt; *) (m :: * -&gt; *).
+(Enumerable a, IsStream t, Monad m) =&gt;
+a -&gt; t m a
+</span><a href="Streamly.Internal.Data.Stream.IsStream.Enumeration.html#enumerateFrom"><span class="hs-identifier hs-var">enumerateFrom</span></a></span><span> </span><span class="annot"><span class="annottext">a
+forall a. Bounded a =&gt; a
+</span><span class="hs-identifier hs-var">minBound</span></span><span>
+</span><span id="line-424"></span><span>
+</span><span id="line-425"></span><span class="hs-comment">-- |</span><span>
+</span><span id="line-426"></span><span class="hs-comment">-- &gt; enumerateTo = enumerateFromTo minBound</span><span>
+</span><span id="line-427"></span><span class="hs-comment">--</span><span>
+</span><span id="line-428"></span><span class="hs-comment">-- Enumerate a 'Bounded' type from its 'minBound' to specified value.</span><span>
+</span><span id="line-429"></span><span class="hs-comment">--</span><span>
+</span><span id="line-430"></span><span class="hs-comment">-- @since 0.6.0</span><span>
+</span><span id="line-431"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.IsStream.Enumeration.html#enumerateTo"><span class="hs-pragma hs-type">enumerateTo</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-432"></span><span id="local-6989586621679387202"><span id="local-6989586621679387203"><span id="local-6989586621679387204"><span class="annot"><a href="Streamly.Internal.Data.Stream.IsStream.Enumeration.html#enumerateTo"><span class="hs-identifier hs-type">enumerateTo</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.Stream.StreamK.Type.html#IsStream"><span class="hs-identifier hs-type">IsStream</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679387204"><span class="hs-identifier hs-type">t</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Monad</span></span><span> </span><span class="annot"><a href="#local-6989586621679387203"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bounded</span></span><span> </span><span class="annot"><a href="#local-6989586621679387202"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.IsStream.Enumeration.html#Enumerable"><span class="hs-identifier hs-type">Enumerable</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679387202"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679387202"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679387204"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679387203"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679387202"><span class="hs-identifier hs-type">a</span></a></span></span></span></span><span>
+</span><span id="line-433"></span><span id="enumerateTo"><span class="annot"><span class="annottext">enumerateTo :: a -&gt; t m a
+</span><a href="Streamly.Internal.Data.Stream.IsStream.Enumeration.html#enumerateTo"><span class="hs-identifier hs-var hs-var">enumerateTo</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">a -&gt; a -&gt; t m a
+forall a (t :: (* -&gt; *) -&gt; * -&gt; *) (m :: * -&gt; *).
+(Enumerable a, IsStream t, Monad m) =&gt;
+a -&gt; a -&gt; t m a
+</span><a href="Streamly.Internal.Data.Stream.IsStream.Enumeration.html#enumerateFromTo"><span class="hs-identifier hs-var">enumerateFromTo</span></a></span><span> </span><span class="annot"><span class="annottext">a
+forall a. Bounded a =&gt; a
+</span><span class="hs-identifier hs-var">minBound</span></span><span>
+</span><span id="line-434"></span><span>
+</span><span id="line-435"></span><span class="hs-comment">-- |</span><span>
+</span><span id="line-436"></span><span class="hs-comment">-- &gt; enumerateFromBounded = enumerateFromTo from maxBound</span><span>
+</span><span id="line-437"></span><span class="hs-comment">--</span><span>
+</span><span id="line-438"></span><span class="hs-comment">-- 'enumerateFrom' for 'Bounded' 'Enum' types.</span><span>
+</span><span id="line-439"></span><span class="hs-comment">--</span><span>
+</span><span id="line-440"></span><span class="hs-comment">-- @since 0.6.0</span><span>
+</span><span id="line-441"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.IsStream.Enumeration.html#enumerateFromBounded"><span class="hs-pragma hs-type">enumerateFromBounded</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-442"></span><span id="local-6989586621679387473"><span id="local-6989586621679387474"><span id="local-6989586621679387475"><span class="annot"><a href="Streamly.Internal.Data.Stream.IsStream.Enumeration.html#enumerateFromBounded"><span class="hs-identifier hs-type">enumerateFromBounded</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.Stream.StreamK.Type.html#IsStream"><span class="hs-identifier hs-type">IsStream</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679387475"><span class="hs-identifier hs-type">t</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Monad</span></span><span> </span><span class="annot"><a href="#local-6989586621679387474"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.IsStream.Enumeration.html#Enumerable"><span class="hs-identifier hs-type">Enumerable</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679387473"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bounded</span></span><span> </span><span class="annot"><a href="#local-6989586621679387473"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-443"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679387473"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679387475"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679387474"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679387473"><span class="hs-identifier hs-type">a</span></a></span></span></span></span><span>
+</span><span id="line-444"></span><span id="enumerateFromBounded"><span class="annot"><span class="annottext">enumerateFromBounded :: a -&gt; t m a
+</span><a href="Streamly.Internal.Data.Stream.IsStream.Enumeration.html#enumerateFromBounded"><span class="hs-identifier hs-var hs-var">enumerateFromBounded</span></a></span></span><span> </span><span id="local-6989586621679387201"><span class="annot"><span class="annottext">from :: a
+</span><a href="#local-6989586621679387201"><span class="hs-identifier hs-var">from</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">a -&gt; a -&gt; t m a
+forall a (t :: (* -&gt; *) -&gt; * -&gt; *) (m :: * -&gt; *).
+(Enumerable a, IsStream t, Monad m) =&gt;
+a -&gt; a -&gt; t m a
+</span><a href="Streamly.Internal.Data.Stream.IsStream.Enumeration.html#enumerateFromTo"><span class="hs-identifier hs-var">enumerateFromTo</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679387201"><span class="hs-identifier hs-var">from</span></a></span><span> </span><span class="annot"><span class="annottext">a
+forall a. Bounded a =&gt; a
+</span><span class="hs-identifier hs-var">maxBound</span></span><span>
+</span><span id="line-445"></span><span>
+</span><span id="line-446"></span><span class="hs-comment">-------------------------------------------------------------------------------</span><span>
+</span><span id="line-447"></span><span class="hs-comment">-- Enumerable Instances</span><span>
+</span><span id="line-448"></span><span class="hs-comment">-------------------------------------------------------------------------------</span><span>
+</span><span id="line-449"></span><span class="hs-comment">--</span><span>
+</span><span id="line-450"></span><span class="hs-comment">-- For Enum types smaller than or equal to Int size.</span><span class="hs-cpp">
+#define ENUMERABLE_BOUNDED_SMALL(SMALL_TYPE)           \
+instance Enumerable SMALL_TYPE where {                 \
+    {-# INLINE enumerateFrom #-};                      \
+    enumerateFrom = enumerateFromBounded;              \
+    {-# INLINE enumerateFromThen #-};                  \
+    enumerateFromThen = enumerateFromThenSmallBounded; \
+    {-# INLINE enumerateFromTo #-};                    \
+    enumerateFromTo = enumerateFromToSmall;            \
+    {-# INLINE enumerateFromThenTo #-};                \
+    enumerateFromThenTo = enumerateFromThenToSmall }
+</span><span>
+</span><span id="line-462"></span><span>
+</span><span id="line-463"></span><span class="hs-identifier">ENUMERABLE_BOUNDED_SMALL</span><span class="hs-special">(</span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-464"></span><span class="hs-identifier">ENUMERABLE_BOUNDED_SMALL</span><span class="hs-special">(</span><span class="hs-identifier">Bool</span><span class="hs-special">)</span><span>
+</span><span id="line-465"></span><span class="hs-identifier">ENUMERABLE_BOUNDED_SMALL</span><span class="hs-special">(</span><span class="hs-identifier">Ordering</span><span class="hs-special">)</span><span>
+</span><span id="line-466"></span><span class="hs-identifier">ENUMERABLE_BOUNDED_SMALL</span><span class="hs-special">(</span><span class="hs-identifier">Char</span><span class="hs-special">)</span><span>
+</span><span id="line-467"></span><span>
+</span><span id="line-468"></span><span class="hs-comment">-- For bounded Integral Enum types, may be larger than Int.</span><span class="hs-cpp">
+#define ENUMERABLE_BOUNDED_INTEGRAL(INTEGRAL_TYPE)  \
+instance Enumerable INTEGRAL_TYPE where {           \
+    {-# INLINE enumerateFrom #-};                   \
+    enumerateFrom = enumerateFromIntegral;          \
+    {-# INLINE enumerateFromThen #-};               \
+    enumerateFromThen = enumerateFromThenIntegral;  \
+    {-# INLINE enumerateFromTo #-};                 \
+    enumerateFromTo = enumerateFromToIntegral;      \
+    {-# INLINE enumerateFromThenTo #-};             \
+    enumerateFromThenTo = enumerateFromThenToIntegral }
+</span><span>
+</span><span id="line-480"></span><span class="hs-identifier">ENUMERABLE_BOUNDED_INTEGRAL</span><span class="hs-special">(</span><span class="hs-identifier">Int</span><span class="hs-special">)</span><span>
+</span><span id="line-481"></span><span class="hs-identifier">ENUMERABLE_BOUNDED_INTEGRAL</span><span class="hs-special">(</span><span class="hs-identifier">Int8</span><span class="hs-special">)</span><span>
+</span><span id="line-482"></span><span class="hs-identifier">ENUMERABLE_BOUNDED_INTEGRAL</span><span class="hs-special">(</span><span class="hs-identifier">Int16</span><span class="hs-special">)</span><span>
+</span><span id="line-483"></span><span class="hs-identifier">ENUMERABLE_BOUNDED_INTEGRAL</span><span class="hs-special">(</span><span class="hs-identifier">Int32</span><span class="hs-special">)</span><span>
+</span><span id="line-484"></span><span class="hs-identifier">ENUMERABLE_BOUNDED_INTEGRAL</span><span class="hs-special">(</span><span class="hs-identifier">Int64</span><span class="hs-special">)</span><span>
+</span><span id="line-485"></span><span class="hs-identifier">ENUMERABLE_BOUNDED_INTEGRAL</span><span class="hs-special">(</span><span class="hs-identifier">Word</span><span class="hs-special">)</span><span>
+</span><span id="line-486"></span><span class="hs-identifier">ENUMERABLE_BOUNDED_INTEGRAL</span><span class="hs-special">(</span><span class="hs-identifier">Word8</span><span class="hs-special">)</span><span>
+</span><span id="line-487"></span><span class="hs-identifier">ENUMERABLE_BOUNDED_INTEGRAL</span><span class="hs-special">(</span><span class="hs-identifier">Word16</span><span class="hs-special">)</span><span>
+</span><span id="line-488"></span><span class="hs-identifier">ENUMERABLE_BOUNDED_INTEGRAL</span><span class="hs-special">(</span><span class="hs-identifier">Word32</span><span class="hs-special">)</span><span>
+</span><span id="line-489"></span><span class="hs-identifier">ENUMERABLE_BOUNDED_INTEGRAL</span><span class="hs-special">(</span><span class="hs-identifier">Word64</span><span class="hs-special">)</span><span>
+</span><span id="line-490"></span><span>
+</span><span id="line-491"></span><span class="hs-comment">-- For unbounded Integral Enum types.</span><span class="hs-cpp">
+#define ENUMERABLE_UNBOUNDED_INTEGRAL(INTEGRAL_TYPE)              \
+instance Enumerable INTEGRAL_TYPE where {                         \
+    {-# INLINE enumerateFrom #-};                                 \
+    enumerateFrom from = enumerateFromStepIntegral from 1;        \
+    {-# INLINE enumerateFromThen #-};                             \
+    enumerateFromThen from next =                                 \
+        enumerateFromStepIntegral from (next - from);             \
+    {-# INLINE enumerateFromTo #-};                               \
+    enumerateFromTo = enumerateFromToIntegral;                    \
+    {-# INLINE enumerateFromThenTo #-};                           \
+    enumerateFromThenTo = enumerateFromThenToIntegral }
+</span><span>
+</span><span id="line-504"></span><span class="hs-identifier">ENUMERABLE_UNBOUNDED_INTEGRAL</span><span class="hs-special">(</span><span class="hs-identifier">Integer</span><span class="hs-special">)</span><span>
+</span><span id="line-505"></span><span class="hs-identifier">ENUMERABLE_UNBOUNDED_INTEGRAL</span><span class="hs-special">(</span><span class="hs-identifier">Natural</span><span class="hs-special">)</span><span class="hs-cpp">
+
+#define ENUMERABLE_FRACTIONAL(FRACTIONAL_TYPE,CONSTRAINT)         \
+instance (CONSTRAINT) =&gt; Enumerable FRACTIONAL_TYPE where {     \
+    {-# INLINE enumerateFrom #-};                                 \
+    enumerateFrom = enumerateFromFractional;                      \
+    {-# INLINE enumerateFromThen #-};                             \
+    enumerateFromThen = enumerateFromThenFractional;              \
+    {-# INLINE enumerateFromTo #-};                               \
+    enumerateFromTo = enumerateFromToFractional;                  \
+    {-# INLINE enumerateFromThenTo #-};                           \
+    enumerateFromThenTo = enumerateFromThenToFractional }
+</span><span>
+</span><span id="line-518"></span><span class="hs-identifier">ENUMERABLE_FRACTIONAL</span><span class="hs-special">(</span><span class="hs-identifier">Float</span><span class="hs-special">,</span><span class="hs-special">)</span><span>
+</span><span id="line-519"></span><span class="hs-identifier">ENUMERABLE_FRACTIONAL</span><span class="hs-special">(</span><span class="hs-identifier">Double</span><span class="hs-special">,</span><span class="hs-special">)</span><span>
+</span><span id="line-520"></span><span id="local-6989586621679387031"><span class="hs-identifier">ENUMERABLE_FRACTIONAL</span><span class="hs-special">(</span><span class="hs-special">(</span><span class="hs-identifier">Fixed</span><span> </span><span class="hs-identifier">a</span><span class="hs-special">)</span><span class="hs-special">,</span><span class="hs-identifier">HasResolution</span><span> </span><span class="hs-identifier">a</span><span class="hs-special">)</span></span><span>
+</span><span id="line-521"></span><span id="local-6989586621679387021"><span class="hs-identifier">ENUMERABLE_FRACTIONAL</span><span class="hs-special">(</span><span class="hs-special">(</span><span class="hs-identifier">Ratio</span><span> </span><span class="hs-identifier">a</span><span class="hs-special">)</span><span class="hs-special">,</span><span class="hs-identifier">Integral</span><span> </span><span class="hs-identifier">a</span><span class="hs-special">)</span></span><span>
+</span><span id="line-522"></span><span>
+</span><span id="line-523"></span><span id="local-6989586621679387011"><span class="hs-keyword">instance</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.IsStream.Enumeration.html#Enumerable"><span class="hs-identifier hs-type">Enumerable</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679387011"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.IsStream.Enumeration.html#Enumerable"><span class="hs-identifier hs-type">Enumerable</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Identity</span></span><span> </span><span class="annot"><a href="#local-6989586621679387011"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-524"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.IsStream.Enumeration.html#enumerateFrom"><span class="hs-pragma hs-type">enumerateFrom</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-525"></span><span>    </span><span id="local-6989586621679387005"><span class="annot"><span class="annottext">enumerateFrom :: Identity a -&gt; t m (Identity a)
+</span><a href="#local-6989586621679387005"><span class="hs-identifier hs-var hs-var hs-var hs-var">enumerateFrom</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Identity</span></span><span> </span><span id="local-6989586621679387003"><span class="annot"><span class="annottext">from :: a
+</span><a href="#local-6989586621679387003"><span class="hs-identifier hs-var">from</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(a -&gt; Identity a) -&gt; t m a -&gt; t m (Identity a)
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) (m :: * -&gt; *) a b.
+(IsStream t, Monad m) =&gt;
+(a -&gt; b) -&gt; t m a -&gt; t m b
+</span><a href="Streamly.Internal.Data.Stream.Serial.html#map"><span class="hs-identifier hs-var">Serial.map</span></a></span><span> </span><span class="annot"><span class="annottext">a -&gt; Identity a
+forall a. a -&gt; Identity a
+</span><span class="hs-identifier hs-var">Identity</span></span><span> </span><span class="annot"><span class="annottext">(t m a -&gt; t m (Identity a)) -&gt; t m a -&gt; t m (Identity a)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span>
+</span><span id="line-526"></span><span>        </span><span class="annot"><span class="annottext">a -&gt; t m a
+forall a (t :: (* -&gt; *) -&gt; * -&gt; *) (m :: * -&gt; *).
+(Enumerable a, IsStream t, Monad m) =&gt;
+a -&gt; t m a
+</span><a href="Streamly.Internal.Data.Stream.IsStream.Enumeration.html#enumerateFrom"><span class="hs-identifier hs-var">enumerateFrom</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679387003"><span class="hs-identifier hs-var">from</span></a></span><span>
+</span><span id="line-527"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.IsStream.Enumeration.html#enumerateFromThen"><span class="hs-pragma hs-type">enumerateFromThen</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-528"></span><span>    </span><span id="local-6989586621679387002"><span class="annot"><span class="annottext">enumerateFromThen :: Identity a -&gt; Identity a -&gt; t m (Identity a)
+</span><a href="#local-6989586621679387002"><span class="hs-identifier hs-var hs-var hs-var hs-var">enumerateFromThen</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Identity</span></span><span> </span><span id="local-6989586621679387001"><span class="annot"><span class="annottext">from :: a
+</span><a href="#local-6989586621679387001"><span class="hs-identifier hs-var">from</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Identity</span></span><span> </span><span id="local-6989586621679387000"><span class="annot"><span class="annottext">next :: a
+</span><a href="#local-6989586621679387000"><span class="hs-identifier hs-var">next</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(a -&gt; Identity a) -&gt; t m a -&gt; t m (Identity a)
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) (m :: * -&gt; *) a b.
+(IsStream t, Monad m) =&gt;
+(a -&gt; b) -&gt; t m a -&gt; t m b
+</span><a href="Streamly.Internal.Data.Stream.Serial.html#map"><span class="hs-identifier hs-var">Serial.map</span></a></span><span> </span><span class="annot"><span class="annottext">a -&gt; Identity a
+forall a. a -&gt; Identity a
+</span><span class="hs-identifier hs-var">Identity</span></span><span> </span><span class="annot"><span class="annottext">(t m a -&gt; t m (Identity a)) -&gt; t m a -&gt; t m (Identity a)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span>
+</span><span id="line-529"></span><span>        </span><span class="annot"><span class="annottext">a -&gt; a -&gt; t m a
+forall a (t :: (* -&gt; *) -&gt; * -&gt; *) (m :: * -&gt; *).
+(Enumerable a, IsStream t, Monad m) =&gt;
+a -&gt; a -&gt; t m a
+</span><a href="Streamly.Internal.Data.Stream.IsStream.Enumeration.html#enumerateFromThen"><span class="hs-identifier hs-var">enumerateFromThen</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679387001"><span class="hs-identifier hs-var">from</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679387000"><span class="hs-identifier hs-var">next</span></a></span><span>
+</span><span id="line-530"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.IsStream.Enumeration.html#enumerateFromTo"><span class="hs-pragma hs-type">enumerateFromTo</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-531"></span><span>    </span><span id="local-6989586621679386999"><span class="annot"><span class="annottext">enumerateFromTo :: Identity a -&gt; Identity a -&gt; t m (Identity a)
+</span><a href="#local-6989586621679386999"><span class="hs-identifier hs-var hs-var hs-var hs-var">enumerateFromTo</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Identity</span></span><span> </span><span id="local-6989586621679386998"><span class="annot"><span class="annottext">from :: a
+</span><a href="#local-6989586621679386998"><span class="hs-identifier hs-var">from</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Identity</span></span><span> </span><span id="local-6989586621679386997"><span class="annot"><span class="annottext">to :: a
+</span><a href="#local-6989586621679386997"><span class="hs-identifier hs-var">to</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(a -&gt; Identity a) -&gt; t m a -&gt; t m (Identity a)
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) (m :: * -&gt; *) a b.
+(IsStream t, Monad m) =&gt;
+(a -&gt; b) -&gt; t m a -&gt; t m b
+</span><a href="Streamly.Internal.Data.Stream.Serial.html#map"><span class="hs-identifier hs-var">Serial.map</span></a></span><span> </span><span class="annot"><span class="annottext">a -&gt; Identity a
+forall a. a -&gt; Identity a
+</span><span class="hs-identifier hs-var">Identity</span></span><span> </span><span class="annot"><span class="annottext">(t m a -&gt; t m (Identity a)) -&gt; t m a -&gt; t m (Identity a)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span>
+</span><span id="line-532"></span><span>        </span><span class="annot"><span class="annottext">a -&gt; a -&gt; t m a
+forall a (t :: (* -&gt; *) -&gt; * -&gt; *) (m :: * -&gt; *).
+(Enumerable a, IsStream t, Monad m) =&gt;
+a -&gt; a -&gt; t m a
+</span><a href="Streamly.Internal.Data.Stream.IsStream.Enumeration.html#enumerateFromTo"><span class="hs-identifier hs-var">enumerateFromTo</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679386998"><span class="hs-identifier hs-var">from</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679386997"><span class="hs-identifier hs-var">to</span></a></span><span>
+</span><span id="line-533"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.IsStream.Enumeration.html#enumerateFromThenTo"><span class="hs-pragma hs-type">enumerateFromThenTo</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-534"></span><span>    </span><span id="local-6989586621679386996"><span class="annot"><span class="annottext">enumerateFromThenTo :: Identity a -&gt; Identity a -&gt; Identity a -&gt; t m (Identity a)
+</span><a href="#local-6989586621679386996"><span class="hs-identifier hs-var hs-var hs-var hs-var">enumerateFromThenTo</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Identity</span></span><span> </span><span id="local-6989586621679386995"><span class="annot"><span class="annottext">from :: a
+</span><a href="#local-6989586621679386995"><span class="hs-identifier hs-var">from</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Identity</span></span><span> </span><span id="local-6989586621679386994"><span class="annot"><span class="annottext">next :: a
+</span><a href="#local-6989586621679386994"><span class="hs-identifier hs-var">next</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Identity</span></span><span> </span><span id="local-6989586621679386993"><span class="annot"><span class="annottext">to :: a
+</span><a href="#local-6989586621679386993"><span class="hs-identifier hs-var">to</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-535"></span><span>        </span><span class="annot"><span class="annottext">(a -&gt; Identity a) -&gt; t m a -&gt; t m (Identity a)
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) (m :: * -&gt; *) a b.
+(IsStream t, Monad m) =&gt;
+(a -&gt; b) -&gt; t m a -&gt; t m b
+</span><a href="Streamly.Internal.Data.Stream.Serial.html#map"><span class="hs-identifier hs-var">Serial.map</span></a></span><span> </span><span class="annot"><span class="annottext">a -&gt; Identity a
+forall a. a -&gt; Identity a
+</span><span class="hs-identifier hs-var">Identity</span></span><span> </span><span class="annot"><span class="annottext">(t m a -&gt; t m (Identity a)) -&gt; t m a -&gt; t m (Identity a)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; a -&gt; a -&gt; t m a
+forall a (t :: (* -&gt; *) -&gt; * -&gt; *) (m :: * -&gt; *).
+(Enumerable a, IsStream t, Monad m) =&gt;
+a -&gt; a -&gt; a -&gt; t m a
+</span><a href="Streamly.Internal.Data.Stream.IsStream.Enumeration.html#enumerateFromThenTo"><span class="hs-identifier hs-var">enumerateFromThenTo</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679386995"><span class="hs-identifier hs-var">from</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679386994"><span class="hs-identifier hs-var">next</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679386993"><span class="hs-identifier hs-var">to</span></a></span></span><span>
+</span><span id="line-536"></span><span>
+</span><span id="line-537"></span><span class="hs-comment">-- TODO</span><span>
+</span><span id="line-538"></span><span class="hs-comment">{-
+instance Enumerable a =&gt; Enumerable (Last a)
+instance Enumerable a =&gt; Enumerable (First a)
+instance Enumerable a =&gt; Enumerable (Max a)
+instance Enumerable a =&gt; Enumerable (Min a)
+instance Enumerable a =&gt; Enumerable (Const a b)
+instance Enumerable (f a) =&gt; Enumerable (Alt f a)
+instance Enumerable (f a) =&gt; Enumerable (Ap f a)
+-}</span><span>
+</span><span id="line-547"></span></pre></body></html>

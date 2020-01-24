@@ -1,0 +1,58 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-comment">-- |</span><span>
+</span><a name="line-2"></a><span class="hs-comment">-- Module      : Streamly.Network.Socket</span><span>
+</span><a name="line-3"></a><span class="hs-comment">-- Copyright   : (c) 2018 Composewell Technologies</span><span>
+</span><a name="line-4"></a><span class="hs-comment">--</span><span>
+</span><a name="line-5"></a><span class="hs-comment">-- License     : BSD3</span><span>
+</span><a name="line-6"></a><span class="hs-comment">-- Maintainer  : streamly@composewell.com</span><span>
+</span><a name="line-7"></a><span class="hs-comment">-- Stability   : experimental</span><span>
+</span><a name="line-8"></a><span class="hs-comment">-- Portability : GHC</span><span>
+</span><a name="line-9"></a><span class="hs-comment">--</span><span>
+</span><a name="line-10"></a><span class="hs-comment">-- A socket is a handle to a protocol endpoint.</span><span>
+</span><a name="line-11"></a><span class="hs-comment">--</span><span>
+</span><a name="line-12"></a><span class="hs-comment">-- This module provides APIs to read and write streams and arrays from and to</span><span>
+</span><a name="line-13"></a><span class="hs-comment">-- network sockets. Sockets may be connected or unconnected. Connected sockets</span><span>
+</span><a name="line-14"></a><span class="hs-comment">-- can only send or recv data to/from the connected endpoint, therefore, APIs</span><span>
+</span><a name="line-15"></a><span class="hs-comment">-- for connected sockets do not need to explicitly specify the remote endpoint.</span><span>
+</span><a name="line-16"></a><span class="hs-comment">-- APIs for unconnected sockets need to explicitly specify the remote endpoint.</span><span>
+</span><a name="line-17"></a><span class="hs-comment">--</span><span>
+</span><a name="line-18"></a><span class="hs-comment">-- = Programmer Notes</span><span>
+</span><a name="line-19"></a><span class="hs-comment">--</span><span>
+</span><a name="line-20"></a><span class="hs-comment">-- Read IO requests to connected stream sockets are performed in chunks of</span><span>
+</span><a name="line-21"></a><span class="hs-comment">-- 'Streamly.Internal.Memory.Array.Types.defaultChunkSize'.  Unless specified</span><span>
+</span><a name="line-22"></a><span class="hs-comment">-- otherwise in the API, writes are collected into chunks of</span><span>
+</span><a name="line-23"></a><span class="hs-comment">-- 'Streamly.Internal.Memory.Array.Types.defaultChunkSize' before they are</span><span>
+</span><a name="line-24"></a><span class="hs-comment">-- written to the socket. APIs are provided to control the chunking behavior.</span><span>
+</span><a name="line-25"></a><span class="hs-comment">--</span><span>
+</span><a name="line-26"></a><span class="hs-comment">-- &gt; import qualified Streamly.Network.Socket as SK</span><span>
+</span><a name="line-27"></a><span class="hs-comment">--</span><span>
+</span><a name="line-28"></a><span class="hs-comment">-- For additional, experimental APIs take a look at</span><span>
+</span><a name="line-29"></a><span class="hs-comment">-- &quot;Streamly.Internal.Network.Socket&quot; module.</span><span>
+</span><a name="line-30"></a><span>
+</span><a name="line-31"></a><span class="hs-comment">-- By design, connected socket IO APIs are similar to</span><span>
+</span><a name="line-32"></a><span class="hs-comment">-- &quot;Streamly.Memory.Array&quot; read write APIs. They are almost identical to the</span><span>
+</span><a name="line-33"></a><span class="hs-comment">-- sequential streaming APIs in &quot;Streamly.Internal.FileSystem.File&quot;.</span><span>
+</span><a name="line-34"></a><span class="hs-comment">--</span><span>
+</span><a name="line-35"></a><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Streamly.Network.Socket</span><span>
+</span><a name="line-36"></a><span>    </span><span class="hs-special">(</span><span>
+</span><a name="line-37"></a><span>    </span><span class="hs-comment">-- * Socket Specification</span><span>
+</span><a name="line-38"></a><span>      </span><a href="Streamly.Internal.Network.Socket.html#SockSpec"><span class="hs-identifier hs-type">SockSpec</span></a><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><a name="line-39"></a><span>
+</span><a name="line-40"></a><span>    </span><span class="hs-comment">-- * Accept Connections</span><span>
+</span><a name="line-41"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Network.Socket.html#accept"><span class="hs-identifier hs-var">accept</span></a><span>
+</span><a name="line-42"></a><span>
+</span><a name="line-43"></a><span>    </span><span class="hs-comment">-- * Read</span><span>
+</span><a name="line-44"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Network.Socket.html#read"><span class="hs-identifier hs-var">read</span></a><span>
+</span><a name="line-45"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Network.Socket.html#readWithBufferOf"><span class="hs-identifier hs-var">readWithBufferOf</span></a><span>
+</span><a name="line-46"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Network.Socket.html#readChunks"><span class="hs-identifier hs-var">readChunks</span></a><span>
+</span><a name="line-47"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Network.Socket.html#readChunksWithBufferOf"><span class="hs-identifier hs-var">readChunksWithBufferOf</span></a><span>
+</span><a name="line-48"></a><span>
+</span><a name="line-49"></a><span>    </span><span class="hs-comment">-- * Write</span><span>
+</span><a name="line-50"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Network.Socket.html#write"><span class="hs-identifier hs-var">write</span></a><span>
+</span><a name="line-51"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Network.Socket.html#writeWithBufferOf"><span class="hs-identifier hs-var">writeWithBufferOf</span></a><span>
+</span><a name="line-52"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Network.Socket.html#writeChunks"><span class="hs-identifier hs-var">writeChunks</span></a><span>
+</span><a name="line-53"></a><span>    </span><span class="hs-special">)</span><span>
+</span><a name="line-54"></a><span class="hs-keyword">where</span><span>
+</span><a name="line-55"></a><span>
+</span><a name="line-56"></a><span class="hs-keyword">import</span><span> </span><a href="Streamly.Internal.Network.Socket.html"><span class="hs-identifier">Streamly.Internal.Network.Socket</span></a><span>
+</span><a name="line-57"></a><span class="hs-keyword">import</span><span> </span><span class="hs-identifier">Prelude</span><span> </span><span class="hs-keyword">hiding</span><span> </span><span class="hs-special">(</span><span class="hs-identifier hs-var">read</span><span class="hs-special">)</span><span>
+</span><a name="line-58"></a></pre></body></html>

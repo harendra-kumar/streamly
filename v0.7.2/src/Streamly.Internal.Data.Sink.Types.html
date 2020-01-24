@@ -1,0 +1,25 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-comment">-- |</span><span>
+</span><a name="line-2"></a><span class="hs-comment">-- Module      : Streamly.Internal.Data.Sink.Types</span><span>
+</span><a name="line-3"></a><span class="hs-comment">-- Copyright   : (c) 2019 Composewell Technologies</span><span>
+</span><a name="line-4"></a><span class="hs-comment">-- License     : BSD3</span><span>
+</span><a name="line-5"></a><span class="hs-comment">-- Maintainer  : streamly@composewell.com</span><span>
+</span><a name="line-6"></a><span class="hs-comment">-- Stability   : experimental</span><span>
+</span><a name="line-7"></a><span class="hs-comment">-- Portability : GHC</span><span>
+</span><a name="line-8"></a><span>
+</span><a name="line-9"></a><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Streamly.Internal.Data.Sink.Types</span><span>
+</span><a name="line-10"></a><span>    </span><span class="hs-special">(</span><span>
+</span><a name="line-11"></a><span>      </span><a href="Streamly.Internal.Data.Sink.Types.html#Sink"><span class="hs-identifier hs-type">Sink</span></a><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><a name="line-12"></a><span>    </span><span class="hs-special">)</span><span>
+</span><a name="line-13"></a><span class="hs-keyword">where</span><span>
+</span><a name="line-14"></a><span>
+</span><a name="line-15"></a><span class="hs-comment">------------------------------------------------------------------------------</span><span>
+</span><a name="line-16"></a><span class="hs-comment">-- Sink</span><span>
+</span><a name="line-17"></a><span class="hs-comment">------------------------------------------------------------------------------</span><span>
+</span><a name="line-18"></a><span>
+</span><a name="line-19"></a><span class="hs-comment">-- | A 'Sink' is a special type of 'Fold' that does not accumulate any value,</span><span>
+</span><a name="line-20"></a><span class="hs-comment">-- but runs only effects. A 'Sink' has no state to maintain therefore can be a</span><span>
+</span><a name="line-21"></a><span class="hs-comment">-- bit more efficient than a 'Fold' with '()' as the state, especially when</span><span>
+</span><a name="line-22"></a><span class="hs-comment">-- 'Sink's are composed with other operations. A Sink can be upgraded to a</span><span>
+</span><a name="line-23"></a><span class="hs-comment">-- 'Fold', but a 'Fold' cannot be converted into a Sink.</span><span>
+</span><a name="line-24"></a><span class="hs-keyword">data</span><span> </span><a name="Sink"><a href="Streamly.Internal.Data.Sink.Types.html#Sink"><span class="hs-identifier">Sink</span></a></a><span> </span><a name="local-6989586621679047952"><a href="#local-6989586621679047952"><span class="hs-identifier">m</span></a></a><span> </span><a name="local-6989586621679047953"><a href="#local-6989586621679047953"><span class="hs-identifier">a</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a name="Sink"><a href="Streamly.Internal.Data.Sink.Types.html#Sink"><span class="hs-identifier">Sink</span></a></a><span> </span><span class="hs-special">(</span><a href="#local-6989586621679047953"><span class="hs-identifier hs-type">a</span></a><span> </span><span class="hs-glyph">-&gt;</span><span> </span><a href="#local-6989586621679047952"><span class="hs-identifier hs-type">m</span></a><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><a name="line-25"></a></pre></body></html>

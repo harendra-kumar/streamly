@@ -1,0 +1,189 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-comment">-- |</span><span>
+</span><span id="line-2"></span><span class="hs-comment">-- Module      : Streamly.Internal.Data.Time</span><span>
+</span><span id="line-3"></span><span class="hs-comment">-- Copyright   : (c) 2017 Composewell Technologies</span><span>
+</span><span id="line-4"></span><span class="hs-comment">--</span><span>
+</span><span id="line-5"></span><span class="hs-comment">-- License     : BSD3</span><span>
+</span><span id="line-6"></span><span class="hs-comment">-- Maintainer  : streamly@composewell.com</span><span>
+</span><span id="line-7"></span><span class="hs-comment">-- Stability   : experimental</span><span>
+</span><span id="line-8"></span><span class="hs-comment">-- Portability : GHC</span><span>
+</span><span id="line-9"></span><span class="hs-comment">--</span><span>
+</span><span id="line-10"></span><span class="hs-comment">-- Time utilities for reactive programming.</span><span>
+</span><span id="line-11"></span><span>
+</span><span id="line-12"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Streamly.Internal.Data.Time</span><span>
+</span><span id="line-13"></span><span class="hs-pragma">{-# DEPRECATED</span><span>
+</span><span id="line-14"></span><span>   </span><span class="hs-pragma">&quot;Please use the \&quot;rate\&quot; combinator instead of the functions in this module&quot;</span><span>
+</span><span id="line-15"></span><span>  </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-16"></span><span>    </span><span class="hs-special">(</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Time.html#periodic"><span class="hs-identifier">periodic</span></a></span><span>
+</span><span id="line-17"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Time.html#withClock"><span class="hs-identifier">withClock</span></a></span><span>
+</span><span id="line-18"></span><span>    </span><span class="hs-special">)</span><span>
+</span><span id="line-19"></span><span class="hs-keyword">where</span><span>
+</span><span id="line-20"></span><span>
+</span><span id="line-21"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">when</span></span><span class="hs-special">)</span><span>
+</span><span id="line-22"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Concurrent</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">threadDelay</span></span><span class="hs-special">)</span><span>
+</span><span id="line-23"></span><span>
+</span><span id="line-24"></span><span class="hs-comment">-- | Run an action forever periodically at the given frequency specified in per</span><span>
+</span><span id="line-25"></span><span class="hs-comment">-- second (Hz).</span><span>
+</span><span id="line-26"></span><span class="hs-comment">--</span><span>
+</span><span id="line-27"></span><span class="hs-comment">-- @since 0.1.0</span><span>
+</span><span id="line-28"></span><span class="hs-pragma">{-# DEPRECATED</span><span> </span><span class="hs-pragma">periodic</span><span> </span><span class="hs-pragma">&quot;Please use the \&quot;rate\&quot; combinator instead&quot;</span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-29"></span><span class="annot"><a href="Streamly.Internal.Data.Time.html#periodic"><span class="hs-identifier hs-type">periodic</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-30"></span><span id="periodic"><span class="annot"><span class="annottext">periodic :: Int -&gt; IO () -&gt; IO ()
+</span><a href="Streamly.Internal.Data.Time.html#periodic"><span class="hs-identifier hs-var hs-var">periodic</span></a></span></span><span> </span><span id="local-6989586621679360093"><span class="annot"><span class="annottext">freq :: Int
+</span><a href="#local-6989586621679360093"><span class="hs-identifier hs-var">freq</span></a></span></span><span> </span><span id="local-6989586621679360092"><span class="annot"><span class="annottext">action :: IO ()
+</span><a href="#local-6989586621679360092"><span class="hs-identifier hs-var">action</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-31"></span><span>    </span><span class="annot"><span class="annottext">IO ()
+</span><a href="#local-6989586621679360092"><span class="hs-identifier hs-var">action</span></a></span><span>
+</span><span id="line-32"></span><span>    </span><span class="annot"><span class="annottext">Int -&gt; IO ()
+</span><span class="hs-identifier hs-var">threadDelay</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-number">1000000</span></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
+forall a. Integral a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">`div`</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679360093"><span class="hs-identifier hs-var">freq</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-33"></span><span>    </span><span class="annot"><span class="annottext">Int -&gt; IO () -&gt; IO ()
+</span><a href="Streamly.Internal.Data.Time.html#periodic"><span class="hs-identifier hs-var">periodic</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679360093"><span class="hs-identifier hs-var">freq</span></a></span><span> </span><span class="annot"><span class="annottext">IO ()
+</span><a href="#local-6989586621679360092"><span class="hs-identifier hs-var">action</span></a></span><span>
+</span><span id="line-34"></span><span>
+</span><span id="line-35"></span><span class="hs-comment">-- | Run a computation on every clock tick, the clock runs at the specified</span><span>
+</span><span id="line-36"></span><span class="hs-comment">-- frequency. It allows running a computation at high frequency efficiently by</span><span>
+</span><span id="line-37"></span><span class="hs-comment">-- maintaining a local clock and adjusting it with the provided base clock at</span><span>
+</span><span id="line-38"></span><span class="hs-comment">-- longer intervals.  The first argument is a base clock returning some notion</span><span>
+</span><span id="line-39"></span><span class="hs-comment">-- of time in microseconds. The second argument is the frequency in per second</span><span>
+</span><span id="line-40"></span><span class="hs-comment">-- (Hz). The third argument is the action to run, the action is provided the</span><span>
+</span><span id="line-41"></span><span class="hs-comment">-- local time as an argument.</span><span>
+</span><span id="line-42"></span><span class="hs-comment">--</span><span>
+</span><span id="line-43"></span><span class="hs-comment">-- @since 0.1.0</span><span>
+</span><span id="line-44"></span><span class="hs-pragma">{-# DEPRECATED</span><span> </span><span class="hs-pragma">withClock</span><span> </span><span class="hs-pragma">&quot;Please use the \&quot;rate\&quot; combinator instead&quot;</span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-45"></span><span class="annot"><a href="Streamly.Internal.Data.Time.html#withClock"><span class="hs-identifier hs-type">withClock</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-46"></span><span id="withClock"><span class="annot"><span class="annottext">withClock :: IO Int -&gt; Int -&gt; (Int -&gt; IO ()) -&gt; IO ()
+</span><a href="Streamly.Internal.Data.Time.html#withClock"><span class="hs-identifier hs-var hs-var">withClock</span></a></span></span><span> </span><span id="local-6989586621679360090"><span class="annot"><span class="annottext">clock :: IO Int
+</span><a href="#local-6989586621679360090"><span class="hs-identifier hs-var">clock</span></a></span></span><span> </span><span id="local-6989586621679360089"><span class="annot"><span class="annottext">freq :: Int
+</span><a href="#local-6989586621679360089"><span class="hs-identifier hs-var">freq</span></a></span></span><span> </span><span id="local-6989586621679360088"><span class="annot"><span class="annottext">action :: Int -&gt; IO ()
+</span><a href="#local-6989586621679360088"><span class="hs-identifier hs-var">action</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-47"></span><span>    </span><span id="local-6989586621679360087"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679360087"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IO Int
+</span><a href="#local-6989586621679360090"><span class="hs-identifier hs-var">clock</span></a></span><span>
+</span><span id="line-48"></span><span>    </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int -&gt; Int -&gt; Int -&gt; IO ()
+forall b. Int -&gt; Int -&gt; Int -&gt; Int -&gt; Int -&gt; IO b
+</span><a href="#local-6989586621679360086"><span class="hs-identifier hs-var">go</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679360087"><span class="hs-identifier hs-var">t</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679360085"><span class="hs-identifier hs-var">period</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679360085"><span class="hs-identifier hs-var">period</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679360087"><span class="hs-identifier hs-var">t</span></a></span><span> </span><span class="annot"><span class="hs-number">0</span></span><span>
+</span><span id="line-49"></span><span>
+</span><span id="line-50"></span><span>    </span><span class="hs-keyword">where</span><span>
+</span><span id="line-51"></span><span>
+</span><span id="line-52"></span><span>    </span><span id="local-6989586621679360085"><span class="annot"><span class="annottext">period :: Int
+</span><a href="#local-6989586621679360085"><span class="hs-identifier hs-var hs-var">period</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-number">1000000</span></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
+forall a. Integral a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">`div`</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679360089"><span class="hs-identifier hs-var">freq</span></a></span><span>
+</span><span id="line-53"></span><span>
+</span><span id="line-54"></span><span>    </span><span class="hs-comment">-- Note that localTime is roughly but not exactly equal to (lastAdj + tick</span><span>
+</span><span id="line-55"></span><span>    </span><span class="hs-comment">-- * n).  That is because we do not abruptly adjust the clock skew instead</span><span>
+</span><span id="line-56"></span><span>    </span><span class="hs-comment">-- we adjust the tick size.</span><span>
+</span><span id="line-57"></span><span>    </span><span id="local-6989586621679360086"><span class="annot"><span class="annottext">go :: Int -&gt; Int -&gt; Int -&gt; Int -&gt; Int -&gt; IO b
+</span><a href="#local-6989586621679360086"><span class="hs-identifier hs-var hs-var">go</span></a></span></span><span> </span><span id="local-6989586621679360084"><span class="annot"><span class="annottext">lastAdj :: Int
+</span><a href="#local-6989586621679360084"><span class="hs-identifier hs-var">lastAdj</span></a></span></span><span> </span><span id="local-6989586621679360083"><span class="annot"><span class="annottext">delay :: Int
+</span><a href="#local-6989586621679360083"><span class="hs-identifier hs-var">delay</span></a></span></span><span> </span><span id="local-6989586621679360082"><span class="annot"><span class="annottext">tick :: Int
+</span><a href="#local-6989586621679360082"><span class="hs-identifier hs-var">tick</span></a></span></span><span> </span><span id="local-6989586621679360081"><span class="annot"><span class="annottext">localTime :: Int
+</span><a href="#local-6989586621679360081"><span class="hs-identifier hs-var">localTime</span></a></span></span><span> </span><span id="local-6989586621679360080"><span class="annot"><span class="annottext">n :: Int
+</span><a href="#local-6989586621679360080"><span class="hs-identifier hs-var">n</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-58"></span><span>        </span><span class="annot"><span class="annottext">Int -&gt; IO ()
+</span><a href="#local-6989586621679360088"><span class="hs-identifier hs-var">action</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679360081"><span class="hs-identifier hs-var">localTime</span></a></span><span>
+</span><span id="line-59"></span><span>        </span><span class="annot"><span class="annottext">Bool -&gt; IO () -&gt; IO ()
+forall (f :: * -&gt; *). Applicative f =&gt; Bool -&gt; f () -&gt; f ()
+</span><span class="hs-identifier hs-var">when</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679360083"><span class="hs-identifier hs-var">delay</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">&gt;</span></span><span> </span><span class="annot"><span class="hs-number">0</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(IO () -&gt; IO ()) -&gt; IO () -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Int -&gt; IO ()
+</span><span class="hs-identifier hs-var">threadDelay</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679360083"><span class="hs-identifier hs-var">delay</span></a></span><span>
+</span><span id="line-60"></span><span>
+</span><span id="line-61"></span><span>        </span><span class="hs-keyword">if</span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679360080"><span class="hs-identifier hs-var">n</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">==</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679360089"><span class="hs-identifier hs-var">freq</span></a></span><span>
+</span><span id="line-62"></span><span>        </span><span class="hs-keyword">then</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-63"></span><span>            </span><span class="hs-special">(</span><span id="local-6989586621679360078"><span class="annot"><span class="annottext">t :: Int
+</span><a href="#local-6989586621679360078"><span class="hs-identifier hs-var">t</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679360077"><span class="annot"><span class="annottext">newTick :: Int
+</span><a href="#local-6989586621679360077"><span class="hs-identifier hs-var">newTick</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679360076"><span class="annot"><span class="annottext">newDelay :: Int
+</span><a href="#local-6989586621679360076"><span class="hs-identifier hs-var">newDelay</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int -&gt; IO (Int, Int, Int)
+</span><a href="#local-6989586621679360075"><span class="hs-identifier hs-var">adjustClock</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679360084"><span class="hs-identifier hs-var">lastAdj</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679360081"><span class="hs-identifier hs-var">localTime</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679360083"><span class="hs-identifier hs-var">delay</span></a></span><span>
+</span><span id="line-64"></span><span>            </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int -&gt; Int -&gt; Int -&gt; IO b
+</span><a href="#local-6989586621679360086"><span class="hs-identifier hs-var">go</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679360078"><span class="hs-identifier hs-var">t</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679360076"><span class="hs-identifier hs-var">newDelay</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679360077"><span class="hs-identifier hs-var">newTick</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679360081"><span class="hs-identifier hs-var">localTime</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">+</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679360077"><span class="hs-identifier hs-var">newTick</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="hs-number">0</span></span><span>
+</span><span id="line-65"></span><span>        </span><span class="hs-keyword">else</span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int -&gt; Int -&gt; Int -&gt; IO b
+</span><a href="#local-6989586621679360086"><span class="hs-identifier hs-var">go</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679360084"><span class="hs-identifier hs-var">lastAdj</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679360083"><span class="hs-identifier hs-var">delay</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679360082"><span class="hs-identifier hs-var">tick</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679360081"><span class="hs-identifier hs-var">localTime</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">+</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679360082"><span class="hs-identifier hs-var">tick</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679360080"><span class="hs-identifier hs-var">n</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">+</span></span><span> </span><span class="annot"><span class="hs-number">1</span></span><span class="hs-special">)</span><span>
+</span><span id="line-66"></span><span>
+</span><span id="line-67"></span><span>    </span><span class="hs-comment">-- Adjust the tick size rather than the clock to avoid abrupt changes</span><span>
+</span><span id="line-68"></span><span>    </span><span class="hs-comment">-- resulting in jittery behavior at the end of every interval.</span><span>
+</span><span id="line-69"></span><span>    </span><span id="local-6989586621679360075"><span class="annot"><span class="annottext">adjustClock :: Int -&gt; Int -&gt; Int -&gt; IO (Int, Int, Int)
+</span><a href="#local-6989586621679360075"><span class="hs-identifier hs-var hs-var">adjustClock</span></a></span></span><span> </span><span id="local-6989586621679360073"><span class="annot"><span class="annottext">lastAdj :: Int
+</span><a href="#local-6989586621679360073"><span class="hs-identifier hs-var">lastAdj</span></a></span></span><span> </span><span id="local-6989586621679360072"><span class="annot"><span class="annottext">localTime :: Int
+</span><a href="#local-6989586621679360072"><span class="hs-identifier hs-var">localTime</span></a></span></span><span> </span><span id="local-6989586621679360071"><span class="annot"><span class="annottext">delay :: Int
+</span><a href="#local-6989586621679360071"><span class="hs-identifier hs-var">delay</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-70"></span><span>        </span><span id="local-6989586621679360070"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679360070"><span class="hs-identifier hs-var">baseTime</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IO Int
+</span><a href="#local-6989586621679360090"><span class="hs-identifier hs-var">clock</span></a></span><span>
+</span><span id="line-71"></span><span>        </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679360069"><span class="annot"><span class="annottext">newTick :: Int
+</span><a href="#local-6989586621679360069"><span class="hs-identifier hs-var hs-var">newTick</span></a></span></span><span>    </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679360085"><span class="hs-identifier hs-var">period</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">+</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679360070"><span class="hs-identifier hs-var">baseTime</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-glyph hs-var">-</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679360072"><span class="hs-identifier hs-var">localTime</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
+forall a. Integral a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">`div`</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679360089"><span class="hs-identifier hs-var">freq</span></a></span><span>
+</span><span id="line-72"></span><span>            </span><span id="local-6989586621679360068"><span class="annot"><span class="annottext">lastPeriod :: Int
+</span><a href="#local-6989586621679360068"><span class="hs-identifier hs-var hs-var">lastPeriod</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679360070"><span class="hs-identifier hs-var">baseTime</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-glyph hs-var">-</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679360073"><span class="hs-identifier hs-var">lastAdj</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
+forall a. Integral a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">`div`</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679360089"><span class="hs-identifier hs-var">freq</span></a></span><span>
+</span><span id="line-73"></span><span>            </span><span id="local-6989586621679360067"><span class="annot"><span class="annottext">newDelay :: Int
+</span><a href="#local-6989586621679360067"><span class="hs-identifier hs-var hs-var">newDelay</span></a></span></span><span>   </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
+forall a. Ord a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-identifier hs-var">max</span></span><span> </span><span class="annot"><span class="hs-number">0</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679360071"><span class="hs-identifier hs-var">delay</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">+</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679360085"><span class="hs-identifier hs-var">period</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-glyph hs-var">-</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679360068"><span class="hs-identifier hs-var">lastPeriod</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-74"></span><span>        </span><span class="annot"><span class="annottext">(Int, Int, Int) -&gt; IO (Int, Int, Int)
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679360070"><span class="hs-identifier hs-var">baseTime</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679360069"><span class="hs-identifier hs-var">newTick</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679360067"><span class="hs-identifier hs-var">newDelay</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-75"></span></pre></body></html>

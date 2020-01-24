@@ -1,0 +1,1169 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-cpp">#include &quot;inline.hs&quot;
+</span><span>
+</span><span id="line-3"></span><span class="hs-comment">-- |</span><span>
+</span><span id="line-4"></span><span class="hs-comment">-- Module      : Streamly.Internal.FileSystem.Handle</span><span>
+</span><span id="line-5"></span><span class="hs-comment">-- Copyright   : (c) 2018 Composewell Technologies</span><span>
+</span><span id="line-6"></span><span class="hs-comment">--</span><span>
+</span><span id="line-7"></span><span class="hs-comment">-- License     : BSD3</span><span>
+</span><span id="line-8"></span><span class="hs-comment">-- Maintainer  : streamly@composewell.com</span><span>
+</span><span id="line-9"></span><span class="hs-comment">-- Stability   : experimental</span><span>
+</span><span id="line-10"></span><span class="hs-comment">-- Portability : GHC</span><span>
+</span><span id="line-11"></span><span>
+</span><span id="line-12"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Streamly.Internal.FileSystem.Handle</span><span>
+</span><span id="line-13"></span><span>    </span><span class="hs-special">(</span><span>
+</span><span id="line-14"></span><span>    </span><span class="annot"><span class="hs-comment">-- ** Read from Handle</span></span><span>
+</span><span id="line-15"></span><span>      </span><span class="annot"><a href="Streamly.Internal.FileSystem.Handle.html#read"><span class="hs-identifier">read</span></a></span><span>
+</span><span id="line-16"></span><span>    </span><span class="hs-comment">-- , readUtf8</span><span>
+</span><span id="line-17"></span><span>    </span><span class="hs-comment">-- , readLines</span><span>
+</span><span id="line-18"></span><span>    </span><span class="hs-comment">-- , readFrames</span><span>
+</span><span id="line-19"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.FileSystem.Handle.html#readWithBufferOf"><span class="hs-identifier">readWithBufferOf</span></a></span><span>
+</span><span id="line-20"></span><span>
+</span><span id="line-21"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.FileSystem.Handle.html#toBytes"><span class="hs-identifier">toBytes</span></a></span><span>
+</span><span id="line-22"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.FileSystem.Handle.html#toBytesWithBufferOf"><span class="hs-identifier">toBytesWithBufferOf</span></a></span><span>
+</span><span id="line-23"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.FileSystem.Handle.html#getBytes"><span class="hs-identifier">getBytes</span></a></span><span>
+</span><span id="line-24"></span><span>
+</span><span id="line-25"></span><span>    </span><span class="hs-comment">-- -- * Array Read</span><span>
+</span><span id="line-26"></span><span>    </span><span class="hs-comment">-- , readArrayUpto</span><span>
+</span><span id="line-27"></span><span>    </span><span class="hs-comment">-- , readArrayOf</span><span>
+</span><span id="line-28"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.FileSystem.Handle.html#readChunks"><span class="hs-identifier">readChunks</span></a></span><span>
+</span><span id="line-29"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.FileSystem.Handle.html#readChunksWithBufferOf"><span class="hs-identifier">readChunksWithBufferOf</span></a></span><span>
+</span><span id="line-30"></span><span>
+</span><span id="line-31"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.FileSystem.Handle.html#toChunksWithBufferOf"><span class="hs-identifier">toChunksWithBufferOf</span></a></span><span>
+</span><span id="line-32"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.FileSystem.Handle.html#toChunks"><span class="hs-identifier">toChunks</span></a></span><span>
+</span><span id="line-33"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.FileSystem.Handle.html#getChunks"><span class="hs-identifier">getChunks</span></a></span><span>
+</span><span id="line-34"></span><span>
+</span><span id="line-35"></span><span>    </span><span class="annot"><span class="hs-comment">-- ** Write to Handle</span></span><span>
+</span><span id="line-36"></span><span>    </span><span class="hs-comment">-- Byte stream write (Folds)</span><span>
+</span><span id="line-37"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.FileSystem.Handle.html#write"><span class="hs-identifier">write</span></a></span><span>
+</span><span id="line-38"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.FileSystem.Handle.html#write2"><span class="hs-identifier">write2</span></a></span><span>
+</span><span id="line-39"></span><span>    </span><span class="hs-comment">-- , writeUtf8</span><span>
+</span><span id="line-40"></span><span>    </span><span class="hs-comment">-- , writeUtf8ByLines</span><span>
+</span><span id="line-41"></span><span>    </span><span class="hs-comment">-- , writeByFrames</span><span>
+</span><span id="line-42"></span><span>    </span><span class="hs-comment">-- , writeLines</span><span>
+</span><span id="line-43"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.FileSystem.Handle.html#writeWithBufferOf"><span class="hs-identifier">writeWithBufferOf</span></a></span><span>
+</span><span id="line-44"></span><span>
+</span><span id="line-45"></span><span>    </span><span class="hs-comment">-- Byte stream write (Streams)</span><span>
+</span><span id="line-46"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.FileSystem.Handle.html#fromBytes"><span class="hs-identifier">fromBytes</span></a></span><span>
+</span><span id="line-47"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.FileSystem.Handle.html#fromBytesWithBufferOf"><span class="hs-identifier">fromBytesWithBufferOf</span></a></span><span>
+</span><span id="line-48"></span><span>
+</span><span id="line-49"></span><span>    </span><span class="hs-comment">-- -- * Array Write</span><span>
+</span><span id="line-50"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.FileSystem.Handle.html#writeArray"><span class="hs-identifier">writeArray</span></a></span><span>
+</span><span id="line-51"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.FileSystem.Handle.html#writeChunks"><span class="hs-identifier">writeChunks</span></a></span><span>
+</span><span id="line-52"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.FileSystem.Handle.html#writeChunksWithBufferOf"><span class="hs-identifier">writeChunksWithBufferOf</span></a></span><span>
+</span><span id="line-53"></span><span>
+</span><span id="line-54"></span><span>    </span><span class="hs-comment">-- -- * Array stream Write</span><span>
+</span><span id="line-55"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.FileSystem.Handle.html#fromChunksWithBufferOf"><span class="hs-identifier">fromChunksWithBufferOf</span></a></span><span>
+</span><span id="line-56"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.FileSystem.Handle.html#fromChunks"><span class="hs-identifier">fromChunks</span></a></span><span>
+</span><span id="line-57"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.FileSystem.Handle.html#putChunks"><span class="hs-identifier">putChunks</span></a></span><span>
+</span><span id="line-58"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.FileSystem.Handle.html#putStrings"><span class="hs-identifier">putStrings</span></a></span><span>
+</span><span id="line-59"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.FileSystem.Handle.html#putBytes"><span class="hs-identifier">putBytes</span></a></span><span>
+</span><span id="line-60"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.FileSystem.Handle.html#putLines"><span class="hs-identifier">putLines</span></a></span><span>
+</span><span id="line-61"></span><span>
+</span><span id="line-62"></span><span>    </span><span class="hs-comment">-- -- * Random Access (Seek)</span><span>
+</span><span id="line-63"></span><span>    </span><span class="hs-comment">-- -- | Unlike the streaming APIs listed above, these APIs apply to devices or</span><span>
+</span><span id="line-64"></span><span>    </span><span class="hs-comment">-- files that have random access or seek capability.  This type of devices</span><span>
+</span><span id="line-65"></span><span>    </span><span class="hs-comment">-- include disks, files, memory devices and exclude terminals, pipes,</span><span>
+</span><span id="line-66"></span><span>    </span><span class="hs-comment">-- sockets and fifos.</span><span>
+</span><span id="line-67"></span><span>    </span><span class="hs-comment">--</span><span>
+</span><span id="line-68"></span><span>    </span><span class="hs-comment">-- XXX need to decide whether to use readFromStepN style or readFromThenTo</span><span>
+</span><span id="line-69"></span><span>    </span><span class="hs-comment">-- style. The latter is consistent with list enumeration. The former may be</span><span>
+</span><span id="line-70"></span><span>    </span><span class="hs-comment">-- more unambiguous and it is easier and clearer to specify 0 elements.</span><span>
+</span><span id="line-71"></span><span>    </span><span class="hs-comment">--</span><span>
+</span><span id="line-72"></span><span>    </span><span class="hs-comment">-- We can also generate the request pattern using a funciton.</span><span>
+</span><span id="line-73"></span><span>    </span><span class="hs-comment">--</span><span>
+</span><span id="line-74"></span><span>    </span><span class="hs-comment">-- , readIndex</span><span>
+</span><span id="line-75"></span><span>    </span><span class="hs-comment">-- , readFrom -- read from a given position to the end of file</span><span>
+</span><span id="line-76"></span><span>    </span><span class="hs-comment">-- , readFromRev -- read from a given position the beginning of file</span><span>
+</span><span id="line-77"></span><span>    </span><span class="hs-comment">-- , readTo   -- read from beginning up to the given position</span><span>
+</span><span id="line-78"></span><span>    </span><span class="hs-comment">-- , readToRev -- read from end to the given position in file</span><span>
+</span><span id="line-79"></span><span>    </span><span class="hs-comment">-- , readFromTo</span><span>
+</span><span id="line-80"></span><span>    </span><span class="hs-comment">-- , readFromThenTo</span><span>
+</span><span id="line-81"></span><span>
+</span><span id="line-82"></span><span>    </span><span class="hs-comment">-- , readChunksFrom</span><span>
+</span><span id="line-83"></span><span>    </span><span class="hs-comment">-- , readChunksFromTo</span><span>
+</span><span id="line-84"></span><span>    </span><span class="hs-comment">-- , readChunksFromToWithBufferOf</span><span>
+</span><span id="line-85"></span><span>    </span><span class="hs-comment">-- , readChunksFromThenToWithBufferOf</span><span>
+</span><span id="line-86"></span><span>
+</span><span id="line-87"></span><span>    </span><span class="hs-comment">-- , writeIndex</span><span>
+</span><span id="line-88"></span><span>    </span><span class="hs-comment">-- , writeFrom -- start writing at the given position</span><span>
+</span><span id="line-89"></span><span>    </span><span class="hs-comment">-- , writeFromRev</span><span>
+</span><span id="line-90"></span><span>    </span><span class="hs-comment">-- , writeTo   -- write from beginning up to the given position</span><span>
+</span><span id="line-91"></span><span>    </span><span class="hs-comment">-- , writeToRev</span><span>
+</span><span id="line-92"></span><span>    </span><span class="hs-comment">-- , writeFromTo</span><span>
+</span><span id="line-93"></span><span>    </span><span class="hs-comment">-- , writeFromThenTo</span><span>
+</span><span id="line-94"></span><span>    </span><span class="hs-comment">--</span><span>
+</span><span id="line-95"></span><span>    </span><span class="hs-comment">-- , writeChunksFrom</span><span>
+</span><span id="line-96"></span><span>    </span><span class="hs-comment">-- , writeChunksFromTo</span><span>
+</span><span id="line-97"></span><span>    </span><span class="hs-comment">-- , writeChunksFromToWithBufferOf</span><span>
+</span><span id="line-98"></span><span>    </span><span class="hs-comment">-- , writeChunksFromThenToWithBufferOf</span><span>
+</span><span id="line-99"></span><span>    </span><span class="hs-special">)</span><span>
+</span><span id="line-100"></span><span class="hs-keyword">where</span><span>
+</span><span id="line-101"></span><span>
+</span><span id="line-102"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad.IO.Class</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">MonadIO</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-103"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Word</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Word8</span></span><span class="hs-special">)</span><span>
+</span><span id="line-104"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Foreign.ForeignPtr</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">withForeignPtr</span></span><span class="hs-special">)</span><span>
+</span><span id="line-105"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Foreign.ForeignPtr.Unsafe</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">unsafeForeignPtrToPtr</span></span><span class="hs-special">)</span><span>
+</span><span id="line-106"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Foreign.Ptr</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">minusPtr</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">plusPtr</span></span><span class="hs-special">)</span><span>
+</span><span id="line-107"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Foreign.Storable</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Storable</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-108"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">GHC.ForeignPtr</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">mallocPlainForeignPtrBytes</span></span><span class="hs-special">)</span><span>
+</span><span id="line-109"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">System.IO</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Handle</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">hGetBufSome</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">hPutBuf</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">stdin</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">stdout</span></span><span class="hs-special">)</span><span>
+</span><span id="line-110"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Prelude</span></span><span> </span><span class="hs-keyword">hiding</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">read</span></span><span class="hs-special">)</span><span>
+</span><span id="line-111"></span><span>
+</span><span id="line-112"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Streamly.Prelude.html"><span class="hs-identifier">Streamly.Prelude</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.SVar.html#MonadAsync"><span class="hs-identifier">MonadAsync</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-113"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Streamly.Data.Fold.html"><span class="hs-identifier">Streamly.Data.Fold</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.Fold.Types.html#Fold"><span class="hs-identifier">Fold</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-114"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Fold.Types.html"><span class="hs-identifier">Streamly.Internal.Data.Fold.Types</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.Fold.Types.html#Fold2"><span class="hs-identifier">Fold2</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-115"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Unfold.Types.html"><span class="hs-identifier">Streamly.Internal.Data.Unfold.Types</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.Unfold.Types.html#Unfold"><span class="hs-identifier">Unfold</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-116"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Array.Foreign.Types.html"><span class="hs-identifier">Streamly.Internal.Data.Array.Foreign.Types</span></a></span><span>
+</span><span id="line-117"></span><span>       </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.Array.Foreign.Types.html#Array"><span class="hs-identifier">Array</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Array.Foreign.Types.html#writeNUnsafe"><span class="hs-identifier">writeNUnsafe</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Array.Foreign.Mut.Types.html#defaultChunkSize"><span class="hs-identifier">defaultChunkSize</span></a></span><span> </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Array.Foreign.Types.html#unsafeFreezeWithShrink"><span class="hs-identifier">unsafeFreezeWithShrink</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-118"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Array.Foreign.Mut.Types.html"><span class="hs-identifier">Streamly.Internal.Data.Array.Foreign.Mut.Types</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.Array.Foreign.Mut.Types.html#mutableArray"><span class="hs-identifier">mutableArray</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-119"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Serial.html"><span class="hs-identifier">Streamly.Internal.Data.Stream.Serial</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.Stream.Serial.html#SerialT"><span class="hs-identifier">SerialT</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-120"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.StreamK.Type.html"><span class="hs-identifier">Streamly.Internal.Data.Stream.StreamK.Type</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.Stream.StreamK.Type.html#IsStream"><span class="hs-identifier">IsStream</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.StreamK.Type.html#mkStream"><span class="hs-identifier">mkStream</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-121"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Array.Stream.Foreign.html"><span class="hs-identifier">Streamly.Internal.Data.Array.Stream.Foreign</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.Array.Stream.Foreign.html#lpackArraysChunksOf"><span class="hs-identifier">lpackArraysChunksOf</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-122"></span><span class="hs-comment">-- import Streamly.String (encodeUtf8, decodeUtf8, foldLines)</span><span>
+</span><span id="line-123"></span><span>
+</span><span id="line-124"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><a href="Streamly.Data.Fold.html"><span class="hs-identifier">Streamly.Data.Fold</span></a></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">FL</span></span><span>
+</span><span id="line-125"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Fold.Types.html"><span class="hs-identifier">Streamly.Internal.Data.Fold.Types</span></a></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">FL</span></span><span>
+</span><span id="line-126"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Unfold.html"><span class="hs-identifier">Streamly.Internal.Data.Unfold</span></a></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">UF</span></span><span>
+</span><span id="line-127"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Array.Foreign.html"><span class="hs-identifier">Streamly.Internal.Data.Array.Foreign</span></a></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">IA</span></span><span>
+</span><span id="line-128"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Array.Stream.Foreign.html"><span class="hs-identifier">Streamly.Internal.Data.Array.Stream.Foreign</span></a></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">AS</span></span><span>
+</span><span id="line-129"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.IsStream.html"><span class="hs-identifier">Streamly.Internal.Data.Stream.IsStream</span></a></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">S</span></span><span>
+</span><span id="line-130"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><a href="Streamly.Data.Array.Foreign.html"><span class="hs-identifier">Streamly.Data.Array.Foreign</span></a></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">A</span></span><span>
+</span><span id="line-131"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.StreamD.Type.html"><span class="hs-identifier">Streamly.Internal.Data.Stream.StreamD.Type</span></a></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">D</span></span><span>
+</span><span id="line-132"></span><span>
+</span><span id="line-133"></span><span class="hs-comment">-------------------------------------------------------------------------------</span><span>
+</span><span id="line-134"></span><span class="hs-comment">-- References</span><span>
+</span><span id="line-135"></span><span class="hs-comment">-------------------------------------------------------------------------------</span><span>
+</span><span id="line-136"></span><span class="hs-comment">--</span><span>
+</span><span id="line-137"></span><span class="hs-comment">-- The following references may be useful to build an understanding about the</span><span>
+</span><span id="line-138"></span><span class="hs-comment">-- file API design:</span><span>
+</span><span id="line-139"></span><span class="hs-comment">--</span><span>
+</span><span id="line-140"></span><span class="hs-comment">-- http://www.linux-mag.com/id/308/ for blocking/non-blocking IO on linux.</span><span>
+</span><span id="line-141"></span><span class="hs-comment">-- https://lwn.net/Articles/612483/ Non-blocking buffered file read operations</span><span>
+</span><span id="line-142"></span><span class="hs-comment">-- https://en.wikipedia.org/wiki/C_file_input/output for C APIs.</span><span>
+</span><span id="line-143"></span><span class="hs-comment">-- https://docs.oracle.com/javase/tutorial/essential/io/file.html for Java API.</span><span>
+</span><span id="line-144"></span><span class="hs-comment">-- https://www.w3.org/TR/FileAPI/ for http file API.</span><span>
+</span><span id="line-145"></span><span>
+</span><span id="line-146"></span><span class="hs-comment">-------------------------------------------------------------------------------</span><span>
+</span><span id="line-147"></span><span class="hs-comment">-- Array IO (Input)</span><span>
+</span><span id="line-148"></span><span class="hs-comment">-------------------------------------------------------------------------------</span><span>
+</span><span id="line-149"></span><span>
+</span><span id="line-150"></span><span class="hs-comment">-- | Read a 'ByteArray' from a file handle. If no data is available on the</span><span>
+</span><span id="line-151"></span><span class="hs-comment">-- handle it blocks until some data becomes available. If data is available</span><span>
+</span><span id="line-152"></span><span class="hs-comment">-- then it immediately returns that data without blocking. It reads a maximum</span><span>
+</span><span id="line-153"></span><span class="hs-comment">-- of up to the size requested.</span><span>
+</span><span id="line-154"></span><span class="hs-pragma">{-# INLINABLE</span><span> </span><span class="annot"><a href="Streamly.Internal.FileSystem.Handle.html#readArrayUpto"><span class="hs-pragma hs-type">readArrayUpto</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-155"></span><span class="annot"><a href="Streamly.Internal.FileSystem.Handle.html#readArrayUpto"><span class="hs-identifier hs-type">readArrayUpto</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Handle</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.Array.Foreign.Types.html#Array"><span class="hs-identifier hs-type">Array</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span class="hs-special">)</span><span>
+</span><span id="line-156"></span><span id="readArrayUpto"><span class="annot"><span class="annottext">readArrayUpto :: Int -&gt; Handle -&gt; IO (Array Word8)
+</span><a href="Streamly.Internal.FileSystem.Handle.html#readArrayUpto"><span class="hs-identifier hs-var hs-var">readArrayUpto</span></a></span></span><span> </span><span id="local-6989586621679398733"><span class="annot"><span class="annottext">size :: Int
+</span><a href="#local-6989586621679398733"><span class="hs-identifier hs-var">size</span></a></span></span><span> </span><span id="local-6989586621679398732"><span class="annot"><span class="annottext">h :: Handle
+</span><a href="#local-6989586621679398732"><span class="hs-identifier hs-var">h</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-157"></span><span>    </span><span id="local-6989586621679398731"><span class="annot"><span class="annottext">ForeignPtr Word8
+</span><a href="#local-6989586621679398731"><span class="hs-identifier hs-var">ptr</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Int -&gt; IO (ForeignPtr Word8)
+forall a. Int -&gt; IO (ForeignPtr a)
+</span><span class="hs-identifier hs-var">mallocPlainForeignPtrBytes</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679398733"><span class="hs-identifier hs-var">size</span></a></span><span>
+</span><span id="line-158"></span><span>    </span><span class="hs-comment">-- ptr &lt;- mallocPlainForeignPtrAlignedBytes size (alignment (undefined :: Word8))</span><span>
+</span><span id="line-159"></span><span>    </span><span class="annot"><span class="annottext">ForeignPtr Word8
+-&gt; (Ptr Word8 -&gt; IO (Array Word8)) -&gt; IO (Array Word8)
+forall a b. ForeignPtr a -&gt; (Ptr a -&gt; IO b) -&gt; IO b
+</span><span class="hs-identifier hs-var">withForeignPtr</span></span><span> </span><span class="annot"><span class="annottext">ForeignPtr Word8
+</span><a href="#local-6989586621679398731"><span class="hs-identifier hs-var">ptr</span></a></span><span> </span><span class="annot"><span class="annottext">((Ptr Word8 -&gt; IO (Array Word8)) -&gt; IO (Array Word8))
+-&gt; (Ptr Word8 -&gt; IO (Array Word8)) -&gt; IO (Array Word8)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679398730"><span class="annot"><span class="annottext">p :: Ptr Word8
+</span><a href="#local-6989586621679398730"><span class="hs-identifier hs-var">p</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-160"></span><span>        </span><span id="local-6989586621679398729"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679398729"><span class="hs-identifier hs-var">n</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Handle -&gt; Ptr Word8 -&gt; Int -&gt; IO Int
+forall a. Handle -&gt; Ptr a -&gt; Int -&gt; IO Int
+</span><span class="hs-identifier hs-var">hGetBufSome</span></span><span> </span><span class="annot"><span class="annottext">Handle
+</span><a href="#local-6989586621679398732"><span class="hs-identifier hs-var">h</span></a></span><span> </span><span class="annot"><span class="annottext">Ptr Word8
+</span><a href="#local-6989586621679398730"><span class="hs-identifier hs-var">p</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679398733"><span class="hs-identifier hs-var">size</span></a></span><span>
+</span><span id="line-161"></span><span>        </span><span class="hs-comment">-- XXX shrink only if the diff is significant</span><span>
+</span><span id="line-162"></span><span>        </span><span class="annot"><span class="annottext">Array Word8 -&gt; IO (Array Word8)
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">(Array Word8 -&gt; IO (Array Word8))
+-&gt; Array Word8 -&gt; IO (Array Word8)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span>
+</span><span id="line-163"></span><span>            </span><span class="annot"><span class="annottext">Array Word8 -&gt; Array Word8
+forall a. Storable a =&gt; Array a -&gt; Array a
+</span><a href="Streamly.Internal.Data.Array.Foreign.Types.html#unsafeFreezeWithShrink"><span class="hs-identifier hs-var">unsafeFreezeWithShrink</span></a></span><span> </span><span class="annot"><span class="annottext">(Array Word8 -&gt; Array Word8) -&gt; Array Word8 -&gt; Array Word8
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span>
+</span><span id="line-164"></span><span>            </span><span class="annot"><span class="annottext">ForeignPtr Word8 -&gt; Ptr Word8 -&gt; Ptr Word8 -&gt; Array Word8
+forall a. ForeignPtr a -&gt; Ptr a -&gt; Ptr a -&gt; Array a
+</span><a href="Streamly.Internal.Data.Array.Foreign.Mut.Types.html#mutableArray"><span class="hs-identifier hs-var">mutableArray</span></a></span><span> </span><span class="annot"><span class="annottext">ForeignPtr Word8
+</span><a href="#local-6989586621679398731"><span class="hs-identifier hs-var">ptr</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Ptr Word8
+</span><a href="#local-6989586621679398730"><span class="hs-identifier hs-var">p</span></a></span><span> </span><span class="annot"><span class="annottext">Ptr Word8 -&gt; Int -&gt; Ptr Word8
+forall a b. Ptr a -&gt; Int -&gt; Ptr b
+</span><span class="hs-operator hs-var">`plusPtr`</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679398729"><span class="hs-identifier hs-var">n</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Ptr Word8
+</span><a href="#local-6989586621679398730"><span class="hs-identifier hs-var">p</span></a></span><span> </span><span class="annot"><span class="annottext">Ptr Word8 -&gt; Int -&gt; Ptr Word8
+forall a b. Ptr a -&gt; Int -&gt; Ptr b
+</span><span class="hs-operator hs-var">`plusPtr`</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679398733"><span class="hs-identifier hs-var">size</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-165"></span><span>
+</span><span id="line-166"></span><span class="hs-comment">-------------------------------------------------------------------------------</span><span>
+</span><span id="line-167"></span><span class="hs-comment">-- Stream of Arrays IO</span><span>
+</span><span id="line-168"></span><span class="hs-comment">-------------------------------------------------------------------------------</span><span>
+</span><span id="line-169"></span><span>
+</span><span id="line-170"></span><span class="hs-comment">-- | @toChunksWithBufferOf size h@ reads a stream of arrays from file handle @h@.</span><span>
+</span><span id="line-171"></span><span class="hs-comment">-- The maximum size of a single array is specified by @size@. The actual size</span><span>
+</span><span id="line-172"></span><span class="hs-comment">-- read may be less than or equal to @size@.</span><span>
+</span><span id="line-173"></span><span class="hs-pragma">{-# INLINABLE</span><span> </span><span class="annot"><a href="Streamly.Internal.FileSystem.Handle.html#_toChunksWithBufferOf"><span class="hs-pragma hs-type">_toChunksWithBufferOf</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-174"></span><span id="local-6989586621679398726"><span id="local-6989586621679398727"><span class="annot"><a href="Streamly.Internal.FileSystem.Handle.html#_toChunksWithBufferOf"><span class="hs-identifier hs-type">_toChunksWithBufferOf</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.Stream.StreamK.Type.html#IsStream"><span class="hs-identifier hs-type">IsStream</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679398727"><span class="hs-identifier hs-type">t</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadIO</span></span><span> </span><span class="annot"><a href="#local-6989586621679398726"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-175"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Handle</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679398727"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679398726"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.Array.Foreign.Types.html#Array"><span class="hs-identifier hs-type">Array</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span class="hs-special">)</span></span></span><span>
+</span><span id="line-176"></span><span id="_toChunksWithBufferOf"><span class="annot"><span class="annottext">_toChunksWithBufferOf :: Int -&gt; Handle -&gt; t m (Array Word8)
+</span><a href="Streamly.Internal.FileSystem.Handle.html#_toChunksWithBufferOf"><span class="hs-identifier hs-var hs-var">_toChunksWithBufferOf</span></a></span></span><span> </span><span id="local-6989586621679398725"><span class="annot"><span class="annottext">size :: Int
+</span><a href="#local-6989586621679398725"><span class="hs-identifier hs-var">size</span></a></span></span><span> </span><span id="local-6989586621679398724"><span class="annot"><span class="annottext">h :: Handle
+</span><a href="#local-6989586621679398724"><span class="hs-identifier hs-var">h</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">t m (Array Word8)
+</span><a href="#local-6989586621679398723"><span class="hs-identifier hs-var">go</span></a></span><span>
+</span><span id="line-177"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-178"></span><span>    </span><span class="hs-comment">-- XXX use cons/nil instead</span><span>
+</span><span id="line-179"></span><span>    </span><span id="local-6989586621679398723"><span class="annot"><span class="annottext">go :: t m (Array Word8)
+</span><a href="#local-6989586621679398723"><span class="hs-identifier hs-var hs-var">go</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(forall r.
+ State Stream m (Array Word8)
+ -&gt; (Array Word8 -&gt; t m (Array Word8) -&gt; m r)
+ -&gt; (Array Word8 -&gt; m r)
+ -&gt; m r
+ -&gt; m r)
+-&gt; t m (Array Word8)
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) (m :: * -&gt; *) a.
+IsStream t =&gt;
+(forall r.
+ State Stream m a
+ -&gt; (a -&gt; t m a -&gt; m r) -&gt; (a -&gt; m r) -&gt; m r -&gt; m r)
+-&gt; t m a
+</span><a href="Streamly.Internal.Data.Stream.StreamK.Type.html#mkStream"><span class="hs-identifier hs-var">mkStream</span></a></span><span> </span><span class="annot"><span class="annottext">((forall r.
+  State Stream m (Array Word8)
+  -&gt; (Array Word8 -&gt; t m (Array Word8) -&gt; m r)
+  -&gt; (Array Word8 -&gt; m r)
+  -&gt; m r
+  -&gt; m r)
+ -&gt; t m (Array Word8))
+-&gt; (forall r.
+    State Stream m (Array Word8)
+    -&gt; (Array Word8 -&gt; t m (Array Word8) -&gt; m r)
+    -&gt; (Array Word8 -&gt; m r)
+    -&gt; m r
+    -&gt; m r)
+-&gt; t m (Array Word8)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span class="hs-identifier">_</span><span> </span><span id="local-6989586621679398722"><span class="annot"><span class="annottext">yld :: Array Word8 -&gt; t m (Array Word8) -&gt; m r
+</span><a href="#local-6989586621679398722"><span class="hs-identifier hs-var">yld</span></a></span></span><span> </span><span class="hs-identifier">_</span><span> </span><span id="local-6989586621679398721"><span class="annot"><span class="annottext">stp :: m r
+</span><a href="#local-6989586621679398721"><span class="hs-identifier hs-var">stp</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-180"></span><span>        </span><span id="local-6989586621679398720"><span class="annot"><span class="annottext">Array Word8
+</span><a href="#local-6989586621679398720"><span class="hs-identifier hs-var">arr</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IO (Array Word8) -&gt; m (Array Word8)
+forall (m :: * -&gt; *) a. MonadIO m =&gt; IO a -&gt; m a
+</span><span class="hs-identifier hs-var">liftIO</span></span><span> </span><span class="annot"><span class="annottext">(IO (Array Word8) -&gt; m (Array Word8))
+-&gt; IO (Array Word8) -&gt; m (Array Word8)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Handle -&gt; IO (Array Word8)
+</span><a href="Streamly.Internal.FileSystem.Handle.html#readArrayUpto"><span class="hs-identifier hs-var">readArrayUpto</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679398725"><span class="hs-identifier hs-var">size</span></a></span><span> </span><span class="annot"><span class="annottext">Handle
+</span><a href="#local-6989586621679398724"><span class="hs-identifier hs-var">h</span></a></span><span>
+</span><span id="line-181"></span><span>        </span><span class="hs-keyword">if</span><span> </span><span class="annot"><span class="annottext">Array Word8 -&gt; Int
+forall a. Storable a =&gt; Array a -&gt; Int
+</span><a href="Streamly.Internal.Data.Array.Foreign.Types.html#length"><span class="hs-identifier hs-var">A.length</span></a></span><span> </span><span class="annot"><span class="annottext">Array Word8
+</span><a href="#local-6989586621679398720"><span class="hs-identifier hs-var">arr</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">==</span></span><span> </span><span class="annot"><span class="hs-number">0</span></span><span>
+</span><span id="line-182"></span><span>        </span><span class="hs-keyword">then</span><span> </span><span class="annot"><span class="annottext">m r
+</span><a href="#local-6989586621679398721"><span class="hs-identifier hs-var">stp</span></a></span><span>
+</span><span id="line-183"></span><span>        </span><span class="hs-keyword">else</span><span> </span><span class="annot"><span class="annottext">Array Word8 -&gt; t m (Array Word8) -&gt; m r
+</span><a href="#local-6989586621679398722"><span class="hs-identifier hs-var">yld</span></a></span><span> </span><span class="annot"><span class="annottext">Array Word8
+</span><a href="#local-6989586621679398720"><span class="hs-identifier hs-var">arr</span></a></span><span> </span><span class="annot"><span class="annottext">t m (Array Word8)
+</span><a href="#local-6989586621679398723"><span class="hs-identifier hs-var">go</span></a></span><span>
+</span><span id="line-184"></span><span>
+</span><span id="line-185"></span><span class="hs-comment">-- | @toChunksWithBufferOf size handle@ reads a stream of arrays from the file</span><span>
+</span><span id="line-186"></span><span class="hs-comment">-- handle @handle@.  The maximum size of a single array is limited to @size@.</span><span>
+</span><span id="line-187"></span><span class="hs-comment">-- The actual size read may be less than or equal to @size@.</span><span>
+</span><span id="line-188"></span><span class="hs-comment">--</span><span>
+</span><span id="line-189"></span><span class="hs-comment">-- @since 0.7.0</span><span>
+</span><span id="line-190"></span><span class="hs-pragma">{-# INLINE_NORMAL toChunksWithBufferOf #-}</span><span>
+</span><span id="line-191"></span><span id="local-6989586621679398894"><span id="local-6989586621679398895"><span class="annot"><a href="Streamly.Internal.FileSystem.Handle.html#toChunksWithBufferOf"><span class="hs-identifier hs-type">toChunksWithBufferOf</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.Stream.StreamK.Type.html#IsStream"><span class="hs-identifier hs-type">IsStream</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679398895"><span class="hs-identifier hs-type">t</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadIO</span></span><span> </span><span class="annot"><a href="#local-6989586621679398894"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Handle</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679398895"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679398894"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.Array.Foreign.Types.html#Array"><span class="hs-identifier hs-type">Array</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span class="hs-special">)</span></span></span><span>
+</span><span id="line-192"></span><span id="toChunksWithBufferOf"><span class="annot"><span class="annottext">toChunksWithBufferOf :: Int -&gt; Handle -&gt; t m (Array Word8)
+</span><a href="Streamly.Internal.FileSystem.Handle.html#toChunksWithBufferOf"><span class="hs-identifier hs-var hs-var">toChunksWithBufferOf</span></a></span></span><span> </span><span id="local-6989586621679398717"><span class="annot"><span class="annottext">size :: Int
+</span><a href="#local-6989586621679398717"><span class="hs-identifier hs-var">size</span></a></span></span><span> </span><span id="local-6989586621679398716"><span class="annot"><span class="annottext">h :: Handle
+</span><a href="#local-6989586621679398716"><span class="hs-identifier hs-var">h</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Stream m (Array Word8) -&gt; t m (Array Word8)
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) (m :: * -&gt; *) a.
+(IsStream t, Monad m) =&gt;
+Stream m a -&gt; t m a
+</span><a href="Streamly.Internal.Data.Stream.StreamD.Type.html#fromStreamD"><span class="hs-identifier hs-var">D.fromStreamD</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(State Stream m (Array Word8) -&gt; () -&gt; m (Step () (Array Word8)))
+-&gt; () -&gt; Stream m (Array Word8)
+forall (m :: * -&gt; *) a s.
+(State Stream m a -&gt; s -&gt; m (Step s a)) -&gt; s -&gt; Stream m a
+</span><a href="Streamly.Internal.Data.Stream.StreamD.Type.html#Stream"><span class="hs-identifier hs-var">D.Stream</span></a></span><span> </span><span class="annot"><span class="annottext">State Stream m (Array Word8) -&gt; () -&gt; m (Step () (Array Word8))
+forall (m :: * -&gt; *) p p.
+MonadIO m =&gt;
+p -&gt; p -&gt; m (Step () (Array Word8))
+</span><a href="#local-6989586621679398713"><span class="hs-identifier hs-var">step</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-193"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-194"></span><span>    </span><span class="hs-pragma">{-# INLINE_LATE step #-}</span><span>
+</span><span id="line-195"></span><span>    </span><span id="local-6989586621679398713"><span class="annot"><span class="annottext">step :: p -&gt; p -&gt; m (Step () (Array Word8))
+</span><a href="#local-6989586621679398713"><span class="hs-identifier hs-var hs-var">step</span></a></span></span><span> </span><span class="hs-identifier">_</span><span> </span><span class="hs-identifier">_</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-196"></span><span>        </span><span id="local-6989586621679398712"><span class="annot"><span class="annottext">Array Word8
+</span><a href="#local-6989586621679398712"><span class="hs-identifier hs-var">arr</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IO (Array Word8) -&gt; m (Array Word8)
+forall (m :: * -&gt; *) a. MonadIO m =&gt; IO a -&gt; m a
+</span><span class="hs-identifier hs-var">liftIO</span></span><span> </span><span class="annot"><span class="annottext">(IO (Array Word8) -&gt; m (Array Word8))
+-&gt; IO (Array Word8) -&gt; m (Array Word8)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Handle -&gt; IO (Array Word8)
+</span><a href="Streamly.Internal.FileSystem.Handle.html#readArrayUpto"><span class="hs-identifier hs-var">readArrayUpto</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679398717"><span class="hs-identifier hs-var">size</span></a></span><span> </span><span class="annot"><span class="annottext">Handle
+</span><a href="#local-6989586621679398716"><span class="hs-identifier hs-var">h</span></a></span><span>
+</span><span id="line-197"></span><span>        </span><span class="annot"><span class="annottext">Step () (Array Word8) -&gt; m (Step () (Array Word8))
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">(Step () (Array Word8) -&gt; m (Step () (Array Word8)))
+-&gt; Step () (Array Word8) -&gt; m (Step () (Array Word8))
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span>
+</span><span id="line-198"></span><span>            </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">Array Word8 -&gt; Int
+forall a. Storable a =&gt; Array a -&gt; Int
+</span><a href="Streamly.Internal.Data.Array.Foreign.Types.html#length"><span class="hs-identifier hs-var">A.length</span></a></span><span> </span><span class="annot"><span class="annottext">Array Word8
+</span><a href="#local-6989586621679398712"><span class="hs-identifier hs-var">arr</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-199"></span><span>                </span><span class="hs-number">0</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Step () (Array Word8)
+forall s a. Step s a
+</span><a href="Streamly.Internal.Data.Stream.StreamD.Step.html#Stop"><span class="hs-identifier hs-var">D.Stop</span></a></span><span>
+</span><span id="line-200"></span><span>                </span><span class="hs-identifier">_</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Array Word8 -&gt; () -&gt; Step () (Array Word8)
+forall s a. a -&gt; s -&gt; Step s a
+</span><a href="Streamly.Internal.Data.Stream.StreamD.Step.html#Yield"><span class="hs-identifier hs-var">D.Yield</span></a></span><span> </span><span class="annot"><span class="annottext">Array Word8
+</span><a href="#local-6989586621679398712"><span class="hs-identifier hs-var">arr</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-201"></span><span>
+</span><span id="line-202"></span><span class="hs-comment">-- | Unfold the tuple @(bufsize, handle)@ into a stream of 'Word8' arrays.</span><span>
+</span><span id="line-203"></span><span class="hs-comment">-- Read requests to the IO device are performed using a buffer of size</span><span>
+</span><span id="line-204"></span><span class="hs-comment">-- @bufsize@.  The size of an array in the resulting stream is always less than</span><span>
+</span><span id="line-205"></span><span class="hs-comment">-- or equal to @bufsize@.</span><span>
+</span><span id="line-206"></span><span class="hs-comment">--</span><span>
+</span><span id="line-207"></span><span class="hs-comment">-- @since 0.7.0</span><span>
+</span><span id="line-208"></span><span class="hs-pragma">{-# INLINE_NORMAL readChunksWithBufferOf #-}</span><span>
+</span><span id="line-209"></span><span id="local-6989586621679398880"><span class="annot"><a href="Streamly.Internal.FileSystem.Handle.html#readChunksWithBufferOf"><span class="hs-identifier hs-type">readChunksWithBufferOf</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadIO</span></span><span> </span><span class="annot"><a href="#local-6989586621679398880"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Unfold.Types.html#Unfold"><span class="hs-identifier hs-type">Unfold</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679398880"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Handle</span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.Array.Foreign.Types.html#Array"><span class="hs-identifier hs-type">Array</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span class="hs-special">)</span></span><span>
+</span><span id="line-210"></span><span id="readChunksWithBufferOf"><span class="annot"><span class="annottext">readChunksWithBufferOf :: Unfold m (Int, Handle) (Array Word8)
+</span><a href="Streamly.Internal.FileSystem.Handle.html#readChunksWithBufferOf"><span class="hs-identifier hs-var hs-var">readChunksWithBufferOf</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">((Int, Handle) -&gt; m (Step (Int, Handle) (Array Word8)))
+-&gt; ((Int, Handle) -&gt; m (Int, Handle))
+-&gt; Unfold m (Int, Handle) (Array Word8)
+forall (m :: * -&gt; *) a b s.
+(s -&gt; m (Step s b)) -&gt; (a -&gt; m s) -&gt; Unfold m a b
+</span><a href="Streamly.Internal.Data.Unfold.Types.html#Unfold"><span class="hs-identifier hs-var">Unfold</span></a></span><span> </span><span class="annot"><span class="annottext">(Int, Handle) -&gt; m (Step (Int, Handle) (Array Word8))
+forall (m :: * -&gt; *).
+MonadIO m =&gt;
+(Int, Handle) -&gt; m (Step (Int, Handle) (Array Word8))
+</span><a href="#local-6989586621679398708"><span class="hs-identifier hs-var">step</span></a></span><span> </span><span class="annot"><span class="annottext">(Int, Handle) -&gt; m (Int, Handle)
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span>
+</span><span id="line-211"></span><span>    </span><span class="hs-keyword">where</span><span>
+</span><span id="line-212"></span><span>    </span><span class="hs-pragma">{-# INLINE_LATE step #-}</span><span>
+</span><span id="line-213"></span><span>    </span><span id="local-6989586621679398708"><span class="annot"><span class="annottext">step :: (Int, Handle) -&gt; m (Step (Int, Handle) (Array Word8))
+</span><a href="#local-6989586621679398708"><span class="hs-identifier hs-var hs-var">step</span></a></span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679398707"><span class="annot"><span class="annottext">size :: Int
+</span><a href="#local-6989586621679398707"><span class="hs-identifier hs-var">size</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679398706"><span class="annot"><span class="annottext">h :: Handle
+</span><a href="#local-6989586621679398706"><span class="hs-identifier hs-var">h</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-214"></span><span>        </span><span id="local-6989586621679398705"><span class="annot"><span class="annottext">Array Word8
+</span><a href="#local-6989586621679398705"><span class="hs-identifier hs-var">arr</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IO (Array Word8) -&gt; m (Array Word8)
+forall (m :: * -&gt; *) a. MonadIO m =&gt; IO a -&gt; m a
+</span><span class="hs-identifier hs-var">liftIO</span></span><span> </span><span class="annot"><span class="annottext">(IO (Array Word8) -&gt; m (Array Word8))
+-&gt; IO (Array Word8) -&gt; m (Array Word8)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Handle -&gt; IO (Array Word8)
+</span><a href="Streamly.Internal.FileSystem.Handle.html#readArrayUpto"><span class="hs-identifier hs-var">readArrayUpto</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679398707"><span class="hs-identifier hs-var">size</span></a></span><span> </span><span class="annot"><span class="annottext">Handle
+</span><a href="#local-6989586621679398706"><span class="hs-identifier hs-var">h</span></a></span><span>
+</span><span id="line-215"></span><span>        </span><span class="annot"><span class="annottext">Step (Int, Handle) (Array Word8)
+-&gt; m (Step (Int, Handle) (Array Word8))
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">(Step (Int, Handle) (Array Word8)
+ -&gt; m (Step (Int, Handle) (Array Word8)))
+-&gt; Step (Int, Handle) (Array Word8)
+-&gt; m (Step (Int, Handle) (Array Word8))
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span>
+</span><span id="line-216"></span><span>            </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">Array Word8 -&gt; Int
+forall a. Storable a =&gt; Array a -&gt; Int
+</span><a href="Streamly.Internal.Data.Array.Foreign.Types.html#length"><span class="hs-identifier hs-var">A.length</span></a></span><span> </span><span class="annot"><span class="annottext">Array Word8
+</span><a href="#local-6989586621679398705"><span class="hs-identifier hs-var">arr</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-217"></span><span>                </span><span class="hs-number">0</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Step (Int, Handle) (Array Word8)
+forall s a. Step s a
+</span><a href="Streamly.Internal.Data.Stream.StreamD.Step.html#Stop"><span class="hs-identifier hs-var">D.Stop</span></a></span><span>
+</span><span id="line-218"></span><span>                </span><span class="hs-identifier">_</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Array Word8 -&gt; (Int, Handle) -&gt; Step (Int, Handle) (Array Word8)
+forall s a. a -&gt; s -&gt; Step s a
+</span><a href="Streamly.Internal.Data.Stream.StreamD.Step.html#Yield"><span class="hs-identifier hs-var">D.Yield</span></a></span><span> </span><span class="annot"><span class="annottext">Array Word8
+</span><a href="#local-6989586621679398705"><span class="hs-identifier hs-var">arr</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679398707"><span class="hs-identifier hs-var">size</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Handle
+</span><a href="#local-6989586621679398706"><span class="hs-identifier hs-var">h</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-219"></span><span>
+</span><span id="line-220"></span><span class="hs-comment">-- XXX read 'Array a' instead of Word8</span><span>
+</span><span id="line-221"></span><span class="hs-comment">--</span><span>
+</span><span id="line-222"></span><span class="hs-comment">-- | @toChunks handle@ reads a stream of arrays from the specified file</span><span>
+</span><span id="line-223"></span><span class="hs-comment">-- handle.  The maximum size of a single array is limited to</span><span>
+</span><span id="line-224"></span><span class="hs-comment">-- @defaultChunkSize@. The actual size read may be less than or equal to</span><span>
+</span><span id="line-225"></span><span class="hs-comment">-- @defaultChunkSize@.</span><span>
+</span><span id="line-226"></span><span class="hs-comment">--</span><span>
+</span><span id="line-227"></span><span class="hs-comment">-- &gt; toChunks = toChunksWithBufferOf defaultChunkSize</span><span>
+</span><span id="line-228"></span><span class="hs-comment">--</span><span>
+</span><span id="line-229"></span><span class="hs-comment">-- @since 0.7.0</span><span>
+</span><span id="line-230"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Streamly.Internal.FileSystem.Handle.html#toChunks"><span class="hs-pragma hs-type">toChunks</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-231"></span><span id="local-6989586621679398890"><span id="local-6989586621679398891"><span class="annot"><a href="Streamly.Internal.FileSystem.Handle.html#toChunks"><span class="hs-identifier hs-type">toChunks</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.Stream.StreamK.Type.html#IsStream"><span class="hs-identifier hs-type">IsStream</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679398891"><span class="hs-identifier hs-type">t</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadIO</span></span><span> </span><span class="annot"><a href="#local-6989586621679398890"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Handle</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679398891"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679398890"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.Array.Foreign.Types.html#Array"><span class="hs-identifier hs-type">Array</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span class="hs-special">)</span></span></span><span>
+</span><span id="line-232"></span><span id="toChunks"><span class="annot"><span class="annottext">toChunks :: Handle -&gt; t m (Array Word8)
+</span><a href="Streamly.Internal.FileSystem.Handle.html#toChunks"><span class="hs-identifier hs-var hs-var">toChunks</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; Handle -&gt; t m (Array Word8)
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) (m :: * -&gt; *).
+(IsStream t, MonadIO m) =&gt;
+Int -&gt; Handle -&gt; t m (Array Word8)
+</span><a href="Streamly.Internal.FileSystem.Handle.html#toChunksWithBufferOf"><span class="hs-identifier hs-var">toChunksWithBufferOf</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="Streamly.Internal.Data.Array.Foreign.Mut.Types.html#defaultChunkSize"><span class="hs-identifier hs-var">defaultChunkSize</span></a></span><span>
+</span><span id="line-233"></span><span>
+</span><span id="line-234"></span><span class="hs-comment">-- | Read a stream of chunks from standard input.  The maximum size of a single</span><span>
+</span><span id="line-235"></span><span class="hs-comment">-- chunk is limited to @defaultChunkSize@. The actual size read may be less</span><span>
+</span><span id="line-236"></span><span class="hs-comment">-- than @defaultChunkSize@.</span><span>
+</span><span id="line-237"></span><span class="hs-comment">--</span><span>
+</span><span id="line-238"></span><span class="hs-comment">-- &gt; getChunks = toChunks stdin</span><span>
+</span><span id="line-239"></span><span class="hs-comment">--</span><span>
+</span><span id="line-240"></span><span class="hs-comment">-- /Internal/</span><span>
+</span><span id="line-241"></span><span class="hs-comment">--</span><span>
+</span><span id="line-242"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Streamly.Internal.FileSystem.Handle.html#getChunks"><span class="hs-pragma hs-type">getChunks</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-243"></span><span id="local-6989586621679398703"><span id="local-6989586621679398704"><span class="annot"><a href="Streamly.Internal.FileSystem.Handle.html#getChunks"><span class="hs-identifier hs-type">getChunks</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.Stream.StreamK.Type.html#IsStream"><span class="hs-identifier hs-type">IsStream</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679398704"><span class="hs-identifier hs-type">t</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadIO</span></span><span> </span><span class="annot"><a href="#local-6989586621679398703"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679398704"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679398703"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.Array.Foreign.Types.html#Array"><span class="hs-identifier hs-type">Array</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span class="hs-special">)</span></span></span><span>
+</span><span id="line-244"></span><span id="getChunks"><span class="annot"><span class="annottext">getChunks :: t m (Array Word8)
+</span><a href="Streamly.Internal.FileSystem.Handle.html#getChunks"><span class="hs-identifier hs-var hs-var">getChunks</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Handle -&gt; t m (Array Word8)
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) (m :: * -&gt; *).
+(IsStream t, MonadIO m) =&gt;
+Handle -&gt; t m (Array Word8)
+</span><a href="Streamly.Internal.FileSystem.Handle.html#toChunks"><span class="hs-identifier hs-var">toChunks</span></a></span><span> </span><span class="annot"><span class="annottext">Handle
+</span><span class="hs-identifier hs-var">stdin</span></span><span>
+</span><span id="line-245"></span><span>
+</span><span id="line-246"></span><span class="hs-comment">-- | Read a stream of bytes from standard input.</span><span>
+</span><span id="line-247"></span><span class="hs-comment">--</span><span>
+</span><span id="line-248"></span><span class="hs-comment">-- &gt; getBytes = toBytes stdin</span><span>
+</span><span id="line-249"></span><span class="hs-comment">--</span><span>
+</span><span id="line-250"></span><span class="hs-comment">-- /Internal/</span><span>
+</span><span id="line-251"></span><span class="hs-comment">--</span><span>
+</span><span id="line-252"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Streamly.Internal.FileSystem.Handle.html#getBytes"><span class="hs-pragma hs-type">getBytes</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-253"></span><span id="local-6989586621679398701"><span id="local-6989586621679398702"><span class="annot"><a href="Streamly.Internal.FileSystem.Handle.html#getBytes"><span class="hs-identifier hs-type">getBytes</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.Stream.StreamK.Type.html#IsStream"><span class="hs-identifier hs-type">IsStream</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679398702"><span class="hs-identifier hs-type">t</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadIO</span></span><span> </span><span class="annot"><a href="#local-6989586621679398701"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679398702"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679398701"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span></span></span><span>
+</span><span id="line-254"></span><span id="getBytes"><span class="annot"><span class="annottext">getBytes :: t m Word8
+</span><a href="Streamly.Internal.FileSystem.Handle.html#getBytes"><span class="hs-identifier hs-var hs-var">getBytes</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Handle -&gt; t m Word8
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) (m :: * -&gt; *).
+(IsStream t, MonadIO m) =&gt;
+Handle -&gt; t m Word8
+</span><a href="Streamly.Internal.FileSystem.Handle.html#toBytes"><span class="hs-identifier hs-var">toBytes</span></a></span><span> </span><span class="annot"><span class="annottext">Handle
+</span><span class="hs-identifier hs-var">stdin</span></span><span>
+</span><span id="line-255"></span><span>
+</span><span id="line-256"></span><span class="hs-comment">-- | Unfolds a handle into a stream of 'Word8' arrays. Requests to the IO</span><span>
+</span><span id="line-257"></span><span class="hs-comment">-- device are performed using a buffer of size</span><span>
+</span><span id="line-258"></span><span class="hs-comment">-- 'Streamly.Internal.Data.Array.Foreign.Types.defaultChunkSize'. The</span><span>
+</span><span id="line-259"></span><span class="hs-comment">-- size of arrays in the resulting stream are therefore less than or equal to</span><span>
+</span><span id="line-260"></span><span class="hs-comment">-- 'Streamly.Internal.Data.Array.Foreign.Types.defaultChunkSize'.</span><span>
+</span><span id="line-261"></span><span class="hs-comment">--</span><span>
+</span><span id="line-262"></span><span class="hs-comment">-- @since 0.7.0</span><span>
+</span><span id="line-263"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Streamly.Internal.FileSystem.Handle.html#readChunks"><span class="hs-pragma hs-type">readChunks</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-264"></span><span id="local-6989586621679398700"><span class="annot"><a href="Streamly.Internal.FileSystem.Handle.html#readChunks"><span class="hs-identifier hs-type">readChunks</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadIO</span></span><span> </span><span class="annot"><a href="#local-6989586621679398700"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Unfold.Types.html#Unfold"><span class="hs-identifier hs-type">Unfold</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679398700"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Handle</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.Array.Foreign.Types.html#Array"><span class="hs-identifier hs-type">Array</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span class="hs-special">)</span></span><span>
+</span><span id="line-265"></span><span id="readChunks"><span class="annot"><span class="annottext">readChunks :: Unfold m Handle (Array Word8)
+</span><a href="Streamly.Internal.FileSystem.Handle.html#readChunks"><span class="hs-identifier hs-var hs-var">readChunks</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Unfold m (Int, Handle) (Array Word8)
+-&gt; Int -&gt; Unfold m Handle (Array Word8)
+forall (m :: * -&gt; *) a b c. Unfold m (a, b) c -&gt; a -&gt; Unfold m b c
+</span><a href="Streamly.Internal.Data.Unfold.html#supplyFirst"><span class="hs-identifier hs-var">UF.supplyFirst</span></a></span><span> </span><span class="annot"><span class="annottext">Unfold m (Int, Handle) (Array Word8)
+forall (m :: * -&gt; *).
+MonadIO m =&gt;
+Unfold m (Int, Handle) (Array Word8)
+</span><a href="Streamly.Internal.FileSystem.Handle.html#readChunksWithBufferOf"><span class="hs-identifier hs-var">readChunksWithBufferOf</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="Streamly.Internal.Data.Array.Foreign.Mut.Types.html#defaultChunkSize"><span class="hs-identifier hs-var">defaultChunkSize</span></a></span><span>
+</span><span id="line-266"></span><span>
+</span><span id="line-267"></span><span class="hs-comment">-------------------------------------------------------------------------------</span><span>
+</span><span id="line-268"></span><span class="hs-comment">-- Read File to Stream</span><span>
+</span><span id="line-269"></span><span class="hs-comment">-------------------------------------------------------------------------------</span><span>
+</span><span id="line-270"></span><span>
+</span><span id="line-271"></span><span class="hs-comment">-- TODO for concurrent streams implement readahead IO. We can send multiple</span><span>
+</span><span id="line-272"></span><span class="hs-comment">-- read requests at the same time. For serial case we can use async IO. We can</span><span>
+</span><span id="line-273"></span><span class="hs-comment">-- also control the read throughput in mbps or IOPS.</span><span>
+</span><span id="line-274"></span><span>
+</span><span id="line-275"></span><span class="hs-comment">-- | Unfolds the tuple @(bufsize, handle)@ into a byte stream, read requests</span><span>
+</span><span id="line-276"></span><span class="hs-comment">-- to the IO device are performed using buffers of @bufsize@.</span><span>
+</span><span id="line-277"></span><span class="hs-comment">--</span><span>
+</span><span id="line-278"></span><span class="hs-comment">-- @since 0.7.0</span><span>
+</span><span id="line-279"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Streamly.Internal.FileSystem.Handle.html#readWithBufferOf"><span class="hs-pragma hs-type">readWithBufferOf</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-280"></span><span id="local-6989586621679398866"><span class="annot"><a href="Streamly.Internal.FileSystem.Handle.html#readWithBufferOf"><span class="hs-identifier hs-type">readWithBufferOf</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadIO</span></span><span> </span><span class="annot"><a href="#local-6989586621679398866"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Unfold.Types.html#Unfold"><span class="hs-identifier hs-type">Unfold</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679398866"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Handle</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span></span><span>
+</span><span id="line-281"></span><span id="readWithBufferOf"><span class="annot"><span class="annottext">readWithBufferOf :: Unfold m (Int, Handle) Word8
+</span><a href="Streamly.Internal.FileSystem.Handle.html#readWithBufferOf"><span class="hs-identifier hs-var hs-var">readWithBufferOf</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Unfold m (Int, Handle) (Array Word8)
+-&gt; Unfold m (Array Word8) Word8 -&gt; Unfold m (Int, Handle) Word8
+forall (m :: * -&gt; *) a b c.
+Monad m =&gt;
+Unfold m a b -&gt; Unfold m b c -&gt; Unfold m a c
+</span><a href="Streamly.Internal.Data.Unfold.html#concat"><span class="hs-identifier hs-var">UF.concat</span></a></span><span> </span><span class="annot"><span class="annottext">Unfold m (Int, Handle) (Array Word8)
+forall (m :: * -&gt; *).
+MonadIO m =&gt;
+Unfold m (Int, Handle) (Array Word8)
+</span><a href="Streamly.Internal.FileSystem.Handle.html#readChunksWithBufferOf"><span class="hs-identifier hs-var">readChunksWithBufferOf</span></a></span><span> </span><span class="annot"><span class="annottext">Unfold m (Array Word8) Word8
+forall (m :: * -&gt; *) a.
+(Monad m, Storable a) =&gt;
+Unfold m (Array a) a
+</span><a href="Streamly.Internal.Data.Array.Foreign.html#read"><span class="hs-identifier hs-var">A.read</span></a></span><span>
+</span><span id="line-282"></span><span>
+</span><span id="line-283"></span><span class="hs-comment">-- | @toBytesWithBufferOf bufsize handle@ reads a byte stream from a file</span><span>
+</span><span id="line-284"></span><span class="hs-comment">-- handle, reads are performed in chunks of up to @bufsize@.</span><span>
+</span><span id="line-285"></span><span class="hs-comment">--</span><span>
+</span><span id="line-286"></span><span class="hs-comment">-- /Internal/</span><span>
+</span><span id="line-287"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Streamly.Internal.FileSystem.Handle.html#toBytesWithBufferOf"><span class="hs-pragma hs-type">toBytesWithBufferOf</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-288"></span><span id="local-6989586621679398695"><span id="local-6989586621679398696"><span class="annot"><a href="Streamly.Internal.FileSystem.Handle.html#toBytesWithBufferOf"><span class="hs-identifier hs-type">toBytesWithBufferOf</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.Stream.StreamK.Type.html#IsStream"><span class="hs-identifier hs-type">IsStream</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679398696"><span class="hs-identifier hs-type">t</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadIO</span></span><span> </span><span class="annot"><a href="#local-6989586621679398695"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Handle</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679398696"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679398695"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span></span></span><span>
+</span><span id="line-289"></span><span id="toBytesWithBufferOf"><span class="annot"><span class="annottext">toBytesWithBufferOf :: Int -&gt; Handle -&gt; t m Word8
+</span><a href="Streamly.Internal.FileSystem.Handle.html#toBytesWithBufferOf"><span class="hs-identifier hs-var hs-var">toBytesWithBufferOf</span></a></span></span><span> </span><span id="local-6989586621679398694"><span class="annot"><span class="annottext">chunkSize :: Int
+</span><a href="#local-6989586621679398694"><span class="hs-identifier hs-var">chunkSize</span></a></span></span><span> </span><span id="local-6989586621679398693"><span class="annot"><span class="annottext">h :: Handle
+</span><a href="#local-6989586621679398693"><span class="hs-identifier hs-var">h</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">t m (Array Word8) -&gt; t m Word8
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) (m :: * -&gt; *) a.
+(IsStream t, MonadIO m, Storable a) =&gt;
+t m (Array a) -&gt; t m a
+</span><a href="Streamly.Internal.Data.Array.Stream.Foreign.html#concat"><span class="hs-identifier hs-var">AS.concat</span></a></span><span> </span><span class="annot"><span class="annottext">(t m (Array Word8) -&gt; t m Word8) -&gt; t m (Array Word8) -&gt; t m Word8
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Handle -&gt; t m (Array Word8)
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) (m :: * -&gt; *).
+(IsStream t, MonadIO m) =&gt;
+Int -&gt; Handle -&gt; t m (Array Word8)
+</span><a href="Streamly.Internal.FileSystem.Handle.html#toChunksWithBufferOf"><span class="hs-identifier hs-var">toChunksWithBufferOf</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679398694"><span class="hs-identifier hs-var">chunkSize</span></a></span><span> </span><span class="annot"><span class="annottext">Handle
+</span><a href="#local-6989586621679398693"><span class="hs-identifier hs-var">h</span></a></span><span>
+</span><span id="line-290"></span><span>
+</span><span id="line-291"></span><span class="hs-comment">-- TODO</span><span>
+</span><span id="line-292"></span><span class="hs-comment">-- Generate a stream of elements of the given type from a file 'Handle'.</span><span>
+</span><span id="line-293"></span><span class="hs-comment">-- read :: (IsStream t, MonadIO m, Storable a) =&gt; Handle -&gt; t m a</span><span>
+</span><span id="line-294"></span><span class="hs-comment">--</span><span>
+</span><span id="line-295"></span><span class="hs-comment">-- | Unfolds a file handle into a byte stream. IO requests to the device are</span><span>
+</span><span id="line-296"></span><span class="hs-comment">-- performed in sizes of</span><span>
+</span><span id="line-297"></span><span class="hs-comment">-- 'Streamly.Internal.Data.Array.Foreign.Types.defaultChunkSize'.</span><span>
+</span><span id="line-298"></span><span class="hs-comment">--</span><span>
+</span><span id="line-299"></span><span class="hs-comment">-- @since 0.7.0</span><span>
+</span><span id="line-300"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Streamly.Internal.FileSystem.Handle.html#read"><span class="hs-pragma hs-type">read</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-301"></span><span id="local-6989586621679398691"><span class="annot"><a href="Streamly.Internal.FileSystem.Handle.html#read"><span class="hs-identifier hs-type">read</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadIO</span></span><span> </span><span class="annot"><a href="#local-6989586621679398691"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Unfold.Types.html#Unfold"><span class="hs-identifier hs-type">Unfold</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679398691"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Handle</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span></span><span>
+</span><span id="line-302"></span><span id="read"><span class="annot"><span class="annottext">read :: Unfold m Handle Word8
+</span><a href="Streamly.Internal.FileSystem.Handle.html#read"><span class="hs-identifier hs-var hs-var">read</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Unfold m (Int, Handle) Word8 -&gt; Int -&gt; Unfold m Handle Word8
+forall (m :: * -&gt; *) a b c. Unfold m (a, b) c -&gt; a -&gt; Unfold m b c
+</span><a href="Streamly.Internal.Data.Unfold.html#supplyFirst"><span class="hs-identifier hs-var">UF.supplyFirst</span></a></span><span> </span><span class="annot"><span class="annottext">Unfold m (Int, Handle) Word8
+forall (m :: * -&gt; *). MonadIO m =&gt; Unfold m (Int, Handle) Word8
+</span><a href="Streamly.Internal.FileSystem.Handle.html#readWithBufferOf"><span class="hs-identifier hs-var">readWithBufferOf</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="Streamly.Internal.Data.Array.Foreign.Mut.Types.html#defaultChunkSize"><span class="hs-identifier hs-var">defaultChunkSize</span></a></span><span>
+</span><span id="line-303"></span><span>
+</span><span id="line-304"></span><span class="hs-comment">-- | Generate a byte stream from a file 'Handle'.</span><span>
+</span><span id="line-305"></span><span class="hs-comment">--</span><span>
+</span><span id="line-306"></span><span class="hs-comment">-- /Internal/</span><span>
+</span><span id="line-307"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Streamly.Internal.FileSystem.Handle.html#toBytes"><span class="hs-pragma hs-type">toBytes</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-308"></span><span id="local-6989586621679398886"><span id="local-6989586621679398887"><span class="annot"><a href="Streamly.Internal.FileSystem.Handle.html#toBytes"><span class="hs-identifier hs-type">toBytes</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.Stream.StreamK.Type.html#IsStream"><span class="hs-identifier hs-type">IsStream</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679398887"><span class="hs-identifier hs-type">t</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadIO</span></span><span> </span><span class="annot"><a href="#local-6989586621679398886"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Handle</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679398887"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679398886"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span></span></span><span>
+</span><span id="line-309"></span><span id="toBytes"><span class="annot"><span class="annottext">toBytes :: Handle -&gt; t m Word8
+</span><a href="Streamly.Internal.FileSystem.Handle.html#toBytes"><span class="hs-identifier hs-var hs-var">toBytes</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">t m (Array Word8) -&gt; t m Word8
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) (m :: * -&gt; *) a.
+(IsStream t, MonadIO m, Storable a) =&gt;
+t m (Array a) -&gt; t m a
+</span><a href="Streamly.Internal.Data.Array.Stream.Foreign.html#concat"><span class="hs-identifier hs-var">AS.concat</span></a></span><span> </span><span class="annot"><span class="annottext">(t m (Array Word8) -&gt; t m Word8)
+-&gt; (Handle -&gt; t m (Array Word8)) -&gt; Handle -&gt; t m Word8
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Handle -&gt; t m (Array Word8)
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) (m :: * -&gt; *).
+(IsStream t, MonadIO m) =&gt;
+Handle -&gt; t m (Array Word8)
+</span><a href="Streamly.Internal.FileSystem.Handle.html#toChunks"><span class="hs-identifier hs-var">toChunks</span></a></span><span>
+</span><span id="line-310"></span><span>
+</span><span id="line-311"></span><span class="hs-comment">-------------------------------------------------------------------------------</span><span>
+</span><span id="line-312"></span><span class="hs-comment">-- Writing</span><span>
+</span><span id="line-313"></span><span class="hs-comment">-------------------------------------------------------------------------------</span><span>
+</span><span id="line-314"></span><span>
+</span><span id="line-315"></span><span class="hs-comment">-------------------------------------------------------------------------------</span><span>
+</span><span id="line-316"></span><span class="hs-comment">-- Array IO (output)</span><span>
+</span><span id="line-317"></span><span class="hs-comment">-------------------------------------------------------------------------------</span><span>
+</span><span id="line-318"></span><span>
+</span><span id="line-319"></span><span class="hs-comment">-- | Write an 'Array' to a file handle.</span><span>
+</span><span id="line-320"></span><span class="hs-comment">--</span><span>
+</span><span id="line-321"></span><span class="hs-comment">-- @since 0.7.0</span><span>
+</span><span id="line-322"></span><span class="hs-pragma">{-# INLINABLE</span><span> </span><span class="annot"><a href="Streamly.Internal.FileSystem.Handle.html#writeArray"><span class="hs-pragma hs-type">writeArray</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-323"></span><span id="local-6989586621679398848"><span class="annot"><a href="Streamly.Internal.FileSystem.Handle.html#writeArray"><span class="hs-identifier hs-type">writeArray</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Storable</span></span><span> </span><span class="annot"><a href="#local-6989586621679398848"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Handle</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Array.Foreign.Types.html#Array"><span class="hs-identifier hs-type">Array</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679398848"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
+</span><span id="line-324"></span><span id="writeArray"><span class="annot"><span class="annottext">writeArray :: Handle -&gt; Array a -&gt; IO ()
+</span><a href="Streamly.Internal.FileSystem.Handle.html#writeArray"><span class="hs-identifier hs-var hs-var">writeArray</span></a></span></span><span> </span><span class="hs-identifier">_</span><span> </span><span id="local-6989586621679398689"><span class="annot"><span class="annottext">arr :: Array a
+</span><a href="#local-6989586621679398689"><span class="hs-identifier hs-var">arr</span></a></span></span><span> </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Array a -&gt; Int
+forall a. Storable a =&gt; Array a -&gt; Int
+</span><a href="Streamly.Internal.Data.Array.Foreign.Types.html#length"><span class="hs-identifier hs-var">A.length</span></a></span><span> </span><span class="annot"><span class="annottext">Array a
+</span><a href="#local-6989586621679398689"><span class="hs-identifier hs-var">arr</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">==</span></span><span> </span><span class="annot"><span class="hs-number">0</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">() -&gt; IO ()
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-325"></span><span class="annot"><a href="Streamly.Internal.FileSystem.Handle.html#writeArray"><span class="hs-identifier hs-var">writeArray</span></a></span><span> </span><span id="local-6989586621679398688"><span class="annot"><span class="annottext">h :: Handle
+</span><a href="#local-6989586621679398688"><span class="hs-identifier hs-var">h</span></a></span></span><span> </span><span id="local-6989586621679398686"><span id="local-6989586621679398687"><span class="annot"><a href="Streamly.Internal.Data.Array.Foreign.Types.html#Array"><span class="hs-identifier hs-type">Array</span></a></span><span class="hs-special">{</span><span class="hs-glyph">..</span><span class="hs-special">}</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ForeignPtr a -&gt; (Ptr a -&gt; IO ()) -&gt; IO ()
+forall a b. ForeignPtr a -&gt; (Ptr a -&gt; IO b) -&gt; IO b
+</span><span class="hs-identifier hs-var">withForeignPtr</span></span><span> </span><span class="annot"><span class="annottext">ForeignPtr a
+</span><a href="#local-6989586621679398687"><span class="hs-identifier hs-var">aStart</span></a></span><span> </span><span class="annot"><span class="annottext">((Ptr a -&gt; IO ()) -&gt; IO ()) -&gt; (Ptr a -&gt; IO ()) -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679398682"><span class="annot"><span class="annottext">p :: Ptr a
+</span><a href="#local-6989586621679398682"><span class="hs-identifier hs-var">p</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Handle -&gt; Ptr a -&gt; Int -&gt; IO ()
+forall a. Handle -&gt; Ptr a -&gt; Int -&gt; IO ()
+</span><span class="hs-identifier hs-var">hPutBuf</span></span><span> </span><span class="annot"><span class="annottext">Handle
+</span><a href="#local-6989586621679398688"><span class="hs-identifier hs-var">h</span></a></span><span> </span><span class="annot"><span class="annottext">Ptr a
+</span><a href="#local-6989586621679398682"><span class="hs-identifier hs-var">p</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679398681"><span class="hs-identifier hs-var">aLen</span></a></span><span>
+</span><span id="line-326"></span><span>    </span><span class="hs-keyword">where</span><span>
+</span><span id="line-327"></span><span>    </span><span id="local-6989586621679398681"><span class="annot"><span class="annottext">aLen :: Int
+</span><a href="#local-6989586621679398681"><span class="hs-identifier hs-var hs-var">aLen</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-328"></span><span>        </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679398680"><span class="annot"><span class="annottext">p :: Ptr a
+</span><a href="#local-6989586621679398680"><span class="hs-identifier hs-var hs-var">p</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ForeignPtr a -&gt; Ptr a
+forall a. ForeignPtr a -&gt; Ptr a
+</span><span class="hs-identifier hs-var">unsafeForeignPtrToPtr</span></span><span> </span><span class="annot"><span class="annottext">ForeignPtr a
+</span><a href="#local-6989586621679398687"><span class="hs-identifier hs-var">aStart</span></a></span><span>
+</span><span id="line-329"></span><span>        </span><span class="hs-keyword">in</span><span> </span><span class="annot"><span class="annottext">Ptr a
+</span><a href="#local-6989586621679398686"><span class="hs-identifier hs-var">aEnd</span></a></span><span> </span><span class="annot"><span class="annottext">Ptr a -&gt; Ptr a -&gt; Int
+forall a b. Ptr a -&gt; Ptr b -&gt; Int
+</span><span class="hs-operator hs-var">`minusPtr`</span></span><span> </span><span class="annot"><span class="annottext">Ptr a
+</span><a href="#local-6989586621679398680"><span class="hs-identifier hs-var">p</span></a></span><span>
+</span><span id="line-330"></span><span>
+</span><span id="line-331"></span><span class="hs-comment">-------------------------------------------------------------------------------</span><span>
+</span><span id="line-332"></span><span class="hs-comment">-- Stream of Arrays IO</span><span>
+</span><span id="line-333"></span><span class="hs-comment">-------------------------------------------------------------------------------</span><span>
+</span><span id="line-334"></span><span>
+</span><span id="line-335"></span><span class="hs-comment">-------------------------------------------------------------------------------</span><span>
+</span><span id="line-336"></span><span class="hs-comment">-- Writing</span><span>
+</span><span id="line-337"></span><span class="hs-comment">-------------------------------------------------------------------------------</span><span>
+</span><span id="line-338"></span><span>
+</span><span id="line-339"></span><span class="hs-comment">-- XXX use an unfold to fromObjects or fromUnfold so that we can put any object</span><span>
+</span><span id="line-340"></span><span class="hs-comment">-- | Write a stream of arrays to a handle.</span><span>
+</span><span id="line-341"></span><span class="hs-comment">--</span><span>
+</span><span id="line-342"></span><span class="hs-comment">-- @since 0.7.0</span><span>
+</span><span id="line-343"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Streamly.Internal.FileSystem.Handle.html#fromChunks"><span class="hs-pragma hs-type">fromChunks</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-344"></span><span id="local-6989586621679398844"><span id="local-6989586621679398845"><span class="annot"><a href="Streamly.Internal.FileSystem.Handle.html#fromChunks"><span class="hs-identifier hs-type">fromChunks</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">MonadIO</span></span><span> </span><span class="annot"><a href="#local-6989586621679398845"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Storable</span></span><span> </span><span class="annot"><a href="#local-6989586621679398844"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-345"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Handle</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Serial.html#SerialT"><span class="hs-identifier hs-type">SerialT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679398845"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.Array.Foreign.Types.html#Array"><span class="hs-identifier hs-type">Array</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679398844"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679398845"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span></span><span>
+</span><span id="line-346"></span><span id="fromChunks"><span class="annot"><span class="annottext">fromChunks :: Handle -&gt; SerialT m (Array a) -&gt; m ()
+</span><a href="Streamly.Internal.FileSystem.Handle.html#fromChunks"><span class="hs-identifier hs-var hs-var">fromChunks</span></a></span></span><span> </span><span id="local-6989586621679398679"><span class="annot"><span class="annottext">h :: Handle
+</span><a href="#local-6989586621679398679"><span class="hs-identifier hs-var">h</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Array a -&gt; m ()) -&gt; SerialT m (Array a) -&gt; m ()
+forall (m :: * -&gt; *) a b.
+Monad m =&gt;
+(a -&gt; m b) -&gt; SerialT m a -&gt; m ()
+</span><a href="Streamly.Internal.Data.Stream.IsStream.Eliminate.html#mapM_"><span class="hs-identifier hs-var">S.mapM_</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">IO () -&gt; m ()
+forall (m :: * -&gt; *) a. MonadIO m =&gt; IO a -&gt; m a
+</span><span class="hs-identifier hs-var">liftIO</span></span><span> </span><span class="annot"><span class="annottext">(IO () -&gt; m ()) -&gt; (Array a -&gt; IO ()) -&gt; Array a -&gt; m ()
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Handle -&gt; Array a -&gt; IO ()
+forall a. Storable a =&gt; Handle -&gt; Array a -&gt; IO ()
+</span><a href="Streamly.Internal.FileSystem.Handle.html#writeArray"><span class="hs-identifier hs-var">writeArray</span></a></span><span> </span><span class="annot"><span class="annottext">Handle
+</span><a href="#local-6989586621679398679"><span class="hs-identifier hs-var">h</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-347"></span><span>
+</span><span id="line-348"></span><span class="hs-comment">-- | Write a stream of chunks to standard output.</span><span>
+</span><span id="line-349"></span><span class="hs-comment">--</span><span>
+</span><span id="line-350"></span><span class="hs-comment">-- /Internal/</span><span>
+</span><span id="line-351"></span><span class="hs-comment">--</span><span>
+</span><span id="line-352"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Streamly.Internal.FileSystem.Handle.html#putChunks"><span class="hs-pragma hs-type">putChunks</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-353"></span><span id="local-6989586621679398840"><span id="local-6989586621679398841"><span class="annot"><a href="Streamly.Internal.FileSystem.Handle.html#putChunks"><span class="hs-identifier hs-type">putChunks</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">MonadIO</span></span><span> </span><span class="annot"><a href="#local-6989586621679398841"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Storable</span></span><span> </span><span class="annot"><a href="#local-6989586621679398840"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Serial.html#SerialT"><span class="hs-identifier hs-type">SerialT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679398841"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.Array.Foreign.Types.html#Array"><span class="hs-identifier hs-type">Array</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679398840"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679398841"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span></span><span>
+</span><span id="line-354"></span><span id="putChunks"><span class="annot"><span class="annottext">putChunks :: SerialT m (Array a) -&gt; m ()
+</span><a href="Streamly.Internal.FileSystem.Handle.html#putChunks"><span class="hs-identifier hs-var hs-var">putChunks</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Handle -&gt; SerialT m (Array a) -&gt; m ()
+forall (m :: * -&gt; *) a.
+(MonadIO m, Storable a) =&gt;
+Handle -&gt; SerialT m (Array a) -&gt; m ()
+</span><a href="Streamly.Internal.FileSystem.Handle.html#fromChunks"><span class="hs-identifier hs-var">fromChunks</span></a></span><span> </span><span class="annot"><span class="annottext">Handle
+</span><span class="hs-identifier hs-var">stdout</span></span><span>
+</span><span id="line-355"></span><span>
+</span><span id="line-356"></span><span class="hs-comment">-- XXX use an unfold so that we can put any type of strings.</span><span>
+</span><span id="line-357"></span><span class="hs-comment">-- | Write a stream of strings to standard output using the supplied encoding.</span><span>
+</span><span id="line-358"></span><span class="hs-comment">-- Output is flushed to the device for each string.</span><span>
+</span><span id="line-359"></span><span class="hs-comment">--</span><span>
+</span><span id="line-360"></span><span class="hs-comment">-- /Internal/</span><span>
+</span><span id="line-361"></span><span class="hs-comment">--</span><span>
+</span><span id="line-362"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Streamly.Internal.FileSystem.Handle.html#putStrings"><span class="hs-pragma hs-type">putStrings</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-363"></span><span id="local-6989586621679398677"><span class="annot"><a href="Streamly.Internal.FileSystem.Handle.html#putStrings"><span class="hs-identifier hs-type">putStrings</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.SVar.html#MonadAsync"><span class="hs-identifier hs-type">MonadAsync</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679398677"><span class="hs-identifier hs-type">m</span></a></span><span>
+</span><span id="line-364"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.Stream.Serial.html#SerialT"><span class="hs-identifier hs-type">SerialT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679398677"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Char</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Serial.html#SerialT"><span class="hs-identifier hs-type">SerialT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679398677"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Serial.html#SerialT"><span class="hs-identifier hs-type">SerialT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679398677"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">String</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679398677"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
+</span><span id="line-365"></span><span id="putStrings"><span class="annot"><span class="annottext">putStrings :: (SerialT m Char -&gt; SerialT m Word8) -&gt; SerialT m String -&gt; m ()
+</span><a href="Streamly.Internal.FileSystem.Handle.html#putStrings"><span class="hs-identifier hs-var hs-var">putStrings</span></a></span></span><span> </span><span id="local-6989586621679398676"><span class="annot"><span class="annottext">encode :: SerialT m Char -&gt; SerialT m Word8
+</span><a href="#local-6989586621679398676"><span class="hs-identifier hs-var">encode</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SerialT m (Array Word8) -&gt; m ()
+forall (m :: * -&gt; *) a.
+(MonadIO m, Storable a) =&gt;
+SerialT m (Array a) -&gt; m ()
+</span><a href="Streamly.Internal.FileSystem.Handle.html#putChunks"><span class="hs-identifier hs-var">putChunks</span></a></span><span> </span><span class="annot"><span class="annottext">(SerialT m (Array Word8) -&gt; m ())
+-&gt; (SerialT m String -&gt; SerialT m (Array Word8))
+-&gt; SerialT m String
+-&gt; m ()
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">(String -&gt; m (Array Word8))
+-&gt; SerialT m String -&gt; SerialT m (Array Word8)
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) (m :: * -&gt; *) a b.
+(IsStream t, MonadAsync m) =&gt;
+(a -&gt; m b) -&gt; t m a -&gt; t m b
+</span><a href="Streamly.Internal.Data.Stream.IsStream.Transform.html#mapM"><span class="hs-identifier hs-var">S.mapM</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SerialT m Word8 -&gt; m (Array Word8)
+forall (m :: * -&gt; *) a.
+(MonadIO m, Storable a) =&gt;
+SerialT m a -&gt; m (Array a)
+</span><a href="Streamly.Internal.Data.Array.Foreign.html#fromStream"><span class="hs-identifier hs-var">IA.fromStream</span></a></span><span> </span><span class="annot"><span class="annottext">(SerialT m Word8 -&gt; m (Array Word8))
+-&gt; (String -&gt; SerialT m Word8) -&gt; String -&gt; m (Array Word8)
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">SerialT m Char -&gt; SerialT m Word8
+</span><a href="#local-6989586621679398676"><span class="hs-identifier hs-var">encode</span></a></span><span> </span><span class="annot"><span class="annottext">(SerialT m Char -&gt; SerialT m Word8)
+-&gt; (String -&gt; SerialT m Char) -&gt; String -&gt; SerialT m Word8
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">String -&gt; SerialT m Char
+forall (m :: * -&gt; *) (t :: (* -&gt; *) -&gt; * -&gt; *) a.
+(Monad m, IsStream t) =&gt;
+[a] -&gt; t m a
+</span><a href="Streamly.Internal.Data.Stream.Prelude.html#fromList"><span class="hs-identifier hs-var">S.fromList</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-366"></span><span>
+</span><span id="line-367"></span><span class="hs-comment">-- XXX use an unfold so that we can put lines from any object</span><span>
+</span><span id="line-368"></span><span class="hs-comment">-- | Write a stream of strings as separate lines to standard output using the</span><span>
+</span><span id="line-369"></span><span class="hs-comment">-- supplied encoding. Output is line buffered i.e. the output is written to the</span><span>
+</span><span id="line-370"></span><span class="hs-comment">-- device as soon as a newline is encountered.</span><span>
+</span><span id="line-371"></span><span class="hs-comment">--</span><span>
+</span><span id="line-372"></span><span class="hs-comment">-- /Internal/</span><span>
+</span><span id="line-373"></span><span class="hs-comment">--</span><span>
+</span><span id="line-374"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Streamly.Internal.FileSystem.Handle.html#putLines"><span class="hs-pragma hs-type">putLines</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-375"></span><span id="local-6989586621679398672"><span class="annot"><a href="Streamly.Internal.FileSystem.Handle.html#putLines"><span class="hs-identifier hs-type">putLines</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.SVar.html#MonadAsync"><span class="hs-identifier hs-type">MonadAsync</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679398672"><span class="hs-identifier hs-type">m</span></a></span><span>
+</span><span id="line-376"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.Stream.Serial.html#SerialT"><span class="hs-identifier hs-type">SerialT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679398672"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Char</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Serial.html#SerialT"><span class="hs-identifier hs-type">SerialT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679398672"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Serial.html#SerialT"><span class="hs-identifier hs-type">SerialT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679398672"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">String</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679398672"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
+</span><span id="line-377"></span><span id="putLines"><span class="annot"><span class="annottext">putLines :: (SerialT m Char -&gt; SerialT m Word8) -&gt; SerialT m String -&gt; m ()
+</span><a href="Streamly.Internal.FileSystem.Handle.html#putLines"><span class="hs-identifier hs-var hs-var">putLines</span></a></span></span><span> </span><span id="local-6989586621679398671"><span class="annot"><span class="annottext">encode :: SerialT m Char -&gt; SerialT m Word8
+</span><a href="#local-6989586621679398671"><span class="hs-identifier hs-var">encode</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SerialT m (Array Word8) -&gt; m ()
+forall (m :: * -&gt; *) a.
+(MonadIO m, Storable a) =&gt;
+SerialT m (Array a) -&gt; m ()
+</span><a href="Streamly.Internal.FileSystem.Handle.html#putChunks"><span class="hs-identifier hs-var">putChunks</span></a></span><span> </span><span class="annot"><span class="annottext">(SerialT m (Array Word8) -&gt; m ())
+-&gt; (SerialT m String -&gt; SerialT m (Array Word8))
+-&gt; SerialT m String
+-&gt; m ()
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">(String -&gt; m (Array Word8))
+-&gt; SerialT m String -&gt; SerialT m (Array Word8)
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) (m :: * -&gt; *) a b.
+(IsStream t, MonadAsync m) =&gt;
+(a -&gt; m b) -&gt; t m a -&gt; t m b
+</span><a href="Streamly.Internal.Data.Stream.IsStream.Transform.html#mapM"><span class="hs-identifier hs-var">S.mapM</span></a></span><span>
+</span><span id="line-378"></span><span>    </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621679398670"><span class="annot"><span class="annottext">xs :: String
+</span><a href="#local-6989586621679398670"><span class="hs-identifier hs-var">xs</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">SerialT m Word8 -&gt; m (Array Word8)
+forall (m :: * -&gt; *) a.
+(MonadIO m, Storable a) =&gt;
+SerialT m a -&gt; m (Array a)
+</span><a href="Streamly.Internal.Data.Array.Foreign.html#fromStream"><span class="hs-identifier hs-var">IA.fromStream</span></a></span><span> </span><span class="annot"><span class="annottext">(SerialT m Word8 -&gt; m (Array Word8))
+-&gt; SerialT m Word8 -&gt; m (Array Word8)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">SerialT m Char -&gt; SerialT m Word8
+</span><a href="#local-6989586621679398671"><span class="hs-identifier hs-var">encode</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">String -&gt; SerialT m Char
+forall (m :: * -&gt; *) (t :: (* -&gt; *) -&gt; * -&gt; *) a.
+(Monad m, IsStream t) =&gt;
+[a] -&gt; t m a
+</span><a href="Streamly.Internal.Data.Stream.Prelude.html#fromList"><span class="hs-identifier hs-var">S.fromList</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679398670"><span class="hs-identifier hs-var">xs</span></a></span><span> </span><span class="annot"><span class="annottext">String -&gt; String -&gt; String
+forall a. [a] -&gt; [a] -&gt; [a]
+</span><span class="hs-operator hs-var">++</span></span><span> </span><span class="annot"><span class="hs-string">&quot;\n&quot;</span></span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-379"></span><span>
+</span><span id="line-380"></span><span class="hs-comment">-- | Write a stream of bytes from standard output.</span><span>
+</span><span id="line-381"></span><span class="hs-comment">--</span><span>
+</span><span id="line-382"></span><span class="hs-comment">-- &gt; putBytes = fromBytes stdout</span><span>
+</span><span id="line-383"></span><span class="hs-comment">--</span><span>
+</span><span id="line-384"></span><span class="hs-comment">-- /Internal/</span><span>
+</span><span id="line-385"></span><span class="hs-comment">--</span><span>
+</span><span id="line-386"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Streamly.Internal.FileSystem.Handle.html#putBytes"><span class="hs-pragma hs-type">putBytes</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-387"></span><span id="local-6989586621679398669"><span class="annot"><a href="Streamly.Internal.FileSystem.Handle.html#putBytes"><span class="hs-identifier hs-type">putBytes</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadIO</span></span><span> </span><span class="annot"><a href="#local-6989586621679398669"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Serial.html#SerialT"><span class="hs-identifier hs-type">SerialT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679398669"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679398669"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
+</span><span id="line-388"></span><span id="putBytes"><span class="annot"><span class="annottext">putBytes :: SerialT m Word8 -&gt; m ()
+</span><a href="Streamly.Internal.FileSystem.Handle.html#putBytes"><span class="hs-identifier hs-var hs-var">putBytes</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Handle -&gt; SerialT m Word8 -&gt; m ()
+forall (m :: * -&gt; *).
+MonadIO m =&gt;
+Handle -&gt; SerialT m Word8 -&gt; m ()
+</span><a href="Streamly.Internal.FileSystem.Handle.html#fromBytes"><span class="hs-identifier hs-var">fromBytes</span></a></span><span> </span><span class="annot"><span class="annottext">Handle
+</span><span class="hs-identifier hs-var">stdout</span></span><span>
+</span><span id="line-389"></span><span>
+</span><span id="line-390"></span><span class="hs-comment">-- | @fromChunksWithBufferOf bufsize handle stream@ writes a stream of arrays</span><span>
+</span><span id="line-391"></span><span class="hs-comment">-- to @handle@ after coalescing the adjacent arrays in chunks of @bufsize@.</span><span>
+</span><span id="line-392"></span><span class="hs-comment">-- The chunk size is only a maximum and the actual writes could be smaller as</span><span>
+</span><span id="line-393"></span><span class="hs-comment">-- we do not split the arrays to fit exactly to the specified size.</span><span>
+</span><span id="line-394"></span><span class="hs-comment">--</span><span>
+</span><span id="line-395"></span><span class="hs-comment">-- @since 0.7.0</span><span>
+</span><span id="line-396"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Streamly.Internal.FileSystem.Handle.html#fromChunksWithBufferOf"><span class="hs-pragma hs-type">fromChunksWithBufferOf</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-397"></span><span id="local-6989586621679398667"><span id="local-6989586621679398668"><span class="annot"><a href="Streamly.Internal.FileSystem.Handle.html#fromChunksWithBufferOf"><span class="hs-identifier hs-type">fromChunksWithBufferOf</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">MonadIO</span></span><span> </span><span class="annot"><a href="#local-6989586621679398668"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Storable</span></span><span> </span><span class="annot"><a href="#local-6989586621679398667"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-398"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Handle</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Serial.html#SerialT"><span class="hs-identifier hs-type">SerialT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679398668"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.Array.Foreign.Types.html#Array"><span class="hs-identifier hs-type">Array</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679398667"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679398668"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span></span><span>
+</span><span id="line-399"></span><span id="fromChunksWithBufferOf"><span class="annot"><span class="annottext">fromChunksWithBufferOf :: Int -&gt; Handle -&gt; SerialT m (Array a) -&gt; m ()
+</span><a href="Streamly.Internal.FileSystem.Handle.html#fromChunksWithBufferOf"><span class="hs-identifier hs-var hs-var">fromChunksWithBufferOf</span></a></span></span><span> </span><span id="local-6989586621679398666"><span class="annot"><span class="annottext">n :: Int
+</span><a href="#local-6989586621679398666"><span class="hs-identifier hs-var">n</span></a></span></span><span> </span><span id="local-6989586621679398665"><span class="annot"><span class="annottext">h :: Handle
+</span><a href="#local-6989586621679398665"><span class="hs-identifier hs-var">h</span></a></span></span><span> </span><span id="local-6989586621679398664"><span class="annot"><span class="annottext">xs :: SerialT m (Array a)
+</span><a href="#local-6989586621679398664"><span class="hs-identifier hs-var">xs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Handle -&gt; SerialT m (Array a) -&gt; m ()
+forall (m :: * -&gt; *) a.
+(MonadIO m, Storable a) =&gt;
+Handle -&gt; SerialT m (Array a) -&gt; m ()
+</span><a href="Streamly.Internal.FileSystem.Handle.html#fromChunks"><span class="hs-identifier hs-var">fromChunks</span></a></span><span> </span><span class="annot"><span class="annottext">Handle
+</span><a href="#local-6989586621679398665"><span class="hs-identifier hs-var">h</span></a></span><span> </span><span class="annot"><span class="annottext">(SerialT m (Array a) -&gt; m ()) -&gt; SerialT m (Array a) -&gt; m ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Int -&gt; SerialT m (Array a) -&gt; SerialT m (Array a)
+forall (m :: * -&gt; *) a.
+(MonadIO m, Storable a) =&gt;
+Int -&gt; SerialT m (Array a) -&gt; SerialT m (Array a)
+</span><a href="Streamly.Internal.Data.Array.Stream.Foreign.html#compact"><span class="hs-identifier hs-var">AS.compact</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679398666"><span class="hs-identifier hs-var">n</span></a></span><span> </span><span class="annot"><span class="annottext">SerialT m (Array a)
+</span><a href="#local-6989586621679398664"><span class="hs-identifier hs-var">xs</span></a></span><span>
+</span><span id="line-400"></span><span>
+</span><span id="line-401"></span><span class="hs-comment">-- | @fromBytesWithBufferOf bufsize handle stream@ writes @stream@ to @handle@</span><span>
+</span><span id="line-402"></span><span class="hs-comment">-- in chunks of @bufsize@.  A write is performed to the IO device as soon as we</span><span>
+</span><span id="line-403"></span><span class="hs-comment">-- collect the required input size.</span><span>
+</span><span id="line-404"></span><span class="hs-comment">--</span><span>
+</span><span id="line-405"></span><span class="hs-comment">-- @since 0.7.0</span><span>
+</span><span id="line-406"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Streamly.Internal.FileSystem.Handle.html#fromBytesWithBufferOf"><span class="hs-pragma hs-type">fromBytesWithBufferOf</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-407"></span><span id="local-6989586621679398816"><span class="annot"><a href="Streamly.Internal.FileSystem.Handle.html#fromBytesWithBufferOf"><span class="hs-identifier hs-type">fromBytesWithBufferOf</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadIO</span></span><span> </span><span class="annot"><a href="#local-6989586621679398816"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Handle</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Serial.html#SerialT"><span class="hs-identifier hs-type">SerialT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679398816"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679398816"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
+</span><span id="line-408"></span><span id="fromBytesWithBufferOf"><span class="annot"><span class="annottext">fromBytesWithBufferOf :: Int -&gt; Handle -&gt; SerialT m Word8 -&gt; m ()
+</span><a href="Streamly.Internal.FileSystem.Handle.html#fromBytesWithBufferOf"><span class="hs-identifier hs-var hs-var">fromBytesWithBufferOf</span></a></span></span><span> </span><span id="local-6989586621679398662"><span class="annot"><span class="annottext">n :: Int
+</span><a href="#local-6989586621679398662"><span class="hs-identifier hs-var">n</span></a></span></span><span> </span><span id="local-6989586621679398661"><span class="annot"><span class="annottext">h :: Handle
+</span><a href="#local-6989586621679398661"><span class="hs-identifier hs-var">h</span></a></span></span><span> </span><span id="local-6989586621679398660"><span class="annot"><span class="annottext">m :: SerialT m Word8
+</span><a href="#local-6989586621679398660"><span class="hs-identifier hs-var">m</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Handle -&gt; SerialT m (Array Word8) -&gt; m ()
+forall (m :: * -&gt; *) a.
+(MonadIO m, Storable a) =&gt;
+Handle -&gt; SerialT m (Array a) -&gt; m ()
+</span><a href="Streamly.Internal.FileSystem.Handle.html#fromChunks"><span class="hs-identifier hs-var">fromChunks</span></a></span><span> </span><span class="annot"><span class="annottext">Handle
+</span><a href="#local-6989586621679398661"><span class="hs-identifier hs-var">h</span></a></span><span> </span><span class="annot"><span class="annottext">(SerialT m (Array Word8) -&gt; m ())
+-&gt; SerialT m (Array Word8) -&gt; m ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Int -&gt; SerialT m Word8 -&gt; SerialT m (Array Word8)
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) (m :: * -&gt; *) a.
+(IsStream t, MonadIO m, Storable a) =&gt;
+Int -&gt; t m a -&gt; t m (Array a)
+</span><a href="Streamly.Internal.Data.Stream.IsStream.Nesting.html#arraysOf"><span class="hs-identifier hs-var">S.arraysOf</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679398662"><span class="hs-identifier hs-var">n</span></a></span><span> </span><span class="annot"><span class="annottext">SerialT m Word8
+</span><a href="#local-6989586621679398660"><span class="hs-identifier hs-var">m</span></a></span><span>
+</span><span id="line-409"></span><span class="hs-comment">-- fromBytesWithBufferOf n h m = fromChunks h $ AS.arraysOf n m</span><span>
+</span><span id="line-410"></span><span>
+</span><span id="line-411"></span><span class="hs-comment">-- &gt; write = 'writeWithBufferOf' A.defaultChunkSize</span><span>
+</span><span id="line-412"></span><span class="hs-comment">--</span><span>
+</span><span id="line-413"></span><span class="hs-comment">-- | Write a byte stream to a file handle. Accumulates the input in chunks of</span><span>
+</span><span id="line-414"></span><span class="hs-comment">-- up to 'Streamly.Internal.Data.Array.Foreign.Types.defaultChunkSize' before writing.</span><span>
+</span><span id="line-415"></span><span class="hs-comment">--</span><span>
+</span><span id="line-416"></span><span class="hs-comment">-- NOTE: This may perform better than the 'write' fold, you can try this if you</span><span>
+</span><span id="line-417"></span><span class="hs-comment">-- need some extra perf boost.</span><span>
+</span><span id="line-418"></span><span class="hs-comment">--</span><span>
+</span><span id="line-419"></span><span class="hs-comment">-- @since 0.7.0</span><span>
+</span><span id="line-420"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Streamly.Internal.FileSystem.Handle.html#fromBytes"><span class="hs-pragma hs-type">fromBytes</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-421"></span><span id="local-6989586621679398826"><span class="annot"><a href="Streamly.Internal.FileSystem.Handle.html#fromBytes"><span class="hs-identifier hs-type">fromBytes</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadIO</span></span><span> </span><span class="annot"><a href="#local-6989586621679398826"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Handle</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Serial.html#SerialT"><span class="hs-identifier hs-type">SerialT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679398826"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679398826"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
+</span><span id="line-422"></span><span id="fromBytes"><span class="annot"><span class="annottext">fromBytes :: Handle -&gt; SerialT m Word8 -&gt; m ()
+</span><a href="Streamly.Internal.FileSystem.Handle.html#fromBytes"><span class="hs-identifier hs-var hs-var">fromBytes</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; Handle -&gt; SerialT m Word8 -&gt; m ()
+forall (m :: * -&gt; *).
+MonadIO m =&gt;
+Int -&gt; Handle -&gt; SerialT m Word8 -&gt; m ()
+</span><a href="Streamly.Internal.FileSystem.Handle.html#fromBytesWithBufferOf"><span class="hs-identifier hs-var">fromBytesWithBufferOf</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="Streamly.Internal.Data.Array.Foreign.Mut.Types.html#defaultChunkSize"><span class="hs-identifier hs-var">defaultChunkSize</span></a></span><span>
+</span><span id="line-423"></span><span>
+</span><span id="line-424"></span><span class="hs-comment">-- | Write a stream of arrays to a handle. Each array in the stream is written</span><span>
+</span><span id="line-425"></span><span class="hs-comment">-- to the device as a separate IO request.</span><span>
+</span><span id="line-426"></span><span class="hs-comment">--</span><span>
+</span><span id="line-427"></span><span class="hs-comment">-- @since 0.7.0</span><span>
+</span><span id="line-428"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Streamly.Internal.FileSystem.Handle.html#writeChunks"><span class="hs-pragma hs-type">writeChunks</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-429"></span><span id="local-6989586621679398794"><span id="local-6989586621679398795"><span class="annot"><a href="Streamly.Internal.FileSystem.Handle.html#writeChunks"><span class="hs-identifier hs-type">writeChunks</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">MonadIO</span></span><span> </span><span class="annot"><a href="#local-6989586621679398795"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Storable</span></span><span> </span><span class="annot"><a href="#local-6989586621679398794"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Handle</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Fold.Types.html#Fold"><span class="hs-identifier hs-type">Fold</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679398795"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.Array.Foreign.Types.html#Array"><span class="hs-identifier hs-type">Array</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679398794"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span></span><span>
+</span><span id="line-430"></span><span id="writeChunks"><span class="annot"><span class="annottext">writeChunks :: Handle -&gt; Fold m (Array a) ()
+</span><a href="Streamly.Internal.FileSystem.Handle.html#writeChunks"><span class="hs-identifier hs-var hs-var">writeChunks</span></a></span></span><span> </span><span id="local-6989586621679398658"><span class="annot"><span class="annottext">h :: Handle
+</span><a href="#local-6989586621679398658"><span class="hs-identifier hs-var">h</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Array a -&gt; m ()) -&gt; Fold m (Array a) ()
+forall (m :: * -&gt; *) a b. Monad m =&gt; (a -&gt; m b) -&gt; Fold m a ()
+</span><a href="Streamly.Internal.Data.Fold.html#drainBy"><span class="hs-identifier hs-var">FL.drainBy</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">IO () -&gt; m ()
+forall (m :: * -&gt; *) a. MonadIO m =&gt; IO a -&gt; m a
+</span><span class="hs-identifier hs-var">liftIO</span></span><span> </span><span class="annot"><span class="annottext">(IO () -&gt; m ()) -&gt; (Array a -&gt; IO ()) -&gt; Array a -&gt; m ()
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Handle -&gt; Array a -&gt; IO ()
+forall a. Storable a =&gt; Handle -&gt; Array a -&gt; IO ()
+</span><a href="Streamly.Internal.FileSystem.Handle.html#writeArray"><span class="hs-identifier hs-var">writeArray</span></a></span><span> </span><span class="annot"><span class="annottext">Handle
+</span><a href="#local-6989586621679398658"><span class="hs-identifier hs-var">h</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-431"></span><span>
+</span><span id="line-432"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Streamly.Internal.FileSystem.Handle.html#writeChunks2"><span class="hs-pragma hs-type">writeChunks2</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-433"></span><span id="local-6989586621679398779"><span id="local-6989586621679398780"><span class="annot"><a href="Streamly.Internal.FileSystem.Handle.html#writeChunks2"><span class="hs-identifier hs-type">writeChunks2</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">MonadIO</span></span><span> </span><span class="annot"><a href="#local-6989586621679398780"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Storable</span></span><span> </span><span class="annot"><a href="#local-6989586621679398779"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Fold.Types.html#Fold2"><span class="hs-identifier hs-type">Fold2</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679398780"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Handle</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.Array.Foreign.Types.html#Array"><span class="hs-identifier hs-type">Array</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679398779"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span></span><span>
+</span><span id="line-434"></span><span id="writeChunks2"><span class="annot"><span class="annottext">writeChunks2 :: Fold2 m Handle (Array a) ()
+</span><a href="Streamly.Internal.FileSystem.Handle.html#writeChunks2"><span class="hs-identifier hs-var hs-var">writeChunks2</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Handle -&gt; Array a -&gt; m Handle)
+-&gt; (Handle -&gt; m Handle)
+-&gt; (Handle -&gt; m ())
+-&gt; Fold2 m Handle (Array a) ()
+forall (m :: * -&gt; *) c a b s.
+(s -&gt; a -&gt; m s) -&gt; (c -&gt; m s) -&gt; (s -&gt; m b) -&gt; Fold2 m c a b
+</span><a href="Streamly.Internal.Data.Fold.Types.html#Fold2"><span class="hs-identifier hs-var">Fold2</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621679398654"><span class="annot"><span class="annottext">h :: Handle
+</span><a href="#local-6989586621679398654"><span class="hs-identifier hs-var">h</span></a></span></span><span> </span><span id="local-6989586621679398653"><span class="annot"><span class="annottext">arr :: Array a
+</span><a href="#local-6989586621679398653"><span class="hs-identifier hs-var">arr</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">IO Handle -&gt; m Handle
+forall (m :: * -&gt; *) a. MonadIO m =&gt; IO a -&gt; m a
+</span><span class="hs-identifier hs-var">liftIO</span></span><span> </span><span class="annot"><span class="annottext">(IO Handle -&gt; m Handle) -&gt; IO Handle -&gt; m Handle
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Handle -&gt; Array a -&gt; IO ()
+forall a. Storable a =&gt; Handle -&gt; Array a -&gt; IO ()
+</span><a href="Streamly.Internal.FileSystem.Handle.html#writeArray"><span class="hs-identifier hs-var">writeArray</span></a></span><span> </span><span class="annot"><span class="annottext">Handle
+</span><a href="#local-6989586621679398654"><span class="hs-identifier hs-var">h</span></a></span><span> </span><span class="annot"><span class="annottext">Array a
+</span><a href="#local-6989586621679398653"><span class="hs-identifier hs-var">arr</span></a></span><span> </span><span class="annot"><span class="annottext">IO () -&gt; IO Handle -&gt; IO Handle
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; m b -&gt; m b
+</span><span class="hs-operator hs-var">&gt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">Handle -&gt; IO Handle
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">Handle
+</span><a href="#local-6989586621679398654"><span class="hs-identifier hs-var">h</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Handle -&gt; m Handle
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span class="hs-identifier">_</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">() -&gt; m ()
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-435"></span><span>
+</span><span id="line-436"></span><span class="hs-comment">-- | @writeChunksWithBufferOf bufsize handle@ writes a stream of arrays</span><span>
+</span><span id="line-437"></span><span class="hs-comment">-- to @handle@ after coalescing the adjacent arrays in chunks of @bufsize@.</span><span>
+</span><span id="line-438"></span><span class="hs-comment">-- We never split an array, if a single array is bigger than the specified size</span><span>
+</span><span id="line-439"></span><span class="hs-comment">-- it emitted as it is. Multiple arrays are coalesed as long as the total size</span><span>
+</span><span id="line-440"></span><span class="hs-comment">-- remains below the specified size.</span><span>
+</span><span id="line-441"></span><span class="hs-comment">--</span><span>
+</span><span id="line-442"></span><span class="hs-comment">-- @since 0.7.0</span><span>
+</span><span id="line-443"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Streamly.Internal.FileSystem.Handle.html#writeChunksWithBufferOf"><span class="hs-pragma hs-type">writeChunksWithBufferOf</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-444"></span><span id="local-6989586621679398651"><span id="local-6989586621679398652"><span class="annot"><a href="Streamly.Internal.FileSystem.Handle.html#writeChunksWithBufferOf"><span class="hs-identifier hs-type">writeChunksWithBufferOf</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">MonadIO</span></span><span> </span><span class="annot"><a href="#local-6989586621679398652"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Storable</span></span><span> </span><span class="annot"><a href="#local-6989586621679398651"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-445"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Handle</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Fold.Types.html#Fold"><span class="hs-identifier hs-type">Fold</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679398652"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.Array.Foreign.Types.html#Array"><span class="hs-identifier hs-type">Array</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679398651"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span></span><span>
+</span><span id="line-446"></span><span id="writeChunksWithBufferOf"><span class="annot"><span class="annottext">writeChunksWithBufferOf :: Int -&gt; Handle -&gt; Fold m (Array a) ()
+</span><a href="Streamly.Internal.FileSystem.Handle.html#writeChunksWithBufferOf"><span class="hs-identifier hs-var hs-var">writeChunksWithBufferOf</span></a></span></span><span> </span><span id="local-6989586621679398650"><span class="annot"><span class="annottext">n :: Int
+</span><a href="#local-6989586621679398650"><span class="hs-identifier hs-var">n</span></a></span></span><span> </span><span id="local-6989586621679398649"><span class="annot"><span class="annottext">h :: Handle
+</span><a href="#local-6989586621679398649"><span class="hs-identifier hs-var">h</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; Fold m (Array a) () -&gt; Fold m (Array a) ()
+forall (m :: * -&gt; *) a.
+(MonadIO m, Storable a) =&gt;
+Int -&gt; Fold m (Array a) () -&gt; Fold m (Array a) ()
+</span><a href="Streamly.Internal.Data.Array.Stream.Foreign.html#lpackArraysChunksOf"><span class="hs-identifier hs-var">lpackArraysChunksOf</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679398650"><span class="hs-identifier hs-var">n</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Handle -&gt; Fold m (Array a) ()
+forall (m :: * -&gt; *) a.
+(MonadIO m, Storable a) =&gt;
+Handle -&gt; Fold m (Array a) ()
+</span><a href="Streamly.Internal.FileSystem.Handle.html#writeChunks"><span class="hs-identifier hs-var">writeChunks</span></a></span><span> </span><span class="annot"><span class="annottext">Handle
+</span><a href="#local-6989586621679398649"><span class="hs-identifier hs-var">h</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-447"></span><span>
+</span><span id="line-448"></span><span class="hs-comment">-- GHC buffer size dEFAULT_FD_BUFFER_SIZE=8192 bytes.</span><span>
+</span><span id="line-449"></span><span class="hs-comment">--</span><span>
+</span><span id="line-450"></span><span class="hs-comment">-- XXX test this</span><span>
+</span><span id="line-451"></span><span class="hs-comment">-- Note that if you use a chunk size less than 8K (GHC's default buffer</span><span>
+</span><span id="line-452"></span><span class="hs-comment">-- size) then you are advised to use 'NOBuffering' mode on the 'Handle' in case you</span><span>
+</span><span id="line-453"></span><span class="hs-comment">-- do not want buffering to occur at GHC level as well. Same thing applies to</span><span>
+</span><span id="line-454"></span><span class="hs-comment">-- writes as well.</span><span>
+</span><span id="line-455"></span><span>
+</span><span id="line-456"></span><span class="hs-comment">-- | @writeWithBufferOf reqSize handle@ writes the input stream to @handle@.</span><span>
+</span><span id="line-457"></span><span class="hs-comment">-- Bytes in the input stream are collected into a buffer until we have a chunk</span><span>
+</span><span id="line-458"></span><span class="hs-comment">-- of @reqSize@ and then written to the IO device.</span><span>
+</span><span id="line-459"></span><span class="hs-comment">--</span><span>
+</span><span id="line-460"></span><span class="hs-comment">-- @since 0.7.0</span><span>
+</span><span id="line-461"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Streamly.Internal.FileSystem.Handle.html#writeWithBufferOf"><span class="hs-pragma hs-type">writeWithBufferOf</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-462"></span><span id="local-6989586621679398777"><span class="annot"><a href="Streamly.Internal.FileSystem.Handle.html#writeWithBufferOf"><span class="hs-identifier hs-type">writeWithBufferOf</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadIO</span></span><span> </span><span class="annot"><a href="#local-6989586621679398777"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Handle</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Fold.Types.html#Fold"><span class="hs-identifier hs-type">Fold</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679398777"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
+</span><span id="line-463"></span><span id="writeWithBufferOf"><span class="annot"><span class="annottext">writeWithBufferOf :: Int -&gt; Handle -&gt; Fold m Word8 ()
+</span><a href="Streamly.Internal.FileSystem.Handle.html#writeWithBufferOf"><span class="hs-identifier hs-var hs-var">writeWithBufferOf</span></a></span></span><span> </span><span id="local-6989586621679398648"><span class="annot"><span class="annottext">n :: Int
+</span><a href="#local-6989586621679398648"><span class="hs-identifier hs-var">n</span></a></span></span><span> </span><span id="local-6989586621679398647"><span class="annot"><span class="annottext">h :: Handle
+</span><a href="#local-6989586621679398647"><span class="hs-identifier hs-var">h</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int
+-&gt; Fold m Word8 (Array Word8)
+-&gt; Fold m (Array Word8) ()
+-&gt; Fold m Word8 ()
+forall (m :: * -&gt; *) a b c.
+Monad m =&gt;
+Int -&gt; Fold m a b -&gt; Fold m b c -&gt; Fold m a c
+</span><a href="Streamly.Internal.Data.Fold.Types.html#chunksOf"><span class="hs-identifier hs-var">FL.chunksOf</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679398648"><span class="hs-identifier hs-var">n</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; Fold m Word8 (Array Word8)
+forall (m :: * -&gt; *) a.
+(MonadIO m, Storable a) =&gt;
+Int -&gt; Fold m a (Array a)
+</span><a href="Streamly.Internal.Data.Array.Foreign.Types.html#writeNUnsafe"><span class="hs-identifier hs-var">writeNUnsafe</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679398648"><span class="hs-identifier hs-var">n</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Handle -&gt; Fold m (Array Word8) ()
+forall (m :: * -&gt; *) a.
+(MonadIO m, Storable a) =&gt;
+Handle -&gt; Fold m (Array a) ()
+</span><a href="Streamly.Internal.FileSystem.Handle.html#writeChunks"><span class="hs-identifier hs-var">writeChunks</span></a></span><span> </span><span class="annot"><span class="annottext">Handle
+</span><a href="#local-6989586621679398647"><span class="hs-identifier hs-var">h</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-464"></span><span>
+</span><span id="line-465"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Streamly.Internal.FileSystem.Handle.html#writeWithBufferOf2"><span class="hs-pragma hs-type">writeWithBufferOf2</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-466"></span><span id="local-6989586621679398775"><span class="annot"><a href="Streamly.Internal.FileSystem.Handle.html#writeWithBufferOf2"><span class="hs-identifier hs-type">writeWithBufferOf2</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadIO</span></span><span> </span><span class="annot"><a href="#local-6989586621679398775"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Fold.Types.html#Fold2"><span class="hs-identifier hs-type">Fold2</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679398775"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Handle</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
+</span><span id="line-467"></span><span id="writeWithBufferOf2"><span class="annot"><span class="annottext">writeWithBufferOf2 :: Int -&gt; Fold2 m Handle Word8 ()
+</span><a href="Streamly.Internal.FileSystem.Handle.html#writeWithBufferOf2"><span class="hs-identifier hs-var hs-var">writeWithBufferOf2</span></a></span></span><span> </span><span id="local-6989586621679398644"><span class="annot"><span class="annottext">n :: Int
+</span><a href="#local-6989586621679398644"><span class="hs-identifier hs-var">n</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int
+-&gt; Fold m Word8 (Array Word8)
+-&gt; Fold2 m Handle (Array Word8) ()
+-&gt; Fold2 m Handle Word8 ()
+forall (m :: * -&gt; *) a b x c.
+Monad m =&gt;
+Int -&gt; Fold m a b -&gt; Fold2 m x b c -&gt; Fold2 m x a c
+</span><a href="Streamly.Internal.Data.Fold.Types.html#chunksOf2"><span class="hs-identifier hs-var">FL.chunksOf2</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679398644"><span class="hs-identifier hs-var">n</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; Fold m Word8 (Array Word8)
+forall (m :: * -&gt; *) a.
+(MonadIO m, Storable a) =&gt;
+Int -&gt; Fold m a (Array a)
+</span><a href="Streamly.Internal.Data.Array.Foreign.Types.html#writeNUnsafe"><span class="hs-identifier hs-var">writeNUnsafe</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679398644"><span class="hs-identifier hs-var">n</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Fold2 m Handle (Array Word8) ()
+forall (m :: * -&gt; *) a.
+(MonadIO m, Storable a) =&gt;
+Fold2 m Handle (Array a) ()
+</span><a href="Streamly.Internal.FileSystem.Handle.html#writeChunks2"><span class="hs-identifier hs-var">writeChunks2</span></a></span><span>
+</span><span id="line-468"></span><span>
+</span><span id="line-469"></span><span class="hs-comment">-- &gt; write = 'writeWithBufferOf' A.defaultChunkSize</span><span>
+</span><span id="line-470"></span><span class="hs-comment">--</span><span>
+</span><span id="line-471"></span><span class="hs-comment">-- | Write a byte stream to a file handle. Accumulates the input in chunks of</span><span>
+</span><span id="line-472"></span><span class="hs-comment">-- up to 'Streamly.Internal.Data.Array.Foreign.Types.defaultChunkSize' before writing</span><span>
+</span><span id="line-473"></span><span class="hs-comment">-- to the IO device.</span><span>
+</span><span id="line-474"></span><span class="hs-comment">--</span><span>
+</span><span id="line-475"></span><span class="hs-comment">-- @since 0.7.0</span><span>
+</span><span id="line-476"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Streamly.Internal.FileSystem.Handle.html#write"><span class="hs-pragma hs-type">write</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-477"></span><span id="local-6989586621679398642"><span class="annot"><a href="Streamly.Internal.FileSystem.Handle.html#write"><span class="hs-identifier hs-type">write</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadIO</span></span><span> </span><span class="annot"><a href="#local-6989586621679398642"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Handle</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Fold.Types.html#Fold"><span class="hs-identifier hs-type">Fold</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679398642"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
+</span><span id="line-478"></span><span id="write"><span class="annot"><span class="annottext">write :: Handle -&gt; Fold m Word8 ()
+</span><a href="Streamly.Internal.FileSystem.Handle.html#write"><span class="hs-identifier hs-var hs-var">write</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; Handle -&gt; Fold m Word8 ()
+forall (m :: * -&gt; *). MonadIO m =&gt; Int -&gt; Handle -&gt; Fold m Word8 ()
+</span><a href="Streamly.Internal.FileSystem.Handle.html#writeWithBufferOf"><span class="hs-identifier hs-var">writeWithBufferOf</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="Streamly.Internal.Data.Array.Foreign.Mut.Types.html#defaultChunkSize"><span class="hs-identifier hs-var">defaultChunkSize</span></a></span><span>
+</span><span id="line-479"></span><span>
+</span><span id="line-480"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Streamly.Internal.FileSystem.Handle.html#write2"><span class="hs-pragma hs-type">write2</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-481"></span><span id="local-6989586621679398641"><span class="annot"><a href="Streamly.Internal.FileSystem.Handle.html#write2"><span class="hs-identifier hs-type">write2</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadIO</span></span><span> </span><span class="annot"><a href="#local-6989586621679398641"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Fold.Types.html#Fold2"><span class="hs-identifier hs-type">Fold2</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679398641"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Handle</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
+</span><span id="line-482"></span><span id="write2"><span class="annot"><span class="annottext">write2 :: Fold2 m Handle Word8 ()
+</span><a href="Streamly.Internal.FileSystem.Handle.html#write2"><span class="hs-identifier hs-var hs-var">write2</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; Fold2 m Handle Word8 ()
+forall (m :: * -&gt; *). MonadIO m =&gt; Int -&gt; Fold2 m Handle Word8 ()
+</span><a href="Streamly.Internal.FileSystem.Handle.html#writeWithBufferOf2"><span class="hs-identifier hs-var">writeWithBufferOf2</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="Streamly.Internal.Data.Array.Foreign.Mut.Types.html#defaultChunkSize"><span class="hs-identifier hs-var">defaultChunkSize</span></a></span><span>
+</span><span id="line-483"></span><span>
+</span><span id="line-484"></span><span class="hs-comment">{-
+{-# INLINE write #-}
+write :: (MonadIO m, Storable a) =&gt; Handle -&gt; SerialT m a -&gt; m ()
+write = toHandleWith A.defaultChunkSize
+-}</span><span>
+</span><span id="line-489"></span><span>
+</span><span id="line-490"></span><span class="hs-comment">-- XXX mmap a file into an array. This could be useful for in-place operations</span><span>
+</span><span id="line-491"></span><span class="hs-comment">-- on a file. For example, we can quicksort the contents of a file by mmapping</span><span>
+</span><span id="line-492"></span><span class="hs-comment">-- it.</span><span>
+</span><span id="line-493"></span><span>
+</span><span id="line-494"></span><span class="hs-comment">-------------------------------------------------------------------------------</span><span>
+</span><span id="line-495"></span><span class="hs-comment">-- IO with encoding/decoding Unicode characters</span><span>
+</span><span id="line-496"></span><span class="hs-comment">-------------------------------------------------------------------------------</span><span>
+</span><span id="line-497"></span><span>
+</span><span id="line-498"></span><span class="hs-comment">{-
+-- |
+-- &gt; readUtf8 = decodeUtf8 . read
+--
+-- Read a UTF8 encoded stream of unicode characters from a file handle.
+--
+-- @since 0.7.0
+{-# INLINE readUtf8 #-}
+readUtf8 :: (IsStream t, MonadIO m) =&gt; Handle -&gt; t m Char
+readUtf8 = decodeUtf8 . read
+
+-- |
+-- &gt; writeUtf8 h s = write h $ encodeUtf8 s
+--
+-- Encode a stream of unicode characters to UTF8 and write it to the given file
+-- handle. Default block buffering applies to the writes.
+--
+-- @since 0.7.0
+{-# INLINE writeUtf8 #-}
+writeUtf8 :: MonadIO m =&gt; Handle -&gt; SerialT m Char -&gt; m ()
+writeUtf8 h s = write h $ encodeUtf8 s
+
+-- | Write a stream of unicode characters after encoding to UTF-8 in chunks
+-- separated by a linefeed character @'\n'@. If the size of the buffer exceeds
+-- @defaultChunkSize@ and a linefeed is not yet found, the buffer is written
+-- anyway.  This is similar to writing to a 'Handle' with the 'LineBuffering'
+-- option.
+--
+-- @since 0.7.0
+{-# INLINE writeUtf8ByLines #-}
+writeUtf8ByLines :: (IsStream t, MonadIO m) =&gt; Handle -&gt; t m Char -&gt; m ()
+writeUtf8ByLines = undefined
+
+-- | Read UTF-8 lines from a file handle and apply the specified fold to each
+-- line. This is similar to reading a 'Handle' with the 'LineBuffering' option.
+--
+-- @since 0.7.0
+{-# INLINE readLines #-}
+readLines :: (IsStream t, MonadIO m) =&gt; Handle -&gt; Fold m Char b -&gt; t m b
+readLines h f = foldLines (readUtf8 h) f
+
+-------------------------------------------------------------------------------
+-- Framing on a sequence
+-------------------------------------------------------------------------------
+
+-- | Read a stream from a file handle and split it into frames delimited by
+-- the specified sequence of elements. The supplied fold is applied on each
+-- frame.
+--
+-- @since 0.7.0
+{-# INLINE readFrames #-}
+readFrames :: (IsStream t, MonadIO m, Storable a)
+    =&gt; Array a -&gt; Handle -&gt; Fold m a b -&gt; t m b
+readFrames = undefined -- foldFrames . read
+
+-- | Write a stream to the given file handle buffering up to frames separated
+-- by the given sequence or up to a maximum of @defaultChunkSize@.
+--
+-- @since 0.7.0
+{-# INLINE writeByFrames #-}
+writeByFrames :: (IsStream t, MonadIO m, Storable a)
+    =&gt; Array a -&gt; Handle -&gt; t m a -&gt; m ()
+writeByFrames = undefined
+
+-------------------------------------------------------------------------------
+-- Framing by time
+-------------------------------------------------------------------------------
+
+-- | Write collecting the input in sessions of n seconds or if chunkSize
+-- gets exceeded.
+{-# INLINE writeByChunksOrSessionsOf #-}
+writeByChunksOrSessionsOf :: MonadIO m
+    =&gt; Int -&gt; Double -&gt; Handle -&gt; SerialT m Word8 -&gt; m ()
+writeByChunksOrSessionsOf chunkSize sessionSize h m = undefined
+
+-- | Write collecting the input in sessions of n seconds or if defaultChunkSize
+-- gets exceeded.
+{-# INLINE writeBySessionsOf #-}
+writeBySessionsOf :: MonadIO m =&gt; Double -&gt; Handle -&gt; SerialT m Word8 -&gt; m ()
+writeBySessionsOf n = writeByChunksOrSessionsOf defaultChunkSize n
+
+-------------------------------------------------------------------------------
+-- Random Access IO (Seek)
+-------------------------------------------------------------------------------
+
+-- XXX handles could be shared, so we may not want to use the handle state at
+-- all for these APIs. we can use pread and pwrite instead. On windows we will
+-- need to use readFile/writeFile with an offset argument.
+
+-------------------------------------------------------------------------------
+
+-- | Read the element at the given index treating the file as an array.
+--
+-- @since 0.7.0
+{-# INLINE readIndex #-}
+readIndex :: Storable a =&gt; Handle -&gt; Int -&gt; Maybe a
+readIndex arr i = undefined
+
+-- NOTE: To represent a range to read we have chosen (start, size) instead of
+-- (start, end). This helps in removing the ambiguity of whether &quot;end&quot; is
+-- included in the range or not.
+--
+-- We could avoid specifying the range to be read and instead use &quot;take size&quot;
+-- on the stream, but it may end up reading more and then consume it partially.
+
+-- | @readSliceWith chunkSize handle pos len@ reads up to @len@ bytes
+-- from @handle@ starting at the offset @pos@ from the beginning of the file.
+--
+-- Reads are performed in chunks of size @chunkSize@.  For block devices, to
+-- avoid reading partial blocks @chunkSize@ must align with the block size of
+-- the underlying device. If the underlying block size is unknown, it is a good
+-- idea to keep it a multiple 4KiB. This API ensures that the start of each
+-- chunk is aligned with @chunkSize@ from second chunk onwards.
+--
+{-# INLINE readSliceWith #-}
+readSliceWith :: (IsStream t, MonadIO m, Storable a)
+    =&gt; Int -&gt; Handle -&gt; Int -&gt; Int -&gt; t m a
+readSliceWith chunkSize h pos len = undefined
+
+-- | @readSlice h i count@ streams a slice from the file handle @h@ starting
+-- at index @i@ and reading up to @count@ elements in the forward direction
+-- ending at the index @i + count - 1@.
+--
+-- @since 0.7.0
+{-# INLINE readSlice #-}
+readSlice :: (IsStream t, MonadIO m, Storable a)
+    =&gt; Handle -&gt; Int -&gt; Int -&gt; t m a
+readSlice = readSliceWith A.defaultChunkSize
+
+-- | @readSliceRev h i count@ streams a slice from the file handle @h@ starting
+-- at index @i@ and reading up to @count@ elements in the reverse direction
+-- ending at the index @i - count + 1@.
+--
+-- @since 0.7.0
+{-# INLINE readSliceRev #-}
+readSliceRev :: (IsStream t, MonadIO m, Storable a)
+    =&gt; Handle -&gt; Int -&gt; Int -&gt; t m a
+readSliceRev h i count = undefined
+
+-- | Write the given element at the given index in the file.
+--
+-- @since 0.7.0
+{-# INLINE writeIndex #-}
+writeIndex :: (MonadIO m, Storable a) =&gt; Handle -&gt; Int -&gt; a -&gt; m ()
+writeIndex h i a = undefined
+
+-- | @writeSlice h i count stream@ writes a stream to the file handle @h@
+-- starting at index @i@ and writing up to @count@ elements in the forward
+-- direction ending at the index @i + count - 1@.
+--
+-- @since 0.7.0
+{-# INLINE writeSlice #-}
+writeSlice :: (IsStream t, Monad m, Storable a)
+    =&gt; Handle -&gt; Int -&gt; Int -&gt; t m a -&gt; m ()
+writeSlice h i len s = undefined
+
+-- | @writeSliceRev h i count stream@ writes a stream to the file handle @h@
+-- starting at index @i@ and writing up to @count@ elements in the reverse
+-- direction ending at the index @i - count + 1@.
+--
+-- @since 0.7.0
+{-# INLINE writeSliceRev #-}
+writeSliceRev :: (IsStream t, Monad m, Storable a)
+    =&gt; Handle -&gt; Int -&gt; Int -&gt; t m a -&gt; m ()
+writeSliceRev arr i len s = undefined
+-}</span><span>
+</span><span id="line-664"></span></pre></body></html>

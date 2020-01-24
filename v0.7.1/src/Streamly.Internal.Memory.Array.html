@@ -1,0 +1,511 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE BangPatterns        #-}</span><span>
+</span><a name="line-2"></a><span class="hs-pragma">{-# LANGUAGE CPP                 #-}</span><span>
+</span><a name="line-3"></a><span class="hs-pragma">{-# LANGUAGE MagicHash           #-}</span><span>
+</span><a name="line-4"></a><span class="hs-pragma">{-# LANGUAGE RecordWildCards     #-}</span><span>
+</span><a name="line-5"></a><span class="hs-pragma">{-# LANGUAGE UnboxedTuples       #-}</span><span>
+</span><a name="line-6"></a><span class="hs-pragma">{-# LANGUAGE ScopedTypeVariables #-}</span><span>
+</span><a name="line-7"></a><span>
+</span><a name="line-8"></a><span class="hs-cpp">#include &quot;inline.hs&quot;
+</span><span>
+</span><a name="line-10"></a><span class="hs-comment">-- |</span><span>
+</span><a name="line-11"></a><span class="hs-comment">-- Module      : Streamly.Internal.Memory.Array</span><span>
+</span><a name="line-12"></a><span class="hs-comment">-- Copyright   : (c) 2019 Composewell Technologies</span><span>
+</span><a name="line-13"></a><span class="hs-comment">--</span><span>
+</span><a name="line-14"></a><span class="hs-comment">-- License     : BSD3</span><span>
+</span><a name="line-15"></a><span class="hs-comment">-- Maintainer  : streamly@composewell.com</span><span>
+</span><a name="line-16"></a><span class="hs-comment">-- Stability   : experimental</span><span>
+</span><a name="line-17"></a><span class="hs-comment">-- Portability : GHC</span><span>
+</span><a name="line-18"></a><span class="hs-comment">--</span><span>
+</span><a name="line-19"></a><span class="hs-comment">-- To summarize:</span><span>
+</span><a name="line-20"></a><span class="hs-comment">--</span><span>
+</span><a name="line-21"></a><span class="hs-comment">--  * Arrays are finite and fixed in size</span><span>
+</span><a name="line-22"></a><span class="hs-comment">--  * provide /O(1)/ access to elements</span><span>
+</span><a name="line-23"></a><span class="hs-comment">--  * store only data and not functions</span><span>
+</span><a name="line-24"></a><span class="hs-comment">--  * provide efficient IO interfacing</span><span>
+</span><a name="line-25"></a><span class="hs-comment">--</span><span>
+</span><a name="line-26"></a><span class="hs-comment">-- 'Foldable' instance is not provided because the implementation would be much</span><span>
+</span><a name="line-27"></a><span class="hs-comment">-- less efficient compared to folding via streams.  'Semigroup' and 'Monoid'</span><span>
+</span><a name="line-28"></a><span class="hs-comment">-- instances should be used with care; concatenating arrays using binary</span><span>
+</span><a name="line-29"></a><span class="hs-comment">-- operations can be highly inefficient.  Instead, use</span><span>
+</span><a name="line-30"></a><span class="hs-comment">-- 'Streamly.Internal.Memory.ArrayStream.toArray' to concatenate N arrays at</span><span>
+</span><a name="line-31"></a><span class="hs-comment">-- once.</span><span>
+</span><a name="line-32"></a><span class="hs-comment">--</span><span>
+</span><a name="line-33"></a><span class="hs-comment">-- Each array is one pointer visible to the GC.  Too many small arrays (e.g.</span><span>
+</span><a name="line-34"></a><span class="hs-comment">-- single byte) are only as good as holding those elements in a Haskell list.</span><span>
+</span><a name="line-35"></a><span class="hs-comment">-- However, small arrays can be compacted into large ones to reduce the</span><span>
+</span><a name="line-36"></a><span class="hs-comment">-- overhead. To hold 32GB memory in 32k sized buffers we need 1 million arrays</span><span>
+</span><a name="line-37"></a><span class="hs-comment">-- if we use one array for each chunk. This is still significant to add</span><span>
+</span><a name="line-38"></a><span class="hs-comment">-- pressure to GC.</span><span>
+</span><a name="line-39"></a><span>
+</span><a name="line-40"></a><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Streamly.Internal.Memory.Array</span><span>
+</span><a name="line-41"></a><span>    </span><span class="hs-special">(</span><span>
+</span><a name="line-42"></a><span>      </span><a href="Streamly.Internal.Memory.Array.Types.html#Array"><span class="hs-identifier hs-type">Array</span></a><span>
+</span><a name="line-43"></a><span>
+</span><a name="line-44"></a><span>    </span><span class="hs-comment">-- , defaultChunkSize</span><span>
+</span><a name="line-45"></a><span>
+</span><a name="line-46"></a><span>    </span><span class="hs-comment">-- * Construction</span><span>
+</span><a name="line-47"></a><span>
+</span><a name="line-48"></a><span>    </span><span class="hs-comment">-- Pure List APIs</span><span>
+</span><a name="line-49"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Memory.Array.Types.html#fromListN"><span class="hs-identifier hs-var">A.fromListN</span></a><span>
+</span><a name="line-50"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Memory.Array.Types.html#fromList"><span class="hs-identifier hs-var">A.fromList</span></a><span>
+</span><a name="line-51"></a><span>
+</span><a name="line-52"></a><span>    </span><span class="hs-comment">-- Stream Folds</span><span>
+</span><a name="line-53"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Memory.Array.html#fromStreamN"><span class="hs-identifier hs-var">fromStreamN</span></a><span>
+</span><a name="line-54"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Memory.Array.html#fromStream"><span class="hs-identifier hs-var">fromStream</span></a><span>
+</span><a name="line-55"></a><span>
+</span><a name="line-56"></a><span>    </span><span class="hs-comment">-- Monadic APIs</span><span>
+</span><a name="line-57"></a><span>    </span><span class="hs-comment">-- , newArray</span><span>
+</span><a name="line-58"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Memory.Array.Types.html#writeN"><span class="hs-identifier hs-var">A.writeN</span></a><span>      </span><span class="hs-comment">-- drop new</span><span>
+</span><a name="line-59"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Memory.Array.Types.html#writeNAligned"><span class="hs-identifier hs-var">A.writeNAligned</span></a><span>
+</span><a name="line-60"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Memory.Array.Types.html#write"><span class="hs-identifier hs-var">A.write</span></a><span>       </span><span class="hs-comment">-- full buffer</span><span>
+</span><a name="line-61"></a><span>    </span><span class="hs-comment">-- , writeLastN -- drop old (ring buffer)</span><span>
+</span><a name="line-62"></a><span>
+</span><a name="line-63"></a><span>    </span><span class="hs-comment">-- * Elimination</span><span>
+</span><a name="line-64"></a><span>
+</span><a name="line-65"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Memory.Array.Types.html#toList"><span class="hs-identifier hs-var">A.toList</span></a><span>
+</span><a name="line-66"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Memory.Array.html#toStream"><span class="hs-identifier hs-var">toStream</span></a><span>
+</span><a name="line-67"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Memory.Array.html#toStreamRev"><span class="hs-identifier hs-var">toStreamRev</span></a><span>
+</span><a name="line-68"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Memory.Array.html#read"><span class="hs-identifier hs-var">read</span></a><span>
+</span><a name="line-69"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Memory.Array.html#unsafeRead"><span class="hs-identifier hs-var">unsafeRead</span></a><span>
+</span><a name="line-70"></a><span>    </span><span class="hs-comment">-- , readChunksOf</span><span>
+</span><a name="line-71"></a><span>
+</span><a name="line-72"></a><span>    </span><span class="hs-comment">-- * Random Access</span><span>
+</span><a name="line-73"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Memory.Array.Types.html#length"><span class="hs-identifier hs-var">length</span></a><span>
+</span><a name="line-74"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Memory.Array.html#null"><span class="hs-identifier hs-var">null</span></a><span>
+</span><a name="line-75"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Memory.Array.html#last"><span class="hs-identifier hs-var">last</span></a><span>
+</span><a name="line-76"></a><span>    </span><span class="hs-comment">-- , (!!)</span><span>
+</span><a name="line-77"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Memory.Array.html#readIndex"><span class="hs-identifier hs-var">readIndex</span></a><span>
+</span><a name="line-78"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Memory.Array.Types.html#unsafeIndex"><span class="hs-identifier hs-var">A.unsafeIndex</span></a><span>
+</span><a name="line-79"></a><span>    </span><span class="hs-comment">-- , readIndices</span><span>
+</span><a name="line-80"></a><span>    </span><span class="hs-comment">-- , readRanges</span><span>
+</span><a name="line-81"></a><span>
+</span><a name="line-82"></a><span>    </span><span class="hs-comment">-- , readFrom    -- read from a given position to the end of file</span><span>
+</span><a name="line-83"></a><span>    </span><span class="hs-comment">-- , readFromRev -- read from a given position to the beginning of file</span><span>
+</span><a name="line-84"></a><span>    </span><span class="hs-comment">-- , readTo      -- read from beginning up to the given position</span><span>
+</span><a name="line-85"></a><span>    </span><span class="hs-comment">-- , readToRev   -- read from end to the given position in file</span><span>
+</span><a name="line-86"></a><span>    </span><span class="hs-comment">-- , readFromTo</span><span>
+</span><a name="line-87"></a><span>    </span><span class="hs-comment">-- , readFromThenTo</span><span>
+</span><a name="line-88"></a><span>
+</span><a name="line-89"></a><span>    </span><span class="hs-comment">-- , readChunksOfFrom</span><span>
+</span><a name="line-90"></a><span>    </span><span class="hs-comment">-- , ...</span><span>
+</span><a name="line-91"></a><span>
+</span><a name="line-92"></a><span>    </span><span class="hs-comment">-- , writeIndex</span><span>
+</span><a name="line-93"></a><span>    </span><span class="hs-comment">-- , writeFrom -- start writing at the given position</span><span>
+</span><a name="line-94"></a><span>    </span><span class="hs-comment">-- , writeFromRev</span><span>
+</span><a name="line-95"></a><span>    </span><span class="hs-comment">-- , writeTo   -- write from beginning up to the given position</span><span>
+</span><a name="line-96"></a><span>    </span><span class="hs-comment">-- , writeToRev</span><span>
+</span><a name="line-97"></a><span>    </span><span class="hs-comment">-- , writeFromTo</span><span>
+</span><a name="line-98"></a><span>    </span><span class="hs-comment">-- , writeFromThenTo</span><span>
+</span><a name="line-99"></a><span>    </span><span class="hs-comment">--</span><span>
+</span><a name="line-100"></a><span>    </span><span class="hs-comment">-- , writeChunksOfFrom</span><span>
+</span><a name="line-101"></a><span>    </span><span class="hs-comment">-- , ...</span><span>
+</span><a name="line-102"></a><span>
+</span><a name="line-103"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Memory.Array.html#writeIndex"><span class="hs-identifier hs-var">writeIndex</span></a><span>
+</span><a name="line-104"></a><span>    </span><span class="hs-comment">--, writeIndices</span><span>
+</span><a name="line-105"></a><span>    </span><span class="hs-comment">--, writeRanges</span><span>
+</span><a name="line-106"></a><span>
+</span><a name="line-107"></a><span>    </span><span class="hs-comment">-- -- * Search</span><span>
+</span><a name="line-108"></a><span>    </span><span class="hs-comment">-- , bsearch</span><span>
+</span><a name="line-109"></a><span>    </span><span class="hs-comment">-- , bsearchIndex</span><span>
+</span><a name="line-110"></a><span>    </span><span class="hs-comment">-- , find</span><span>
+</span><a name="line-111"></a><span>    </span><span class="hs-comment">-- , findIndex</span><span>
+</span><a name="line-112"></a><span>    </span><span class="hs-comment">-- , findIndices</span><span>
+</span><a name="line-113"></a><span>
+</span><a name="line-114"></a><span>    </span><span class="hs-comment">-- -- * In-pace mutation (for Mutable Array type)</span><span>
+</span><a name="line-115"></a><span>    </span><span class="hs-comment">-- , partitionBy</span><span>
+</span><a name="line-116"></a><span>    </span><span class="hs-comment">-- , shuffleBy</span><span>
+</span><a name="line-117"></a><span>    </span><span class="hs-comment">-- , foldtWith</span><span>
+</span><a name="line-118"></a><span>    </span><span class="hs-comment">-- , foldbWith</span><span>
+</span><a name="line-119"></a><span>
+</span><a name="line-120"></a><span>    </span><span class="hs-comment">-- * Immutable Transformations</span><span>
+</span><a name="line-121"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Memory.Array.html#streamTransform"><span class="hs-identifier hs-var">streamTransform</span></a><span>
+</span><a name="line-122"></a><span>
+</span><a name="line-123"></a><span>    </span><span class="hs-comment">-- * Folding Arrays</span><span>
+</span><a name="line-124"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Memory.Array.html#streamFold"><span class="hs-identifier hs-var">streamFold</span></a><span>
+</span><a name="line-125"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Memory.Array.html#fold"><span class="hs-identifier hs-var">fold</span></a><span>
+</span><a name="line-126"></a><span>
+</span><a name="line-127"></a><span>    </span><span class="hs-comment">-- * Folds with Array as the container</span><span>
+</span><a name="line-128"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Data.Stream.StreamD.html#lastN"><span class="hs-identifier hs-var">D.lastN</span></a><span>
+</span><a name="line-129"></a><span>    </span><span class="hs-special">)</span><span>
+</span><a name="line-130"></a><span class="hs-keyword">where</span><span>
+</span><a name="line-131"></a><span>
+</span><a name="line-132"></a><span class="hs-keyword">import</span><span> </span><span class="hs-identifier">Control.Monad.IO.Class</span><span> </span><span class="hs-special">(</span><span class="hs-identifier hs-type">MonadIO</span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><a name="line-133"></a><span class="hs-comment">-- import Data.Functor.Identity (Identity)</span><span>
+</span><a name="line-134"></a><span class="hs-keyword">import</span><span> </span><span class="hs-identifier">Foreign.ForeignPtr</span><span> </span><span class="hs-special">(</span><span class="hs-identifier hs-var">withForeignPtr</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-var">touchForeignPtr</span><span class="hs-special">)</span><span>
+</span><a name="line-135"></a><span class="hs-keyword">import</span><span> </span><span class="hs-identifier">Foreign.Ptr</span><span> </span><span class="hs-special">(</span><span class="hs-identifier hs-var">plusPtr</span><span class="hs-special">)</span><span>
+</span><a name="line-136"></a><span class="hs-keyword">import</span><span> </span><span class="hs-identifier">Foreign.Storable</span><span> </span><span class="hs-special">(</span><span class="hs-identifier hs-type">Storable</span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><a name="line-137"></a><span class="hs-keyword">import</span><span> </span><span class="hs-identifier">Prelude</span><span> </span><span class="hs-keyword">hiding</span><span> </span><span class="hs-special">(</span><span class="hs-identifier hs-var">length</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-var">null</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-var">last</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-var">map</span><span class="hs-special">,</span><span> </span><span class="hs-special">(</span><span class="hs-operator hs-var">!!</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-var">read</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-var">concat</span><span class="hs-special">)</span><span>
+</span><a name="line-138"></a><span>
+</span><a name="line-139"></a><span class="hs-keyword">import</span><span> </span><span class="hs-identifier">GHC.ForeignPtr</span><span> </span><span class="hs-special">(</span><span class="hs-identifier hs-type">ForeignPtr</span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><a name="line-140"></a><span class="hs-keyword">import</span><span> </span><span class="hs-identifier">GHC.Ptr</span><span> </span><span class="hs-special">(</span><span class="hs-identifier hs-type">Ptr</span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><a name="line-141"></a><span class="hs-keyword">import</span><span> </span><span class="hs-identifier">GHC.Prim</span><span> </span><span class="hs-special">(</span><span class="hs-identifier hs-var">touch#</span><span class="hs-special">)</span><span>
+</span><a name="line-142"></a><span class="hs-keyword">import</span><span> </span><span class="hs-identifier">GHC.IO</span><span> </span><span class="hs-special">(</span><span class="hs-identifier hs-type">IO</span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><a name="line-143"></a><span>
+</span><a name="line-144"></a><span class="hs-keyword">import</span><span> </span><a href="Streamly.Internal.Data.Fold.Types.html"><span class="hs-identifier">Streamly.Internal.Data.Fold.Types</span></a><span> </span><span class="hs-special">(</span><a href="Streamly.Internal.Data.Fold.Types.html#Fold"><span class="hs-identifier hs-type">Fold</span></a><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><a name="line-145"></a><span class="hs-keyword">import</span><span> </span><a href="Streamly.Internal.Data.Unfold.Types.html"><span class="hs-identifier">Streamly.Internal.Data.Unfold.Types</span></a><span> </span><span class="hs-special">(</span><a href="Streamly.Internal.Data.Unfold.Types.html#Unfold"><span class="hs-identifier hs-type">Unfold</span></a><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><a name="line-146"></a><span class="hs-keyword">import</span><span> </span><a href="Streamly.Internal.Memory.Array.Types.html"><span class="hs-identifier">Streamly.Internal.Memory.Array.Types</span></a><span> </span><span class="hs-special">(</span><a href="Streamly.Internal.Memory.Array.Types.html#Array"><span class="hs-identifier hs-type">Array</span></a><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Memory.Array.Types.html#length"><span class="hs-identifier hs-var">length</span></a><span class="hs-special">)</span><span>
+</span><a name="line-147"></a><span class="hs-keyword">import</span><span> </span><a href="Streamly.Internal.Data.Stream.Serial.html"><span class="hs-identifier">Streamly.Internal.Data.Stream.Serial</span></a><span> </span><span class="hs-special">(</span><a href="Streamly.Internal.Data.Stream.Serial.html#SerialT"><span class="hs-identifier hs-type">SerialT</span></a><span class="hs-special">)</span><span>
+</span><a name="line-148"></a><span class="hs-keyword">import</span><span> </span><a href="Streamly.Internal.Data.Stream.StreamK.Type.html"><span class="hs-identifier">Streamly.Internal.Data.Stream.StreamK.Type</span></a><span> </span><span class="hs-special">(</span><a href="Streamly.Internal.Data.Stream.StreamK.Type.html#IsStream"><span class="hs-identifier hs-type">IsStream</span></a><span class="hs-special">)</span><span>
+</span><a name="line-149"></a><span>
+</span><a name="line-150"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><a href="Streamly.Internal.Memory.Array.Types.html"><span class="hs-identifier">Streamly.Internal.Memory.Array.Types</span></a><span> </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">A</span><span>
+</span><a name="line-151"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><a href="Streamly.Internal.Data.Stream.Prelude.html"><span class="hs-identifier">Streamly.Internal.Data.Stream.Prelude</span></a><span> </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">P</span><span>
+</span><a name="line-152"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><a href="Streamly.Internal.Data.Stream.Serial.html"><span class="hs-identifier">Streamly.Internal.Data.Stream.Serial</span></a><span> </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">Serial</span><span>
+</span><a name="line-153"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><a href="Streamly.Internal.Data.Stream.StreamD.html"><span class="hs-identifier">Streamly.Internal.Data.Stream.StreamD</span></a><span> </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">D</span><span>
+</span><a name="line-154"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><a href="Streamly.Internal.Data.Stream.StreamK.html"><span class="hs-identifier">Streamly.Internal.Data.Stream.StreamK</span></a><span> </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">K</span><span>
+</span><a name="line-155"></a><span>
+</span><a name="line-156"></a><span class="hs-comment">-------------------------------------------------------------------------------</span><span>
+</span><a name="line-157"></a><span class="hs-comment">-- Construction</span><span>
+</span><a name="line-158"></a><span class="hs-comment">-------------------------------------------------------------------------------</span><span>
+</span><a name="line-159"></a><span>
+</span><a name="line-160"></a><span class="hs-comment">{-
+-- | Create a new uninitialized array of given length.
+--
+-- @since 0.7.0
+newArray :: (MonadIO m, Storable a) =&gt; Int -&gt; m (Array a)
+newArray len = undefined
+-}</span><span>
+</span><a name="line-167"></a><span>
+</span><a name="line-168"></a><span class="hs-comment">-- | Create an 'Array' from the first N elements of a stream. The array is</span><span>
+</span><a name="line-169"></a><span class="hs-comment">-- allocated to size N, if the stream terminates before N elements then the</span><span>
+</span><a name="line-170"></a><span class="hs-comment">-- array may hold less than N elements.</span><span>
+</span><a name="line-171"></a><span class="hs-comment">--</span><span>
+</span><a name="line-172"></a><span class="hs-comment">-- /Internal/</span><span>
+</span><a name="line-173"></a><span class="hs-pragma">{-# INLINE</span><span> </span><span class="hs-pragma">fromStreamN</span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><a name="line-174"></a><span class="hs-identifier">fromStreamN</span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="hs-identifier hs-type">MonadIO</span><span> </span><a href="#local-6989586621679217652"><span class="hs-identifier hs-type">m</span></a><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-type">Storable</span><span> </span><a href="#local-6989586621679217653"><span class="hs-identifier hs-type">a</span></a><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="hs-identifier hs-type">Int</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><a href="Streamly.Internal.Data.Stream.Serial.html#SerialT"><span class="hs-identifier hs-type">SerialT</span></a><span> </span><a href="#local-6989586621679217652"><span class="hs-identifier hs-type">m</span></a><span> </span><a href="#local-6989586621679217653"><span class="hs-identifier hs-type">a</span></a><span> </span><span class="hs-glyph">-&gt;</span><span> </span><a href="#local-6989586621679217652"><span class="hs-identifier hs-type">m</span></a><span> </span><span class="hs-special">(</span><a href="Streamly.Internal.Memory.Array.Types.html#Array"><span class="hs-identifier hs-type">Array</span></a><span> </span><a href="#local-6989586621679217653"><span class="hs-identifier hs-type">a</span></a><span class="hs-special">)</span><span>
+</span><a name="line-175"></a><a name="fromStreamN"><a href="Streamly.Internal.Memory.Array.html#fromStreamN"><span class="hs-identifier">fromStreamN</span></a></a><span> </span><a name="local-6989586621679217654"><a href="#local-6989586621679217654"><span class="hs-identifier">n</span></a></a><span> </span><a name="local-6989586621679217655"><a href="#local-6989586621679217655"><span class="hs-identifier">m</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><a name="line-176"></a><span>    </span><span class="hs-keyword">if</span><span> </span><a href="#local-6989586621679217654"><span class="hs-identifier hs-var">n</span></a><span> </span><span class="hs-operator hs-var">&lt;</span><span> </span><span class="hs-number">0</span><span> </span><span class="hs-keyword">then</span><span> </span><span class="hs-identifier hs-var">error</span><span> </span><span class="hs-string">&quot;writeN: negative write count specified&quot;</span><span> </span><span class="hs-keyword">else</span><span> </span><span class="hs-identifier hs-var">return</span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><a name="line-177"></a><span>    </span><a href="Streamly.Internal.Memory.Array.Types.html#fromStreamDN"><span class="hs-identifier hs-var">A.fromStreamDN</span></a><span> </span><a href="#local-6989586621679217654"><span class="hs-identifier hs-var">n</span></a><span> </span><span class="hs-operator hs-var">$</span><span> </span><a href="Streamly.Internal.Data.Stream.StreamD.html#toStreamD"><span class="hs-identifier hs-var">D.toStreamD</span></a><span> </span><a href="#local-6989586621679217655"><span class="hs-identifier hs-var">m</span></a><span>
+</span><a name="line-178"></a><span>
+</span><a name="line-179"></a><span class="hs-comment">-- | Create an 'Array' from a stream. This is useful when we want to create a</span><span>
+</span><a name="line-180"></a><span class="hs-comment">-- single array from a stream of unknown size. 'writeN' is at least twice</span><span>
+</span><a name="line-181"></a><span class="hs-comment">-- as efficient when the size is already known.</span><span>
+</span><a name="line-182"></a><span class="hs-comment">--</span><span>
+</span><a name="line-183"></a><span class="hs-comment">-- Note that if the input stream is too large memory allocation for the array</span><span>
+</span><a name="line-184"></a><span class="hs-comment">-- may fail.  When the stream size is not known, `arraysOf` followed by</span><span>
+</span><a name="line-185"></a><span class="hs-comment">-- processing of indvidual arrays in the resulting stream should be preferred.</span><span>
+</span><a name="line-186"></a><span class="hs-comment">--</span><span>
+</span><a name="line-187"></a><span class="hs-comment">-- /Internal/</span><span>
+</span><a name="line-188"></a><span class="hs-pragma">{-# INLINE</span><span> </span><span class="hs-pragma">fromStream</span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><a name="line-189"></a><span class="hs-identifier">fromStream</span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="hs-identifier hs-type">MonadIO</span><span> </span><a href="#local-6989586621679217650"><span class="hs-identifier hs-type">m</span></a><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-type">Storable</span><span> </span><a href="#local-6989586621679217651"><span class="hs-identifier hs-type">a</span></a><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><a href="Streamly.Internal.Data.Stream.Serial.html#SerialT"><span class="hs-identifier hs-type">SerialT</span></a><span> </span><a href="#local-6989586621679217650"><span class="hs-identifier hs-type">m</span></a><span> </span><a href="#local-6989586621679217651"><span class="hs-identifier hs-type">a</span></a><span> </span><span class="hs-glyph">-&gt;</span><span> </span><a href="#local-6989586621679217650"><span class="hs-identifier hs-type">m</span></a><span> </span><span class="hs-special">(</span><a href="Streamly.Internal.Memory.Array.Types.html#Array"><span class="hs-identifier hs-type">Array</span></a><span> </span><a href="#local-6989586621679217651"><span class="hs-identifier hs-type">a</span></a><span class="hs-special">)</span><span>
+</span><a name="line-190"></a><a name="fromStream"><a href="Streamly.Internal.Memory.Array.html#fromStream"><span class="hs-identifier">fromStream</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="Streamly.Internal.Data.Stream.Prelude.html#runFold"><span class="hs-identifier hs-var">P.runFold</span></a><span> </span><a href="Streamly.Internal.Memory.Array.Types.html#write"><span class="hs-identifier hs-var">A.write</span></a><span>
+</span><a name="line-191"></a><span class="hs-comment">-- write m = A.fromStreamD $ D.toStreamD m</span><span>
+</span><a name="line-192"></a><span>
+</span><a name="line-193"></a><span class="hs-comment">-------------------------------------------------------------------------------</span><span>
+</span><a name="line-194"></a><span class="hs-comment">-- Elimination</span><span>
+</span><a name="line-195"></a><span class="hs-comment">-------------------------------------------------------------------------------</span><span>
+</span><a name="line-196"></a><span>
+</span><a name="line-197"></a><span class="hs-comment">-- | Convert an 'Array' into a stream.</span><span>
+</span><a name="line-198"></a><span class="hs-comment">--</span><span>
+</span><a name="line-199"></a><span class="hs-comment">-- /Internal/</span><span>
+</span><a name="line-200"></a><span class="hs-pragma">{-# INLINE_EARLY toStream #-}</span><span>
+</span><a name="line-201"></a><span class="hs-identifier">toStream</span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="hs-identifier hs-type">Monad</span><span> </span><a href="#local-6989586621679217647"><span class="hs-identifier hs-type">m</span></a><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Data.Stream.StreamK.Type.html#IsStream"><span class="hs-identifier hs-type">K.IsStream</span></a><span> </span><a href="#local-6989586621679217648"><span class="hs-identifier hs-type">t</span></a><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-type">Storable</span><span> </span><a href="#local-6989586621679217649"><span class="hs-identifier hs-type">a</span></a><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><a href="Streamly.Internal.Memory.Array.Types.html#Array"><span class="hs-identifier hs-type">Array</span></a><span> </span><a href="#local-6989586621679217649"><span class="hs-identifier hs-type">a</span></a><span> </span><span class="hs-glyph">-&gt;</span><span> </span><a href="#local-6989586621679217648"><span class="hs-identifier hs-type">t</span></a><span> </span><a href="#local-6989586621679217647"><span class="hs-identifier hs-type">m</span></a><span> </span><a href="#local-6989586621679217649"><span class="hs-identifier hs-type">a</span></a><span>
+</span><a name="line-202"></a><a name="toStream"><a href="Streamly.Internal.Memory.Array.html#toStream"><span class="hs-identifier">toStream</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="Streamly.Internal.Data.Stream.StreamD.Type.html#fromStreamD"><span class="hs-identifier hs-var">D.fromStreamD</span></a><span> </span><span class="hs-operator hs-var">.</span><span> </span><a href="Streamly.Internal.Memory.Array.Types.html#toStreamD"><span class="hs-identifier hs-var">A.toStreamD</span></a><span>
+</span><a name="line-203"></a><span class="hs-comment">-- XXX add fallback to StreamK rule</span><span>
+</span><a name="line-204"></a><span class="hs-comment">-- {-# RULES &quot;Streamly.Array.read fallback to StreamK&quot; [1]</span><span>
+</span><a name="line-205"></a><span class="hs-comment">--     forall a. S.readK (read a) = K.fromArray a #-}</span><span>
+</span><a name="line-206"></a><span>
+</span><a name="line-207"></a><span class="hs-comment">-- | Convert an 'Array' into a stream in reverse order.</span><span>
+</span><a name="line-208"></a><span class="hs-comment">--</span><span>
+</span><a name="line-209"></a><span class="hs-comment">-- /Internal/</span><span>
+</span><a name="line-210"></a><span class="hs-pragma">{-# INLINE_EARLY toStreamRev #-}</span><span>
+</span><a name="line-211"></a><span class="hs-identifier">toStreamRev</span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="hs-identifier hs-type">Monad</span><span> </span><a href="#local-6989586621679217644"><span class="hs-identifier hs-type">m</span></a><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Data.Stream.StreamK.Type.html#IsStream"><span class="hs-identifier hs-type">IsStream</span></a><span> </span><a href="#local-6989586621679217645"><span class="hs-identifier hs-type">t</span></a><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-type">Storable</span><span> </span><a href="#local-6989586621679217646"><span class="hs-identifier hs-type">a</span></a><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><a href="Streamly.Internal.Memory.Array.Types.html#Array"><span class="hs-identifier hs-type">Array</span></a><span> </span><a href="#local-6989586621679217646"><span class="hs-identifier hs-type">a</span></a><span> </span><span class="hs-glyph">-&gt;</span><span> </span><a href="#local-6989586621679217645"><span class="hs-identifier hs-type">t</span></a><span> </span><a href="#local-6989586621679217644"><span class="hs-identifier hs-type">m</span></a><span> </span><a href="#local-6989586621679217646"><span class="hs-identifier hs-type">a</span></a><span>
+</span><a name="line-212"></a><a name="toStreamRev"><a href="Streamly.Internal.Memory.Array.html#toStreamRev"><span class="hs-identifier">toStreamRev</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="Streamly.Internal.Data.Stream.StreamD.Type.html#fromStreamD"><span class="hs-identifier hs-var">D.fromStreamD</span></a><span> </span><span class="hs-operator hs-var">.</span><span> </span><a href="Streamly.Internal.Memory.Array.Types.html#toStreamDRev"><span class="hs-identifier hs-var">A.toStreamDRev</span></a><span>
+</span><a name="line-213"></a><span class="hs-comment">-- XXX add fallback to StreamK rule</span><span>
+</span><a name="line-214"></a><span class="hs-comment">-- {-# RULES &quot;Streamly.Array.readRev fallback to StreamK&quot; [1]</span><span>
+</span><a name="line-215"></a><span class="hs-comment">--     forall a. S.toStreamK (readRev a) = K.revFromArray a #-}</span><span>
+</span><a name="line-216"></a><span>
+</span><a name="line-217"></a><span class="hs-keyword">data</span><span> </span><a name="ReadUState"><a href="Streamly.Internal.Memory.Array.html#ReadUState"><span class="hs-identifier">ReadUState</span></a></a><span> </span><a name="local-6989586621679217625"><a href="#local-6989586621679217625"><span class="hs-identifier">a</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a name="ReadUState"><a href="Streamly.Internal.Memory.Array.html#ReadUState"><span class="hs-identifier">ReadUState</span></a></a><span>
+</span><a name="line-218"></a><span>    </span><span class="hs-pragma">{-# UNPACK</span><span> </span><span class="hs-pragma">#-}</span><span> </span><span class="hs-glyph">!</span><span class="hs-special">(</span><span class="hs-identifier hs-type">ForeignPtr</span><span> </span><a href="#local-6989586621679217625"><span class="hs-identifier hs-type">a</span></a><span class="hs-special">)</span><span>  </span><span class="hs-comment">-- foreign ptr with end of array pointer</span><span>
+</span><a name="line-219"></a><span>    </span><span class="hs-pragma">{-# UNPACK</span><span> </span><span class="hs-pragma">#-}</span><span> </span><span class="hs-glyph">!</span><span class="hs-special">(</span><span class="hs-identifier hs-type">Ptr</span><span> </span><a href="#local-6989586621679217625"><span class="hs-identifier hs-type">a</span></a><span class="hs-special">)</span><span>         </span><span class="hs-comment">-- current pointer</span><span>
+</span><a name="line-220"></a><span>
+</span><a name="line-221"></a><span class="hs-comment">-- | Unfold an array into a stream.</span><span>
+</span><a name="line-222"></a><span class="hs-comment">--</span><span>
+</span><a name="line-223"></a><span class="hs-comment">-- @since 0.7.0</span><span>
+</span><a name="line-224"></a><span class="hs-pragma">{-# INLINE_NORMAL read #-}</span><span>
+</span><a name="line-225"></a><span class="hs-identifier">read</span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-keyword">forall</span><span> </span><a name="local-6989586621679217642"><a href="#local-6989586621679217642"><span class="hs-identifier">m</span></a></a><span> </span><a name="local-6989586621679217643"><a href="#local-6989586621679217643"><span class="hs-identifier">a</span></a></a><span class="hs-operator">.</span><span> </span><span class="hs-special">(</span><span class="hs-identifier hs-type">Monad</span><span> </span><a href="#local-6989586621679217642"><span class="hs-identifier hs-type">m</span></a><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-type">Storable</span><span> </span><a href="#local-6989586621679217643"><span class="hs-identifier hs-type">a</span></a><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><a href="Streamly.Internal.Data.Unfold.Types.html#Unfold"><span class="hs-identifier hs-type">Unfold</span></a><span> </span><a href="#local-6989586621679217642"><span class="hs-identifier hs-type">m</span></a><span> </span><span class="hs-special">(</span><a href="Streamly.Internal.Memory.Array.Types.html#Array"><span class="hs-identifier hs-type">Array</span></a><span> </span><a href="#local-6989586621679217643"><span class="hs-identifier hs-type">a</span></a><span class="hs-special">)</span><span> </span><a href="#local-6989586621679217643"><span class="hs-identifier hs-type">a</span></a><span>
+</span><a name="line-226"></a><a name="read"><a href="Streamly.Internal.Memory.Array.html#read"><span class="hs-identifier">read</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="Streamly.Internal.Data.Unfold.Types.html#Unfold"><span class="hs-identifier hs-var">Unfold</span></a><span> </span><a href="#local-6989586621679217657"><span class="hs-identifier hs-var">step</span></a><span> </span><a href="#local-6989586621679217656"><span class="hs-identifier hs-var">inject</span></a><span>
+</span><a name="line-227"></a><span>    </span><span class="hs-keyword">where</span><span>
+</span><a name="line-228"></a><span>
+</span><a name="line-229"></a><span>    </span><a name="local-6989586621679217656"><a href="#local-6989586621679217656"><span class="hs-identifier">inject</span></a></a><span> </span><span class="hs-special">(</span><a href="Streamly.Internal.Memory.Array.Types.html#Array"><span class="hs-identifier hs-var">Array</span></a><span> </span><span class="hs-special">(</span><span class="hs-identifier hs-var">ForeignPtr</span><span> </span><a name="local-6989586621679217658"><a href="#local-6989586621679217658"><span class="hs-identifier">start</span></a></a><span> </span><a name="local-6989586621679217659"><a href="#local-6989586621679217659"><span class="hs-identifier">contents</span></a></a><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="hs-identifier hs-var">Ptr</span><span> </span><a name="local-6989586621679217660"><a href="#local-6989586621679217660"><span class="hs-identifier">end</span></a></a><span class="hs-special">)</span><span> </span><span class="hs-identifier">_</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
+</span><a name="line-230"></a><span>        </span><span class="hs-identifier hs-var">return</span><span> </span><span class="hs-operator hs-var">$</span><span> </span><a href="Streamly.Internal.Memory.Array.html#ReadUState"><span class="hs-identifier hs-var">ReadUState</span></a><span> </span><span class="hs-special">(</span><span class="hs-identifier hs-var">ForeignPtr</span><span> </span><a href="#local-6989586621679217660"><span class="hs-identifier hs-var">end</span></a><span> </span><a href="#local-6989586621679217659"><span class="hs-identifier hs-var">contents</span></a><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="hs-identifier hs-var">Ptr</span><span> </span><a href="#local-6989586621679217658"><span class="hs-identifier hs-var">start</span></a><span class="hs-special">)</span><span>
+</span><a name="line-231"></a><span>
+</span><a name="line-232"></a><span>    </span><span class="hs-pragma">{-# INLINE_LATE step #-}</span><span>
+</span><a name="line-233"></a><span>    </span><a name="local-6989586621679217657"><a href="#local-6989586621679217657"><span class="hs-identifier">step</span></a></a><span> </span><span class="hs-special">(</span><a href="Streamly.Internal.Memory.Array.html#ReadUState"><span class="hs-identifier hs-var">ReadUState</span></a><span> </span><a name="local-6989586621679217661"><a href="#local-6989586621679217661"><span class="hs-identifier">fp</span></a></a><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="hs-identifier hs-var">ForeignPtr</span><span> </span><a name="local-6989586621679217662"><a href="#local-6989586621679217662"><span class="hs-identifier">end</span></a></a><span> </span><span class="hs-identifier">_</span><span class="hs-special">)</span><span> </span><a name="local-6989586621679217663"><a href="#local-6989586621679217663"><span class="hs-identifier">p</span></a></a><span class="hs-special">)</span><span> </span><span class="hs-glyph">|</span><span> </span><a href="#local-6989586621679217663"><span class="hs-identifier hs-var">p</span></a><span> </span><span class="hs-operator hs-var">==</span><span> </span><span class="hs-special">(</span><span class="hs-identifier hs-var">Ptr</span><span> </span><a href="#local-6989586621679217662"><span class="hs-identifier hs-var">end</span></a><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
+</span><a name="line-234"></a><span>        </span><span class="hs-keyword">let</span><span> </span><a name="local-6989586621679217664"><a href="#local-6989586621679217664"><span class="hs-identifier">x</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="Streamly.Internal.Memory.Array.Types.html#unsafeInlineIO"><span class="hs-identifier hs-var">A.unsafeInlineIO</span></a><span> </span><span class="hs-operator hs-var">$</span><span> </span><span class="hs-identifier hs-var">touchForeignPtr</span><span> </span><a href="#local-6989586621679217661"><span class="hs-identifier hs-var">fp</span></a><span>
+</span><a name="line-235"></a><span>        </span><span class="hs-keyword">in</span><span> </span><a href="#local-6989586621679217664"><span class="hs-identifier hs-var">x</span></a><span> </span><span class="hs-special">`</span><span class="hs-identifier hs-var">seq</span><span class="hs-special">`</span><span> </span><span class="hs-identifier hs-var">return</span><span> </span><a href="Streamly.Internal.Data.Stream.StreamD.Type.html#Stop"><span class="hs-identifier hs-var">D.Stop</span></a><span>
+</span><a name="line-236"></a><span>    </span><span class="hs-identifier">step</span><span> </span><span class="hs-special">(</span><a href="Streamly.Internal.Memory.Array.html#ReadUState"><span class="hs-identifier hs-var">ReadUState</span></a><span> </span><a name="local-6989586621679217665"><a href="#local-6989586621679217665"><span class="hs-identifier">fp</span></a></a><span> </span><a name="local-6989586621679217666"><a href="#local-6989586621679217666"><span class="hs-identifier">p</span></a></a><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><a name="line-237"></a><span>            </span><span class="hs-comment">-- unsafeInlineIO allows us to run this in Identity monad for pure</span><span>
+</span><a name="line-238"></a><span>            </span><span class="hs-comment">-- toList/foldr case which makes them much faster due to not</span><span>
+</span><a name="line-239"></a><span>            </span><span class="hs-comment">-- accumulating the list and fusing better with the pure consumers.</span><span>
+</span><a name="line-240"></a><span>            </span><span class="hs-comment">--</span><span>
+</span><a name="line-241"></a><span>            </span><span class="hs-comment">-- This should be safe as the array contents are guaranteed to be</span><span>
+</span><a name="line-242"></a><span>            </span><span class="hs-comment">-- evaluated/written to before we peek at them.</span><span>
+</span><a name="line-243"></a><span>            </span><span class="hs-keyword">let</span><span> </span><span class="hs-glyph">!</span><a name="local-6989586621679217667"><a href="#local-6989586621679217667"><span class="hs-identifier">x</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="Streamly.Internal.Memory.Array.Types.html#unsafeInlineIO"><span class="hs-identifier hs-var">A.unsafeInlineIO</span></a><span> </span><span class="hs-operator hs-var">$</span><span> </span><span class="hs-identifier hs-var">peek</span><span> </span><a href="#local-6989586621679217666"><span class="hs-identifier hs-var">p</span></a><span>
+</span><a name="line-244"></a><span>            </span><span class="hs-identifier hs-var">return</span><span> </span><span class="hs-operator hs-var">$</span><span> </span><a href="Streamly.Internal.Data.Stream.StreamD.Type.html#Yield"><span class="hs-identifier hs-var">D.Yield</span></a><span> </span><a href="#local-6989586621679217667"><span class="hs-identifier hs-var">x</span></a><span>
+</span><a name="line-245"></a><span>                </span><span class="hs-special">(</span><a href="Streamly.Internal.Memory.Array.html#ReadUState"><span class="hs-identifier hs-var">ReadUState</span></a><span> </span><a href="#local-6989586621679217665"><span class="hs-identifier hs-var">fp</span></a><span> </span><span class="hs-special">(</span><a href="#local-6989586621679217666"><span class="hs-identifier hs-var">p</span></a><span> </span><span class="hs-special">`</span><span class="hs-identifier hs-var">plusPtr</span><span class="hs-special">`</span><span> </span><span class="hs-special">(</span><span class="hs-identifier hs-var">sizeOf</span><span> </span><span class="hs-special">(</span><span class="hs-identifier hs-var">undefined</span><span> </span><span class="hs-glyph">::</span><span> </span><a href="#local-6989586621679217643"><span class="hs-identifier hs-type">a</span></a><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><a name="line-246"></a><span>
+</span><a name="line-247"></a><span class="hs-comment">-- | Unfold an array into a stream, does not check the end of the array, the</span><span>
+</span><a name="line-248"></a><span class="hs-comment">-- user is responsible for terminating the stream within the array bounds. For</span><span>
+</span><a name="line-249"></a><span class="hs-comment">-- high performance application where the end condition can be determined by</span><span>
+</span><a name="line-250"></a><span class="hs-comment">-- a terminating fold.</span><span>
+</span><a name="line-251"></a><span class="hs-comment">--</span><span>
+</span><a name="line-252"></a><span class="hs-comment">-- Written in the hope that it may be faster than &quot;read&quot;, however, in the case</span><span>
+</span><a name="line-253"></a><span class="hs-comment">-- for which this was written, &quot;read&quot; proves to be faster even though the core</span><span>
+</span><a name="line-254"></a><span class="hs-comment">-- generated with unsafeRead looks simpler.</span><span>
+</span><a name="line-255"></a><span class="hs-comment">--</span><span>
+</span><a name="line-256"></a><span class="hs-comment">-- /Internal/</span><span>
+</span><a name="line-257"></a><span class="hs-comment">--</span><span>
+</span><a name="line-258"></a><span class="hs-pragma">{-# INLINE_NORMAL unsafeRead #-}</span><span>
+</span><a name="line-259"></a><span class="hs-identifier">unsafeRead</span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-keyword">forall</span><span> </span><a name="local-6989586621679217640"><a href="#local-6989586621679217640"><span class="hs-identifier">m</span></a></a><span> </span><a name="local-6989586621679217641"><a href="#local-6989586621679217641"><span class="hs-identifier">a</span></a></a><span class="hs-operator">.</span><span> </span><span class="hs-special">(</span><span class="hs-identifier hs-type">Monad</span><span> </span><a href="#local-6989586621679217640"><span class="hs-identifier hs-type">m</span></a><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-type">Storable</span><span> </span><a href="#local-6989586621679217641"><span class="hs-identifier hs-type">a</span></a><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><a href="Streamly.Internal.Data.Unfold.Types.html#Unfold"><span class="hs-identifier hs-type">Unfold</span></a><span> </span><a href="#local-6989586621679217640"><span class="hs-identifier hs-type">m</span></a><span> </span><span class="hs-special">(</span><a href="Streamly.Internal.Memory.Array.Types.html#Array"><span class="hs-identifier hs-type">Array</span></a><span> </span><a href="#local-6989586621679217641"><span class="hs-identifier hs-type">a</span></a><span class="hs-special">)</span><span> </span><a href="#local-6989586621679217641"><span class="hs-identifier hs-type">a</span></a><span>
+</span><a name="line-260"></a><a name="unsafeRead"><a href="Streamly.Internal.Memory.Array.html#unsafeRead"><span class="hs-identifier">unsafeRead</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="Streamly.Internal.Data.Unfold.Types.html#Unfold"><span class="hs-identifier hs-var">Unfold</span></a><span> </span><a href="#local-6989586621679217669"><span class="hs-identifier hs-var">step</span></a><span> </span><a href="#local-6989586621679217668"><span class="hs-identifier hs-var">inject</span></a><span>
+</span><a name="line-261"></a><span>    </span><span class="hs-keyword">where</span><span>
+</span><a name="line-262"></a><span>
+</span><a name="line-263"></a><span>    </span><a name="local-6989586621679217668"><a href="#local-6989586621679217668"><span class="hs-identifier">inject</span></a></a><span> </span><span class="hs-special">(</span><a href="Streamly.Internal.Memory.Array.Types.html#Array"><span class="hs-identifier hs-var">Array</span></a><span> </span><a name="local-6989586621679217671"><a href="#local-6989586621679217671"><span class="hs-identifier">fp</span></a></a><span> </span><span class="hs-identifier">_</span><span> </span><span class="hs-identifier">_</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-identifier hs-var">return</span><span> </span><a href="#local-6989586621679217671"><span class="hs-identifier hs-var">fp</span></a><span>
+</span><a name="line-264"></a><span>
+</span><a name="line-265"></a><span>    </span><span class="hs-pragma">{-# INLINE_LATE step #-}</span><span>
+</span><a name="line-266"></a><span>    </span><a name="local-6989586621679217669"><a href="#local-6989586621679217669"><span class="hs-identifier">step</span></a></a><span> </span><span class="hs-special">(</span><span class="hs-identifier hs-var">ForeignPtr</span><span> </span><a name="local-6989586621679217672"><a href="#local-6989586621679217672"><span class="hs-identifier">p</span></a></a><span> </span><a name="local-6989586621679217673"><a href="#local-6989586621679217673"><span class="hs-identifier">contents</span></a></a><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><a name="line-267"></a><span>            </span><span class="hs-comment">-- unsafeInlineIO allows us to run this in Identity monad for pure</span><span>
+</span><a name="line-268"></a><span>            </span><span class="hs-comment">-- toList/foldr case which makes them much faster due to not</span><span>
+</span><a name="line-269"></a><span>            </span><span class="hs-comment">-- accumulating the list and fusing better with the pure consumers.</span><span>
+</span><a name="line-270"></a><span>            </span><span class="hs-comment">--</span><span>
+</span><a name="line-271"></a><span>            </span><span class="hs-comment">-- This should be safe as the array contents are guaranteed to be</span><span>
+</span><a name="line-272"></a><span>            </span><span class="hs-comment">-- evaluated/written to before we peek at them.</span><span>
+</span><a name="line-273"></a><span>            </span><span class="hs-keyword">let</span><span> </span><span class="hs-glyph">!</span><a name="local-6989586621679217674"><a href="#local-6989586621679217674"><span class="hs-identifier">x</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="Streamly.Internal.Memory.Array.Types.html#unsafeInlineIO"><span class="hs-identifier hs-var">A.unsafeInlineIO</span></a><span> </span><span class="hs-operator hs-var">$</span><span> </span><span class="hs-keyword">do</span><span>
+</span><a name="line-274"></a><span>                        </span><a name="local-6989586621679217675"><a href="#local-6989586621679217675"><span class="hs-identifier">r</span></a></a><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="hs-identifier hs-var">peek</span><span> </span><span class="hs-special">(</span><span class="hs-identifier hs-var">Ptr</span><span> </span><a href="#local-6989586621679217672"><span class="hs-identifier hs-var">p</span></a><span class="hs-special">)</span><span>
+</span><a name="line-275"></a><span>                        </span><a href="#local-6989586621679217670"><span class="hs-identifier hs-var">touch</span></a><span> </span><a href="#local-6989586621679217673"><span class="hs-identifier hs-var">contents</span></a><span>
+</span><a name="line-276"></a><span>                        </span><span class="hs-identifier hs-var">return</span><span> </span><a href="#local-6989586621679217675"><span class="hs-identifier hs-var">r</span></a><span>
+</span><a name="line-277"></a><span>            </span><span class="hs-keyword">let</span><span> </span><span class="hs-glyph">!</span><span class="hs-special">(</span><span class="hs-identifier hs-var">Ptr</span><span> </span><a name="local-6989586621679217676"><a href="#local-6989586621679217676"><span class="hs-identifier">p1</span></a></a><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-identifier hs-var">Ptr</span><span> </span><a href="#local-6989586621679217672"><span class="hs-identifier hs-var">p</span></a><span> </span><span class="hs-special">`</span><span class="hs-identifier hs-var">plusPtr</span><span class="hs-special">`</span><span> </span><span class="hs-special">(</span><span class="hs-identifier hs-var">sizeOf</span><span> </span><span class="hs-special">(</span><span class="hs-identifier hs-var">undefined</span><span> </span><span class="hs-glyph">::</span><span> </span><a href="#local-6989586621679217641"><span class="hs-identifier hs-type">a</span></a><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><a name="line-278"></a><span>            </span><span class="hs-identifier hs-var">return</span><span> </span><span class="hs-operator hs-var">$</span><span> </span><a href="Streamly.Internal.Data.Stream.StreamD.Type.html#Yield"><span class="hs-identifier hs-var">D.Yield</span></a><span> </span><a href="#local-6989586621679217674"><span class="hs-identifier hs-var">x</span></a><span> </span><span class="hs-special">(</span><span class="hs-identifier hs-var">ForeignPtr</span><span> </span><a href="#local-6989586621679217676"><span class="hs-identifier hs-var">p1</span></a><span> </span><a href="#local-6989586621679217673"><span class="hs-identifier hs-var">contents</span></a><span class="hs-special">)</span><span>
+</span><a name="line-279"></a><span>
+</span><a name="line-280"></a><span>    </span><a name="local-6989586621679217670"><a href="#local-6989586621679217670"><span class="hs-identifier">touch</span></a></a><span> </span><a name="local-6989586621679217677"><a href="#local-6989586621679217677"><span class="hs-identifier">r</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-identifier hs-var">IO</span><span> </span><span class="hs-operator hs-var">$</span><span> </span><span class="hs-glyph">\</span><a name="local-6989586621679217678"><a href="#local-6989586621679217678"><span class="hs-identifier">s</span></a></a><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="hs-identifier hs-var">touch#</span><span> </span><a href="#local-6989586621679217677"><span class="hs-identifier hs-var">r</span></a><span> </span><a href="#local-6989586621679217678"><span class="hs-identifier hs-var">s</span></a><span> </span><span class="hs-keyword">of</span><span> </span><a name="local-6989586621679217679"><a href="#local-6989586621679217679"><span class="hs-identifier">s'</span></a></a><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(#</span><span> </span><a href="#local-6989586621679217679"><span class="hs-identifier hs-var">s'</span></a><span class="hs-special">,</span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span> </span><span class="hs-special">#)</span><span>
+</span><a name="line-281"></a><span>
+</span><a name="line-282"></a><span class="hs-comment">-- | &gt; null arr = length arr == 0</span><span>
+</span><a name="line-283"></a><span class="hs-comment">--</span><span>
+</span><a name="line-284"></a><span class="hs-comment">-- /Internal/</span><span>
+</span><a name="line-285"></a><span class="hs-pragma">{-# INLINE</span><span> </span><span class="hs-pragma">null</span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><a name="line-286"></a><span class="hs-identifier">null</span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier hs-type">Storable</span><span> </span><a href="#local-6989586621679217639"><span class="hs-identifier hs-type">a</span></a><span> </span><span class="hs-glyph">=&gt;</span><span> </span><a href="Streamly.Internal.Memory.Array.Types.html#Array"><span class="hs-identifier hs-type">Array</span></a><span> </span><a href="#local-6989586621679217639"><span class="hs-identifier hs-type">a</span></a><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier hs-type">Bool</span><span>
+</span><a name="line-287"></a><a name="null"><a href="Streamly.Internal.Memory.Array.html#null"><span class="hs-identifier">null</span></a></a><span> </span><a name="local-6989586621679217680"><a href="#local-6989586621679217680"><span class="hs-identifier">arr</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="Streamly.Internal.Memory.Array.Types.html#length"><span class="hs-identifier hs-var">length</span></a><span> </span><a href="#local-6989586621679217680"><span class="hs-identifier hs-var">arr</span></a><span> </span><span class="hs-operator hs-var">==</span><span> </span><span class="hs-number">0</span><span>
+</span><a name="line-288"></a><span>
+</span><a name="line-289"></a><span class="hs-comment">-- | &gt; last arr = readIndex arr (length arr - 1)</span><span>
+</span><a name="line-290"></a><span class="hs-comment">--</span><span>
+</span><a name="line-291"></a><span class="hs-comment">-- /Internal/</span><span>
+</span><a name="line-292"></a><span class="hs-pragma">{-# INLINE</span><span> </span><span class="hs-pragma">last</span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><a name="line-293"></a><span class="hs-identifier">last</span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier hs-type">Storable</span><span> </span><a href="#local-6989586621679217638"><span class="hs-identifier hs-type">a</span></a><span> </span><span class="hs-glyph">=&gt;</span><span> </span><a href="Streamly.Internal.Memory.Array.Types.html#Array"><span class="hs-identifier hs-type">Array</span></a><span> </span><a href="#local-6989586621679217638"><span class="hs-identifier hs-type">a</span></a><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier hs-type">Maybe</span><span> </span><a href="#local-6989586621679217638"><span class="hs-identifier hs-type">a</span></a><span>
+</span><a name="line-294"></a><a name="last"><a href="Streamly.Internal.Memory.Array.html#last"><span class="hs-identifier">last</span></a></a><span> </span><a name="local-6989586621679217681"><a href="#local-6989586621679217681"><span class="hs-identifier">arr</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="Streamly.Internal.Memory.Array.html#readIndex"><span class="hs-identifier hs-var">readIndex</span></a><span> </span><a href="#local-6989586621679217681"><span class="hs-identifier hs-var">arr</span></a><span> </span><span class="hs-special">(</span><a href="Streamly.Internal.Memory.Array.Types.html#length"><span class="hs-identifier hs-var">length</span></a><span> </span><a href="#local-6989586621679217681"><span class="hs-identifier hs-var">arr</span></a><span> </span><span class="hs-glyph">-</span><span> </span><span class="hs-number">1</span><span class="hs-special">)</span><span>
+</span><a name="line-295"></a><span>
+</span><a name="line-296"></a><span class="hs-comment">-------------------------------------------------------------------------------</span><span>
+</span><a name="line-297"></a><span class="hs-comment">-- Random Access</span><span>
+</span><a name="line-298"></a><span class="hs-comment">-------------------------------------------------------------------------------</span><span>
+</span><a name="line-299"></a><span>
+</span><a name="line-300"></a><span class="hs-comment">-------------------------------------------------------------------------------</span><span>
+</span><a name="line-301"></a><span class="hs-comment">-- Searching</span><span>
+</span><a name="line-302"></a><span class="hs-comment">-------------------------------------------------------------------------------</span><span>
+</span><a name="line-303"></a><span>
+</span><a name="line-304"></a><span class="hs-comment">{-
+-- | Perform a binary search in the array to find an element.
+bsearch :: a -&gt; Array a -&gt; Maybe Bool
+bsearch = undefined
+
+-- | Perform a binary search in the array to find an element index.
+{-# INLINE elemIndex #-}
+bsearchIndex :: a -&gt; Array a -&gt; Maybe Int
+bsearchIndex elem arr = undefined
+
+-- find/findIndex etc can potentially be implemented more efficiently on arrays
+-- compared to streams by using SIMD instructions.
+
+find :: (a -&gt; Bool) -&gt; Array a -&gt; Bool
+find = undefined
+
+findIndex :: (a -&gt; Bool) -&gt; Array a -&gt; Maybe Int
+findIndex = undefined
+
+findIndices :: (a -&gt; Bool) -&gt; Array a -&gt; Array Int
+findIndices = undefined
+-}</span><span>
+</span><a name="line-326"></a><span>
+</span><a name="line-327"></a><span class="hs-comment">-------------------------------------------------------------------------------</span><span>
+</span><a name="line-328"></a><span class="hs-comment">-- Folds</span><span>
+</span><a name="line-329"></a><span class="hs-comment">-------------------------------------------------------------------------------</span><span>
+</span><a name="line-330"></a><span>
+</span><a name="line-331"></a><span class="hs-comment">-- XXX We can potentially use SIMD instructions on arrays to fold faster.</span><span>
+</span><a name="line-332"></a><span>
+</span><a name="line-333"></a><span class="hs-comment">-------------------------------------------------------------------------------</span><span>
+</span><a name="line-334"></a><span class="hs-comment">-- Slice and splice</span><span>
+</span><a name="line-335"></a><span class="hs-comment">-------------------------------------------------------------------------------</span><span>
+</span><a name="line-336"></a><span>
+</span><a name="line-337"></a><span class="hs-comment">{-
+slice :: Int -&gt; Int -&gt; Array a
+slice begin end arr = undefined
+
+splitAt :: Int -&gt; Array a -&gt; (Array a, Array a)
+splitAt i arr = undefined
+
+-- XXX This operation can be performed efficiently via streams.
+-- | Append two arrays together to create a single array.
+splice :: Array a -&gt; Array a -&gt; Array a
+splice arr1 arr2 = undefined
+
+-------------------------------------------------------------------------------
+-- In-place mutation APIs
+-------------------------------------------------------------------------------
+
+-- | Partition an array into two halves using a partitioning predicate. The
+-- first half retains values where the predicate is 'False' and the second half
+-- retains values where the predicate is 'True'.
+{-# INLINE partitionBy #-}
+partitionBy :: (a -&gt; Bool) -&gt; Array a -&gt; (Array a, Array a)
+partitionBy f arr = undefined
+
+-- | Shuffle corresponding elements from two arrays using a shuffle function.
+-- If the shuffle function returns 'False' then do nothing otherwise swap the
+-- elements. This can be used in a bottom up fold to shuffle or reorder the
+-- elements.
+shuffleBy :: (a -&gt; a -&gt; m Bool) -&gt; Array a -&gt; Array a -&gt; m (Array a)
+shuffleBy f arr1 arr2 = undefined
+
+-- XXX we can also make the folds partial by stopping at a certain level.
+--
+-- | Perform a top down hierarchical recursive partitioning fold of items in
+-- the container using the given function as the partition function.
+--
+-- This will perform a quick sort if the partition function is
+-- 'partitionBy (&lt; pivot)'.
+--
+-- @since 0.7.0
+{-# INLINABLE foldtWith #-}
+foldtWith :: Int -&gt; (Array a -&gt; Array a -&gt; m (Array a)) -&gt; Array a -&gt; m (Array a)
+foldtWith level f = undefined
+
+-- | Perform a pairwise bottom up fold recursively merging the pairs. Level
+-- indicates the level in the tree where the fold would stop.
+--
+-- This will perform a random shuffle if the shuffle function is random.
+-- If we stop at level 0 and repeatedly apply the function then we can do a
+-- bubble sort.
+foldbWith :: Int -&gt; (Array a -&gt; Array a -&gt; m (Array a)) -&gt; Array a -&gt; m (Array a)
+foldbWith level f = undefined
+-}</span><span>
+</span><a name="line-389"></a><span>
+</span><a name="line-390"></a><span class="hs-comment">-- XXX consider the bulk update/accumulation/permutation APIs from vector.</span><span>
+</span><a name="line-391"></a><span>
+</span><a name="line-392"></a><span class="hs-comment">-------------------------------------------------------------------------------</span><span>
+</span><a name="line-393"></a><span class="hs-comment">-- Random reads and writes</span><span>
+</span><a name="line-394"></a><span class="hs-comment">-------------------------------------------------------------------------------</span><span>
+</span><a name="line-395"></a><span>
+</span><a name="line-396"></a><span class="hs-comment">-- | /O(1)/ Lookup the element at the given index, starting from 0.</span><span>
+</span><a name="line-397"></a><span class="hs-comment">--</span><span>
+</span><a name="line-398"></a><span class="hs-comment">-- /Internal/</span><span>
+</span><a name="line-399"></a><span class="hs-pragma">{-# INLINE</span><span> </span><span class="hs-pragma">readIndex</span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><a name="line-400"></a><span class="hs-identifier">readIndex</span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier hs-type">Storable</span><span> </span><a href="#local-6989586621679217637"><span class="hs-identifier hs-type">a</span></a><span> </span><span class="hs-glyph">=&gt;</span><span> </span><a href="Streamly.Internal.Memory.Array.Types.html#Array"><span class="hs-identifier hs-type">Array</span></a><span> </span><a href="#local-6989586621679217637"><span class="hs-identifier hs-type">a</span></a><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier hs-type">Int</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier hs-type">Maybe</span><span> </span><a href="#local-6989586621679217637"><span class="hs-identifier hs-type">a</span></a><span>
+</span><a name="line-401"></a><a name="readIndex"><a href="Streamly.Internal.Memory.Array.html#readIndex"><span class="hs-identifier">readIndex</span></a></a><span> </span><a name="local-6989586621679217682"><a href="#local-6989586621679217682"><span class="hs-identifier">arr</span></a></a><span> </span><a name="local-6989586621679217683"><a href="#local-6989586621679217683"><span class="hs-identifier">i</span></a></a><span> </span><span class="hs-glyph">=</span><span>
+</span><a name="line-402"></a><span>    </span><span class="hs-keyword">if</span><span> </span><a href="#local-6989586621679217683"><span class="hs-identifier hs-var">i</span></a><span> </span><span class="hs-operator hs-var">&lt;</span><span> </span><span class="hs-number">0</span><span> </span><span class="hs-operator hs-var">||</span><span> </span><a href="#local-6989586621679217683"><span class="hs-identifier hs-var">i</span></a><span> </span><span class="hs-operator hs-var">&gt;</span><span> </span><a href="Streamly.Internal.Memory.Array.Types.html#length"><span class="hs-identifier hs-var">length</span></a><span> </span><a href="#local-6989586621679217682"><span class="hs-identifier hs-var">arr</span></a><span> </span><span class="hs-glyph">-</span><span> </span><span class="hs-number">1</span><span>
+</span><a name="line-403"></a><span>        </span><span class="hs-keyword">then</span><span> </span><span class="hs-identifier hs-var">Nothing</span><span>
+</span><a name="line-404"></a><span>        </span><span class="hs-keyword">else</span><span> </span><a href="Streamly.Internal.Memory.Array.Types.html#unsafeInlineIO"><span class="hs-identifier hs-var">A.unsafeInlineIO</span></a><span> </span><span class="hs-operator hs-var">$</span><span>
+</span><a name="line-405"></a><span>             </span><span class="hs-identifier hs-var">withForeignPtr</span><span> </span><span class="hs-special">(</span><span class="hs-identifier">aStart</span><span> </span><a href="#local-6989586621679217682"><span class="hs-identifier hs-var">arr</span></a><span class="hs-special">)</span><span> </span><span class="hs-operator hs-var">$</span><span> </span><span class="hs-glyph">\</span><a name="local-6989586621679217684"><a href="#local-6989586621679217684"><span class="hs-identifier">p</span></a></a><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier hs-var">fmap</span><span> </span><span class="hs-identifier hs-var">Just</span><span> </span><span class="hs-operator hs-var">$</span><span> </span><span class="hs-identifier hs-var">peekElemOff</span><span> </span><a href="#local-6989586621679217684"><span class="hs-identifier hs-var">p</span></a><span> </span><a href="#local-6989586621679217683"><span class="hs-identifier hs-var">i</span></a><span>
+</span><a name="line-406"></a><span>
+</span><a name="line-407"></a><span class="hs-comment">{-
+-- | @readSlice arr i count@ streams a slice of the array @arr@ starting
+-- at index @i@ and reading up to @count@ elements in the forward direction
+-- ending at the index @i + count - 1@.
+--
+-- @since 0.7.0
+{-# INLINE readSlice #-}
+readSlice :: (IsStream t, Monad m, Storable a)
+    =&gt; Array a -&gt; Int -&gt; Int -&gt; t m a
+readSlice arr i len = undefined
+
+-- | @readSliceRev arr i count@ streams a slice of the array @arr@ starting at
+-- index @i@ and reading up to @count@ elements in the reverse direction ending
+-- at the index @i - count + 1@.
+--
+-- @since 0.7.0
+{-# INLINE readSliceRev #-}
+readSliceRev :: (IsStream t, Monad m, Storable a)
+    =&gt; Array a -&gt; Int -&gt; Int -&gt; t m a
+readSliceRev arr i len = undefined
+-}</span><span>
+</span><a name="line-428"></a><span>
+</span><a name="line-429"></a><span class="hs-comment">-- | /O(1)/ Write the given element at the given index in the array.</span><span>
+</span><a name="line-430"></a><span class="hs-comment">-- Performs in-place mutation of the array.</span><span>
+</span><a name="line-431"></a><span class="hs-comment">--</span><span>
+</span><a name="line-432"></a><span class="hs-comment">-- /Internal/</span><span>
+</span><a name="line-433"></a><span class="hs-pragma">{-# INLINE</span><span> </span><span class="hs-pragma">writeIndex</span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><a name="line-434"></a><span class="hs-identifier">writeIndex</span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="hs-identifier hs-type">MonadIO</span><span> </span><a href="#local-6989586621679217635"><span class="hs-identifier hs-type">m</span></a><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-type">Storable</span><span> </span><a href="#local-6989586621679217636"><span class="hs-identifier hs-type">a</span></a><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><a href="Streamly.Internal.Memory.Array.Types.html#Array"><span class="hs-identifier hs-type">Array</span></a><span> </span><a href="#local-6989586621679217636"><span class="hs-identifier hs-type">a</span></a><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier hs-type">Int</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><a href="#local-6989586621679217636"><span class="hs-identifier hs-type">a</span></a><span> </span><span class="hs-glyph">-&gt;</span><span> </span><a href="#local-6989586621679217635"><span class="hs-identifier hs-type">m</span></a><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><a name="line-435"></a><a name="writeIndex"><a href="Streamly.Internal.Memory.Array.html#writeIndex"><span class="hs-identifier">writeIndex</span></a></a><span> </span><a name="local-6989586621679217685"><a href="#local-6989586621679217685"><span class="hs-identifier">arr</span></a></a><span> </span><a name="local-6989586621679217686"><a href="#local-6989586621679217686"><span class="hs-identifier">i</span></a></a><span> </span><a name="local-6989586621679217687"><a href="#local-6989586621679217687"><span class="hs-identifier">a</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><a name="line-436"></a><span>    </span><span class="hs-keyword">let</span><span> </span><a name="local-6989586621679217688"><a href="#local-6989586621679217688"><span class="hs-identifier">maxIndex</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="Streamly.Internal.Memory.Array.Types.html#length"><span class="hs-identifier hs-var">length</span></a><span> </span><a href="#local-6989586621679217685"><span class="hs-identifier hs-var">arr</span></a><span> </span><span class="hs-glyph">-</span><span> </span><span class="hs-number">1</span><span>
+</span><a name="line-437"></a><span>    </span><span class="hs-keyword">if</span><span> </span><a href="#local-6989586621679217686"><span class="hs-identifier hs-var">i</span></a><span> </span><span class="hs-operator hs-var">&lt;</span><span> </span><span class="hs-number">0</span><span>
+</span><a name="line-438"></a><span>    </span><span class="hs-keyword">then</span><span> </span><span class="hs-identifier hs-var">error</span><span> </span><span class="hs-string">&quot;writeIndex: negative array index&quot;</span><span>
+</span><a name="line-439"></a><span>    </span><span class="hs-keyword">else</span><span> </span><span class="hs-keyword">if</span><span> </span><a href="#local-6989586621679217686"><span class="hs-identifier hs-var">i</span></a><span> </span><span class="hs-operator hs-var">&gt;</span><span> </span><a href="#local-6989586621679217688"><span class="hs-identifier hs-var">maxIndex</span></a><span>
+</span><a name="line-440"></a><span>         </span><span class="hs-keyword">then</span><span> </span><span class="hs-identifier hs-var">error</span><span> </span><span class="hs-operator hs-var">$</span><span> </span><span class="hs-string">&quot;writeIndex: specified array index &quot;</span><span> </span><span class="hs-operator hs-var">++</span><span> </span><span class="hs-identifier hs-var">show</span><span> </span><a href="#local-6989586621679217686"><span class="hs-identifier hs-var">i</span></a><span>
+</span><a name="line-441"></a><span>                    </span><span class="hs-operator hs-var">++</span><span> </span><span class="hs-string">&quot; is beyond the maximum index &quot;</span><span> </span><span class="hs-operator hs-var">++</span><span> </span><span class="hs-identifier hs-var">show</span><span> </span><a href="#local-6989586621679217688"><span class="hs-identifier hs-var">maxIndex</span></a><span>
+</span><a name="line-442"></a><span>         </span><span class="hs-keyword">else</span><span>
+</span><a name="line-443"></a><span>            </span><span class="hs-identifier hs-var">liftIO</span><span> </span><span class="hs-operator hs-var">$</span><span> </span><span class="hs-identifier hs-var">withForeignPtr</span><span> </span><span class="hs-special">(</span><span class="hs-identifier">aStart</span><span> </span><a href="#local-6989586621679217685"><span class="hs-identifier hs-var">arr</span></a><span class="hs-special">)</span><span> </span><span class="hs-operator hs-var">$</span><span> </span><span class="hs-glyph">\</span><a name="local-6989586621679217689"><a href="#local-6989586621679217689"><span class="hs-identifier">p</span></a></a><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><a name="line-444"></a><span>                </span><span class="hs-identifier hs-var">pokeElemOff</span><span> </span><a href="#local-6989586621679217689"><span class="hs-identifier hs-var">p</span></a><span> </span><a href="#local-6989586621679217686"><span class="hs-identifier hs-var">i</span></a><span> </span><a href="#local-6989586621679217687"><span class="hs-identifier hs-var">a</span></a><span>
+</span><a name="line-445"></a><span>
+</span><a name="line-446"></a><span class="hs-comment">{-
+-- | @writeSlice arr i count stream@ writes a stream to the array @arr@
+-- starting at index @i@ and writing up to @count@ elements in the forward
+-- direction ending at the index @i + count - 1@.
+--
+-- @since 0.7.0
+{-# INLINE writeSlice #-}
+writeSlice :: (IsStream t, Monad m, Storable a)
+    =&gt; Array a -&gt; Int -&gt; Int -&gt; t m a -&gt; m ()
+writeSlice arr i len s = undefined
+
+-- | @writeSliceRev arr i count stream@ writes a stream to the array @arr@
+-- starting at index @i@ and writing up to @count@ elements in the reverse
+-- direction ending at the index @i - count + 1@.
+--
+-- @since 0.7.0
+{-# INLINE writeSliceRev #-}
+writeSliceRev :: (IsStream t, Monad m, Storable a)
+    =&gt; Array a -&gt; Int -&gt; Int -&gt; t m a -&gt; m ()
+writeSliceRev arr i len s = undefined
+-}</span><span>
+</span><a name="line-467"></a><span>
+</span><a name="line-468"></a><span class="hs-comment">-------------------------------------------------------------------------------</span><span>
+</span><a name="line-469"></a><span class="hs-comment">-- Transform via stream operations</span><span>
+</span><a name="line-470"></a><span class="hs-comment">-------------------------------------------------------------------------------</span><span>
+</span><a name="line-471"></a><span>
+</span><a name="line-472"></a><span class="hs-comment">-- for non-length changing operations we can use the original length for</span><span>
+</span><a name="line-473"></a><span class="hs-comment">-- allocation. If we can predict the length then we can use the prediction for</span><span>
+</span><a name="line-474"></a><span class="hs-comment">-- new allocation. Otherwise we can use a hint and adjust dynamically.</span><span>
+</span><a name="line-475"></a><span>
+</span><a name="line-476"></a><span class="hs-comment">{-
+-- | Transform an array into another array using a pipe transformation
+-- operation.
+--
+-- @since 0.7.0
+{-# INLINE runPipe #-}
+runPipe :: (MonadIO m, Storable a, Storable b)
+    =&gt; Pipe m a b -&gt; Array a -&gt; m (Array b)
+runPipe f arr = P.runPipe (toArrayMinChunk (length arr)) $ f (A.read arr)
+-}</span><span>
+</span><a name="line-486"></a><span>
+</span><a name="line-487"></a><span class="hs-comment">-- | Transform an array into another array using a stream transformation</span><span>
+</span><a name="line-488"></a><span class="hs-comment">-- operation.</span><span>
+</span><a name="line-489"></a><span class="hs-comment">--</span><span>
+</span><a name="line-490"></a><span class="hs-comment">-- /Internal/</span><span>
+</span><a name="line-491"></a><span class="hs-pragma">{-# INLINE</span><span> </span><span class="hs-pragma">streamTransform</span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><a name="line-492"></a><span class="hs-identifier">streamTransform</span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-keyword">forall</span><span> </span><a name="local-6989586621679217632"><a href="#local-6989586621679217632"><span class="hs-identifier">m</span></a></a><span> </span><a name="local-6989586621679217633"><a href="#local-6989586621679217633"><span class="hs-identifier">a</span></a></a><span> </span><a name="local-6989586621679217634"><a href="#local-6989586621679217634"><span class="hs-identifier">b</span></a></a><span class="hs-operator">.</span><span> </span><span class="hs-special">(</span><span class="hs-identifier hs-type">MonadIO</span><span> </span><a href="#local-6989586621679217632"><span class="hs-identifier hs-type">m</span></a><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-type">Storable</span><span> </span><a href="#local-6989586621679217633"><span class="hs-identifier hs-type">a</span></a><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-type">Storable</span><span> </span><a href="#local-6989586621679217634"><span class="hs-identifier hs-type">b</span></a><span class="hs-special">)</span><span>
+</span><a name="line-493"></a><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="hs-special">(</span><a href="Streamly.Internal.Data.Stream.Serial.html#SerialT"><span class="hs-identifier hs-type">SerialT</span></a><span> </span><a href="#local-6989586621679217632"><span class="hs-identifier hs-type">m</span></a><span> </span><a href="#local-6989586621679217633"><span class="hs-identifier hs-type">a</span></a><span> </span><span class="hs-glyph">-&gt;</span><span> </span><a href="Streamly.Internal.Data.Stream.Serial.html#SerialT"><span class="hs-identifier hs-type">SerialT</span></a><span> </span><a href="#local-6989586621679217632"><span class="hs-identifier hs-type">m</span></a><span> </span><a href="#local-6989586621679217634"><span class="hs-identifier hs-type">b</span></a><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><a href="Streamly.Internal.Memory.Array.Types.html#Array"><span class="hs-identifier hs-type">Array</span></a><span> </span><a href="#local-6989586621679217633"><span class="hs-identifier hs-type">a</span></a><span> </span><span class="hs-glyph">-&gt;</span><span> </span><a href="#local-6989586621679217632"><span class="hs-identifier hs-type">m</span></a><span> </span><span class="hs-special">(</span><a href="Streamly.Internal.Memory.Array.Types.html#Array"><span class="hs-identifier hs-type">Array</span></a><span> </span><a href="#local-6989586621679217634"><span class="hs-identifier hs-type">b</span></a><span class="hs-special">)</span><span>
+</span><a name="line-494"></a><a name="streamTransform"><a href="Streamly.Internal.Memory.Array.html#streamTransform"><span class="hs-identifier">streamTransform</span></a></a><span> </span><a name="local-6989586621679217690"><a href="#local-6989586621679217690"><span class="hs-identifier">f</span></a></a><span> </span><a name="local-6989586621679217691"><a href="#local-6989586621679217691"><span class="hs-identifier">arr</span></a></a><span> </span><span class="hs-glyph">=</span><span>
+</span><a name="line-495"></a><span>    </span><a href="Streamly.Internal.Data.Stream.Prelude.html#runFold"><span class="hs-identifier hs-var">P.runFold</span></a><span> </span><span class="hs-special">(</span><a href="Streamly.Internal.Memory.Array.Types.html#toArrayMinChunk"><span class="hs-identifier hs-var">A.toArrayMinChunk</span></a><span> </span><span class="hs-special">(</span><span class="hs-identifier hs-var">alignment</span><span> </span><span class="hs-special">(</span><span class="hs-identifier hs-var">undefined</span><span> </span><span class="hs-glyph">::</span><span> </span><a href="#local-6989586621679217633"><span class="hs-identifier hs-type">a</span></a><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><a href="Streamly.Internal.Memory.Array.Types.html#length"><span class="hs-identifier hs-var">length</span></a><span> </span><a href="#local-6989586621679217691"><span class="hs-identifier hs-var">arr</span></a><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><a name="line-496"></a><span>        </span><span class="hs-operator hs-var">$</span><span> </span><a href="#local-6989586621679217690"><span class="hs-identifier hs-var">f</span></a><span> </span><span class="hs-special">(</span><a href="Streamly.Internal.Memory.Array.html#toStream"><span class="hs-identifier hs-var">toStream</span></a><span> </span><a href="#local-6989586621679217691"><span class="hs-identifier hs-var">arr</span></a><span class="hs-special">)</span><span>
+</span><a name="line-497"></a><span>
+</span><a name="line-498"></a><span class="hs-comment">-- | Fold an array using a 'Fold'.</span><span>
+</span><a name="line-499"></a><span class="hs-comment">--</span><span>
+</span><a name="line-500"></a><span class="hs-comment">-- /Internal/</span><span>
+</span><a name="line-501"></a><span class="hs-pragma">{-# INLINE</span><span> </span><span class="hs-pragma">fold</span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><a name="line-502"></a><span class="hs-identifier">fold</span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-keyword">forall</span><span> </span><a name="local-6989586621679217629"><a href="#local-6989586621679217629"><span class="hs-identifier">m</span></a></a><span> </span><a name="local-6989586621679217630"><a href="#local-6989586621679217630"><span class="hs-identifier">a</span></a></a><span> </span><a name="local-6989586621679217631"><a href="#local-6989586621679217631"><span class="hs-identifier">b</span></a></a><span class="hs-operator">.</span><span> </span><span class="hs-special">(</span><span class="hs-identifier hs-type">MonadIO</span><span> </span><a href="#local-6989586621679217629"><span class="hs-identifier hs-type">m</span></a><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-type">Storable</span><span> </span><a href="#local-6989586621679217630"><span class="hs-identifier hs-type">a</span></a><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><a href="Streamly.Internal.Data.Fold.Types.html#Fold"><span class="hs-identifier hs-type">Fold</span></a><span> </span><a href="#local-6989586621679217629"><span class="hs-identifier hs-type">m</span></a><span> </span><a href="#local-6989586621679217630"><span class="hs-identifier hs-type">a</span></a><span> </span><a href="#local-6989586621679217631"><span class="hs-identifier hs-type">b</span></a><span> </span><span class="hs-glyph">-&gt;</span><span> </span><a href="Streamly.Internal.Memory.Array.Types.html#Array"><span class="hs-identifier hs-type">Array</span></a><span> </span><a href="#local-6989586621679217630"><span class="hs-identifier hs-type">a</span></a><span> </span><span class="hs-glyph">-&gt;</span><span> </span><a href="#local-6989586621679217629"><span class="hs-identifier hs-type">m</span></a><span> </span><a href="#local-6989586621679217631"><span class="hs-identifier hs-type">b</span></a><span>
+</span><a name="line-503"></a><a name="fold"><a href="Streamly.Internal.Memory.Array.html#fold"><span class="hs-identifier">fold</span></a></a><span> </span><a name="local-6989586621679217692"><a href="#local-6989586621679217692"><span class="hs-identifier">f</span></a></a><span> </span><a name="local-6989586621679217693"><a href="#local-6989586621679217693"><span class="hs-identifier">arr</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="Streamly.Internal.Data.Stream.Prelude.html#runFold"><span class="hs-identifier hs-var">P.runFold</span></a><span> </span><a href="#local-6989586621679217692"><span class="hs-identifier hs-var">f</span></a><span> </span><span class="hs-operator hs-var">$</span><span> </span><span class="hs-special">(</span><a href="Streamly.Internal.Memory.Array.html#toStream"><span class="hs-identifier hs-var">toStream</span></a><span> </span><a href="#local-6989586621679217693"><span class="hs-identifier hs-var">arr</span></a><span> </span><span class="hs-glyph">::</span><span> </span><a href="Streamly.Internal.Data.Stream.Serial.html#SerialT"><span class="hs-identifier hs-type">Serial.SerialT</span></a><span> </span><a href="#local-6989586621679217629"><span class="hs-identifier hs-type">m</span></a><span> </span><a href="#local-6989586621679217630"><span class="hs-identifier hs-type">a</span></a><span class="hs-special">)</span><span>
+</span><a name="line-504"></a><span>
+</span><a name="line-505"></a><span class="hs-comment">-- | Fold an array using a stream fold operation.</span><span>
+</span><a name="line-506"></a><span class="hs-comment">--</span><span>
+</span><a name="line-507"></a><span class="hs-comment">-- /Internal/</span><span>
+</span><a name="line-508"></a><span class="hs-pragma">{-# INLINE</span><span> </span><span class="hs-pragma">streamFold</span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><a name="line-509"></a><span class="hs-identifier">streamFold</span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="hs-identifier hs-type">MonadIO</span><span> </span><a href="#local-6989586621679217626"><span class="hs-identifier hs-type">m</span></a><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-type">Storable</span><span> </span><a href="#local-6989586621679217627"><span class="hs-identifier hs-type">a</span></a><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="hs-special">(</span><a href="Streamly.Internal.Data.Stream.Serial.html#SerialT"><span class="hs-identifier hs-type">SerialT</span></a><span> </span><a href="#local-6989586621679217626"><span class="hs-identifier hs-type">m</span></a><span> </span><a href="#local-6989586621679217627"><span class="hs-identifier hs-type">a</span></a><span> </span><span class="hs-glyph">-&gt;</span><span> </span><a href="#local-6989586621679217626"><span class="hs-identifier hs-type">m</span></a><span> </span><a href="#local-6989586621679217628"><span class="hs-identifier hs-type">b</span></a><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><a href="Streamly.Internal.Memory.Array.Types.html#Array"><span class="hs-identifier hs-type">Array</span></a><span> </span><a href="#local-6989586621679217627"><span class="hs-identifier hs-type">a</span></a><span> </span><span class="hs-glyph">-&gt;</span><span> </span><a href="#local-6989586621679217626"><span class="hs-identifier hs-type">m</span></a><span> </span><a href="#local-6989586621679217628"><span class="hs-identifier hs-type">b</span></a><span>
+</span><a name="line-510"></a><a name="streamFold"><a href="Streamly.Internal.Memory.Array.html#streamFold"><span class="hs-identifier">streamFold</span></a></a><span> </span><a name="local-6989586621679217694"><a href="#local-6989586621679217694"><span class="hs-identifier">f</span></a></a><span> </span><a name="local-6989586621679217695"><a href="#local-6989586621679217695"><span class="hs-identifier">arr</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="#local-6989586621679217694"><span class="hs-identifier hs-var">f</span></a><span> </span><span class="hs-special">(</span><a href="Streamly.Internal.Memory.Array.html#toStream"><span class="hs-identifier hs-var">toStream</span></a><span> </span><a href="#local-6989586621679217695"><span class="hs-identifier hs-var">arr</span></a><span class="hs-special">)</span><span>
+</span><a name="line-511"></a></pre></body></html>

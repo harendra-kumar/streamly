@@ -1,0 +1,105 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-comment">-- |</span><span>
+</span><span id="line-2"></span><span class="hs-comment">-- Module      : Streamly.StreamDK.Type</span><span>
+</span><span id="line-3"></span><span class="hs-comment">-- Copyright   : (c) 2019 Composewell Technologies</span><span>
+</span><span id="line-4"></span><span class="hs-comment">-- License     : BSD3</span><span>
+</span><span id="line-5"></span><span class="hs-comment">-- Maintainer  : streamly@composewell.com</span><span>
+</span><span id="line-6"></span><span class="hs-comment">-- Stability   : experimental</span><span>
+</span><span id="line-7"></span><span class="hs-comment">-- Portability : GHC</span><span>
+</span><span id="line-8"></span><span class="hs-comment">--</span><span>
+</span><span id="line-9"></span><span class="hs-comment">-- A CPS style stream using a constructor based representation instead of a</span><span>
+</span><span id="line-10"></span><span class="hs-comment">-- function based representation.</span><span>
+</span><span id="line-11"></span><span class="hs-comment">--</span><span>
+</span><span id="line-12"></span><span class="hs-comment">-- Streamly internally uses two fundamental stream representations, (1) streams</span><span>
+</span><span id="line-13"></span><span class="hs-comment">-- with an open or arbitrary control flow (we call it StreamK), (2) streams</span><span>
+</span><span id="line-14"></span><span class="hs-comment">-- with a structured or closed loop control flow (we call it StreamD). The</span><span>
+</span><span id="line-15"></span><span class="hs-comment">-- higher level stream types can use any of these representations under the</span><span>
+</span><span id="line-16"></span><span class="hs-comment">-- hood and can interconvert between the two.</span><span>
+</span><span id="line-17"></span><span class="hs-comment">--</span><span>
+</span><span id="line-18"></span><span class="hs-comment">-- StreamD:</span><span>
+</span><span id="line-19"></span><span class="hs-comment">--</span><span>
+</span><span id="line-20"></span><span class="hs-comment">-- StreamD is a non-recursive data type in which the state of the stream and</span><span>
+</span><span id="line-21"></span><span class="hs-comment">-- the step function are separate. When the step function is called, a stream</span><span>
+</span><span id="line-22"></span><span class="hs-comment">-- element and the new stream state is yielded. The generated element and the</span><span>
+</span><span id="line-23"></span><span class="hs-comment">-- state are passed to the next consumer in the loop. The state is threaded</span><span>
+</span><span id="line-24"></span><span class="hs-comment">-- around in the loop until control returns back to the original step function</span><span>
+</span><span id="line-25"></span><span class="hs-comment">-- to run the next step. This creates a structured closed loop representation</span><span>
+</span><span id="line-26"></span><span class="hs-comment">-- (like &quot;for&quot; loops in C) with state of each step being hidden/abstracted or</span><span>
+</span><span id="line-27"></span><span class="hs-comment">-- existential within that step. This creates a loop representation identical</span><span>
+</span><span id="line-28"></span><span class="hs-comment">-- to the &quot;for&quot; or &quot;while&quot; loop constructs in imperative languages, the states</span><span>
+</span><span id="line-29"></span><span class="hs-comment">-- of the steps combined together constitute the state of the loop iteration.</span><span>
+</span><span id="line-30"></span><span class="hs-comment">--</span><span>
+</span><span id="line-31"></span><span class="hs-comment">-- Internally most combinators use a closed loop representation because it</span><span>
+</span><span id="line-32"></span><span class="hs-comment">-- provides very high efficiency due to stream fusion. The performance of this</span><span>
+</span><span id="line-33"></span><span class="hs-comment">-- representation is competitive to the C language implementations.</span><span>
+</span><span id="line-34"></span><span class="hs-comment">--</span><span>
+</span><span id="line-35"></span><span class="hs-comment">-- Pros and Cons of StreamD:</span><span>
+</span><span id="line-36"></span><span class="hs-comment">--</span><span>
+</span><span id="line-37"></span><span class="hs-comment">-- 1) stream-fusion: This representation can be optimized very efficiently by</span><span>
+</span><span id="line-38"></span><span class="hs-comment">-- the compiler because the state is explicitly separated from step functions,</span><span>
+</span><span id="line-39"></span><span class="hs-comment">-- represented using pure data constructors and visible to the compiler, the</span><span>
+</span><span id="line-40"></span><span class="hs-comment">-- stream steps can be fused using case-of-case transformations and the state</span><span>
+</span><span id="line-41"></span><span class="hs-comment">-- can be specialized using spec-constructor optimization, yielding a C like</span><span>
+</span><span id="line-42"></span><span class="hs-comment">-- tight loop/state machine with no constructors, the state is used unboxed and</span><span>
+</span><span id="line-43"></span><span class="hs-comment">-- therefore no unnecessary allocation.</span><span>
+</span><span id="line-44"></span><span class="hs-comment">--</span><span>
+</span><span id="line-45"></span><span class="hs-comment">-- 2) Because of a closed representation consing too many elements in this type</span><span>
+</span><span id="line-46"></span><span class="hs-comment">-- of stream does not scale, it will have quadratic performance slowdown. Each</span><span>
+</span><span id="line-47"></span><span class="hs-comment">-- cons creates a layer that needs to return the control back to the caller.</span><span>
+</span><span id="line-48"></span><span class="hs-comment">-- Another implementation of cons is possible but that will have to box/unbox</span><span>
+</span><span id="line-49"></span><span class="hs-comment">-- the state and will not fuse. So effectively cons breaks fusion.</span><span>
+</span><span id="line-50"></span><span class="hs-comment">--</span><span>
+</span><span id="line-51"></span><span class="hs-comment">-- 3) unconsing an item from the stream breaks fusion, we have to &quot;pause&quot; the</span><span>
+</span><span id="line-52"></span><span class="hs-comment">-- loop, rebox and save the state.</span><span>
+</span><span id="line-53"></span><span class="hs-comment">--</span><span>
+</span><span id="line-54"></span><span class="hs-comment">-- 3) Exception handling is easy to implement in this model because control</span><span>
+</span><span id="line-55"></span><span class="hs-comment">-- flow is structured in the loop and cannot be arbitrary. Therefore,</span><span>
+</span><span id="line-56"></span><span class="hs-comment">-- implementing &quot;bracket&quot; is natural.</span><span>
+</span><span id="line-57"></span><span class="hs-comment">--</span><span>
+</span><span id="line-58"></span><span class="hs-comment">-- 4) Round-robin scheduling for co-operative multitasking is easy to implement.</span><span>
+</span><span id="line-59"></span><span class="hs-comment">--</span><span>
+</span><span id="line-60"></span><span class="hs-comment">-- 5) It fuses well with the direct style Fold implementation.</span><span>
+</span><span id="line-61"></span><span class="hs-comment">--</span><span>
+</span><span id="line-62"></span><span class="hs-comment">-- StreamK/StreamDK:</span><span>
+</span><span id="line-63"></span><span class="hs-comment">--</span><span>
+</span><span id="line-64"></span><span class="hs-comment">-- StreamDK i.e. the stream defined in this module, like StreamK, is a</span><span>
+</span><span id="line-65"></span><span class="hs-comment">-- recursive data type which has no explicit state defined using constructors,</span><span>
+</span><span id="line-66"></span><span class="hs-comment">-- each step yields an element and a computation representing the rest of the</span><span>
+</span><span id="line-67"></span><span class="hs-comment">-- stream.  Stream state is part of the function representing the rest of the</span><span>
+</span><span id="line-68"></span><span class="hs-comment">-- stream.  This creates an open computation representation, or essentially a</span><span>
+</span><span id="line-69"></span><span class="hs-comment">-- continuation passing style computation.  After the stream step is executed,</span><span>
+</span><span id="line-70"></span><span class="hs-comment">-- the caller is free to consume the produced element and then send the control</span><span>
+</span><span id="line-71"></span><span class="hs-comment">-- wherever it wants, there is no restriction on the control to return back</span><span>
+</span><span id="line-72"></span><span class="hs-comment">-- somewhere, the control is free to go anywhere. The caller may decide not to</span><span>
+</span><span id="line-73"></span><span class="hs-comment">-- consume the rest of the stream. This representation is more like a &quot;goto&quot;</span><span>
+</span><span id="line-74"></span><span class="hs-comment">-- based implementation in imperative languages.</span><span>
+</span><span id="line-75"></span><span class="hs-comment">--</span><span>
+</span><span id="line-76"></span><span class="hs-comment">-- Pros and Cons of StreamK:</span><span>
+</span><span id="line-77"></span><span class="hs-comment">--</span><span>
+</span><span id="line-78"></span><span class="hs-comment">-- 1) The way StreamD can be optimized using stream-fusion, this type can be</span><span>
+</span><span id="line-79"></span><span class="hs-comment">-- optimized using foldr/build fusion. However, foldr/build has not yet been</span><span>
+</span><span id="line-80"></span><span class="hs-comment">-- fully implemented for StreamK/StreamDK.</span><span>
+</span><span id="line-81"></span><span class="hs-comment">--</span><span>
+</span><span id="line-82"></span><span class="hs-comment">-- 2) Using cons is natural in this representation, unlike in StreamD it does</span><span>
+</span><span id="line-83"></span><span class="hs-comment">-- not have a quadratic slowdown. Currently, we in fact wrap StreamD in StreamK</span><span>
+</span><span id="line-84"></span><span class="hs-comment">-- to support a better cons operation.</span><span>
+</span><span id="line-85"></span><span class="hs-comment">--</span><span>
+</span><span id="line-86"></span><span class="hs-comment">-- 3) Similarly, uncons is natural in this representation.</span><span>
+</span><span id="line-87"></span><span class="hs-comment">--</span><span>
+</span><span id="line-88"></span><span class="hs-comment">-- 4) Exception handling is not easy to implement because of the &quot;goto&quot; nature</span><span>
+</span><span id="line-89"></span><span class="hs-comment">-- of CPS.</span><span>
+</span><span id="line-90"></span><span class="hs-comment">--</span><span>
+</span><span id="line-91"></span><span class="hs-comment">-- 5) Composable folds are not implemented/proven, however, intuition says that</span><span>
+</span><span id="line-92"></span><span class="hs-comment">-- a push style CPS representation should be able to be used along with StreamK</span><span>
+</span><span id="line-93"></span><span class="hs-comment">-- to efficiently implement composable folds.</span><span>
+</span><span id="line-94"></span><span>
+</span><span id="line-95"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Streamly.Internal.Data.Stream.StreamDK.Type</span><span>
+</span><span id="line-96"></span><span>    </span><span class="hs-special">(</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.StreamDK.Type.html#Step"><span class="hs-identifier">Step</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-97"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.StreamDK.Type.html#Stream"><span class="hs-identifier">Stream</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-98"></span><span>    </span><span class="hs-special">)</span><span>
+</span><span id="line-99"></span><span class="hs-keyword">where</span><span>
+</span><span id="line-100"></span><span>
+</span><span id="line-101"></span><span class="hs-comment">-- XXX Use Cons and Nil instead of Yield and Stop?</span><span>
+</span><span id="line-102"></span><span class="hs-keyword">data</span><span> </span><span id="Step"><span class="annot"><a href="Streamly.Internal.Data.Stream.StreamDK.Type.html#Step"><span class="hs-identifier hs-var">Step</span></a></span></span><span> </span><span id="local-6989586621679359924"><span class="annot"><a href="#local-6989586621679359924"><span class="hs-identifier hs-type">m</span></a></span></span><span> </span><span id="local-6989586621679359923"><span class="annot"><a href="#local-6989586621679359923"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="Yield"><span class="annot"><a href="Streamly.Internal.Data.Stream.StreamDK.Type.html#Yield"><span class="hs-identifier hs-var">Yield</span></a></span></span><span> </span><span class="annot"><a href="#local-6989586621679359923"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.Stream.StreamDK.Type.html#Stream"><span class="hs-identifier hs-type">Stream</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679359924"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679359923"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">|</span><span> </span><span id="Stop"><span class="annot"><a href="Streamly.Internal.Data.Stream.StreamDK.Type.html#Stop"><span class="hs-identifier hs-var">Stop</span></a></span></span><span>
+</span><span id="line-103"></span><span>
+</span><span id="line-104"></span><span class="hs-keyword">data</span><span> </span><span id="Stream"><span class="annot"><a href="Streamly.Internal.Data.Stream.StreamDK.Type.html#Stream"><span class="hs-identifier hs-var">Stream</span></a></span></span><span> </span><span id="local-6989586621679359920"><span class="annot"><a href="#local-6989586621679359920"><span class="hs-identifier hs-type">m</span></a></span></span><span> </span><span id="local-6989586621679359919"><span class="annot"><a href="#local-6989586621679359919"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="Stream"><span class="annot"><a href="Streamly.Internal.Data.Stream.StreamDK.Type.html#Stream"><span class="hs-identifier hs-var">Stream</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679359920"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.Stream.StreamDK.Type.html#Step"><span class="hs-identifier hs-type">Step</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679359920"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679359919"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-105"></span></pre></body></html>

@@ -1,0 +1,47 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /><title>Streamly.Internal.Data.Stream.StreamDK.Type</title><link href="ocean.css" rel="stylesheet" type="text/css" title="Ocean" /><link rel="stylesheet" type="text/css" href="quick-jump.css" /><script src="haddock-bundle.min.js" async="async" type="text/javascript"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-AMS-MML_HTMLorMML" type="text/javascript"></script></head><body><div id="package-header"><ul class="links" id="page-menu"><li><a href="src/Streamly.Internal.Data.Stream.StreamDK.Type.html">Source</a></li><li><a href="index.html">Contents</a></li><li><a href="doc-index.html">Index</a></li></ul><p class="caption">streamly-0.7.1: Beautiful Streaming, Concurrent and Reactive Composition</p></div><div id="content"><div id="module-header"><table class="info"><tr><th valign="top">Copyright</th><td>(c) 2019 Composewell Technologies</td></tr><tr><th>License</th><td>BSD3</td></tr><tr><th>Maintainer</th><td>streamly@composewell.com</td></tr><tr><th>Stability</th><td>experimental</td></tr><tr><th>Portability</th><td>GHC</td></tr><tr><th>Safe Haskell</th><td>Safe</td></tr><tr><th>Language</th><td>Haskell2010</td></tr></table><p class="caption">Streamly.Internal.Data.Stream.StreamDK.Type</p></div><div id="description"><p class="caption">Description</p><div class="doc"><p>A CPS style stream using a constructor based representation instead of a
+ function based representation.</p><p>Streamly internally uses two fundamental stream representations, (1) streams
+ with an open or arbitrary control flow (we call it StreamK), (2) streams
+ with a structured or closed loop control flow (we call it StreamD). The
+ higher level stream types can use any of these representations under the
+ hood and can interconvert between the two.</p><p>StreamD:</p><p>StreamD is a non-recursive data type in which the state of the stream and
+ the step function are separate. When the step function is called, a stream
+ element and the new stream state is yielded. The generated element and the
+ state are passed to the next consumer in the loop. The state is threaded
+ around in the loop until control returns back to the original step function
+ to run the next step. This creates a structured closed loop representation
+ (like &quot;for&quot; loops in C) with state of each step being hidden/abstracted or
+ existential within that step. This creates a loop representation identical
+ to the &quot;for&quot; or &quot;while&quot; loop constructs in imperative languages, the states
+ of the steps combined together constitute the state of the loop iteration.</p><p>Internally most combinators use a closed loop representation because it
+ provides very high efficiency due to stream fusion. The performance of this
+ representation is competitive to the C language implementations.</p><p>Pros and Cons of StreamD:</p><p>1) stream-fusion: This representation can be optimized very efficiently by
+ the compiler because the state is explicitly separated from step functions,
+ represented using pure data constructors and visible to the compiler, the
+ stream steps can be fused using case-of-case transformations and the state
+ can be specialized using spec-constructor optimization, yielding a C like
+ tight loop/state machine with no constructors, the state is used unboxed and
+ therefore no unnecessary allocation.</p><p>2) Because of a closed representation consing too many elements in this type
+ of stream does not scale, it will have quadratic performance slowdown. Each
+ cons creates a layer that needs to return the control back to the caller.
+ Another implementation of cons is possible but that will have to box/unbox
+ the state and will not fuse. So effectively cons breaks fusion.</p><p>3) unconsing an item from the stream breaks fusion, we have to &quot;pause&quot; the
+ loop, rebox and save the state.</p><p>3) Exception handling is easy to implement in this model because control
+ flow is structured in the loop and cannot be arbitrary. Therefore,
+ implementing &quot;bracket&quot; is natural.</p><p>4) Round-robin scheduling for co-operative multitasking is easy to implement.</p><p>5) It fuses well with the direct style Fold implementation.</p><p>StreamK/StreamDK:</p><p>StreamDK i.e. the stream defined in this module, like StreamK, is a
+ recursive data type which has no explicit state defined using constructors,
+ each step yields an element and a computation representing the rest of the
+ stream.  Stream state is part of the function representing the rest of the
+ stream.  This creates an open computation representation, or essentially a
+ continuation passing style computation.  After the stream step is executed,
+ the caller is free to consume the produced element and then send the control
+ wherever it wants, there is no restriction on the control to return back
+ somewhere, the control is free to go anywhere. The caller may decide not to
+ consume the rest of the stream. This representation is more like a &quot;goto&quot;
+ based implementation in imperative languages.</p><p>Pros and Cons of StreamK:</p><p>1) The way StreamD can be optimized using stream-fusion, this type can be
+ optimized using foldr<em>build fusion. However, foldr</em>build has not yet been
+ fully implemented for StreamK/StreamDK.</p><p>2) Using cons is natural in this representation, unlike in StreamD it does
+ not have a quadratic slowdown. Currently, we in fact wrap StreamD in StreamK
+ to support a better cons operation.</p><p>3) Similarly, uncons is natural in this representation.</p><p>4) Exception handling is not easy to implement because of the &quot;goto&quot; nature
+ of CPS.</p><p>5) Composable folds are not implemented/proven, however, intuition says that
+ a push style CPS representation should be able to be used along with StreamK
+ to efficiently implement composable folds.</p></div></div><div id="interface"><h1>Documentation</h1><div class="top"><p class="src"><span class="keyword">data</span> <a id="t:Step" class="def">Step</a> m a <a href="src/Streamly.Internal.Data.Stream.StreamDK.Type.html#Step" class="link">Source</a> <a href="#t:Step" class="selflink">#</a></p><div class="subs constructors"><p class="caption">Constructors</p><table><tr><td class="src"><a id="v:Yield" class="def">Yield</a> a (<a href="Streamly-Internal-Data-Stream-StreamDK-Type.html#t:Stream" title="Streamly.Internal.Data.Stream.StreamDK.Type">Stream</a> m a)</td><td class="doc empty">&nbsp;</td></tr><tr><td class="src"><a id="v:Stop" class="def">Stop</a></td><td class="doc empty">&nbsp;</td></tr></table></div></div><div class="top"><p class="src"><span class="keyword">data</span> <a id="t:Stream" class="def">Stream</a> m a <a href="src/Streamly.Internal.Data.Stream.StreamDK.Type.html#Stream" class="link">Source</a> <a href="#t:Stream" class="selflink">#</a></p><div class="subs constructors"><p class="caption">Constructors</p><table><tr><td class="src"><a id="v:Stream" class="def">Stream</a> (m (<a href="Streamly-Internal-Data-Stream-StreamDK-Type.html#t:Step" title="Streamly.Internal.Data.Stream.StreamDK.Type">Step</a> m a))</td><td class="doc empty">&nbsp;</td></tr></table></div></div></div></div><div id="footer"><p>Produced by <a href="http://www.haskell.org/haddock/">Haddock</a> version 2.22.0</p></div></body></html>

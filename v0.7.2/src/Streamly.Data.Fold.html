@@ -1,0 +1,271 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-comment">-- |</span><span>
+</span><a name="line-2"></a><span class="hs-comment">-- Module      : Streamly.Data.Fold</span><span>
+</span><a name="line-3"></a><span class="hs-comment">-- Copyright   : (c) 2019 Composewell Technologies</span><span>
+</span><a name="line-4"></a><span class="hs-comment">-- License     : BSD3</span><span>
+</span><a name="line-5"></a><span class="hs-comment">-- Maintainer  : streamly@composewell.com</span><span>
+</span><a name="line-6"></a><span class="hs-comment">-- Stability   : experimental</span><span>
+</span><a name="line-7"></a><span class="hs-comment">-- Portability : GHC</span><span>
+</span><a name="line-8"></a><span class="hs-comment">--</span><span>
+</span><a name="line-9"></a><span class="hs-comment">-- 'Fold' type represents an effectful action that consumes a value from an</span><span>
+</span><a name="line-10"></a><span class="hs-comment">-- input stream and combines it with a single final value often called an</span><span>
+</span><a name="line-11"></a><span class="hs-comment">-- accumulator, returning the resulting output accumulator.  Values from a</span><span>
+</span><a name="line-12"></a><span class="hs-comment">-- stream can be /pushed/ to the fold and consumed one at a time. It can also</span><span>
+</span><a name="line-13"></a><span class="hs-comment">-- be called a consumer of stream or a sink.  It is a data representation of</span><span>
+</span><a name="line-14"></a><span class="hs-comment">-- the standard 'Streamly.Prelude.foldl'' function.  A 'Fold' can be turned</span><span>
+</span><a name="line-15"></a><span class="hs-comment">-- into an effect (@m b@) using 'Streamly.Prelude.fold' by supplying it the</span><span>
+</span><a name="line-16"></a><span class="hs-comment">-- input stream.</span><span>
+</span><a name="line-17"></a><span class="hs-comment">--</span><span>
+</span><a name="line-18"></a><span class="hs-comment">-- Using this representation multiple folds can be combined efficiently using</span><span>
+</span><a name="line-19"></a><span class="hs-comment">-- combinators; a stream can then be supplied to the combined fold and it would</span><span>
+</span><a name="line-20"></a><span class="hs-comment">-- distribute the input to constituent folds according to the composition.  For</span><span>
+</span><a name="line-21"></a><span class="hs-comment">-- example, an applicative composition distributes the same input to the</span><span>
+</span><a name="line-22"></a><span class="hs-comment">-- constituent folds and then combines the resulting fold outputs.  Similarly,</span><span>
+</span><a name="line-23"></a><span class="hs-comment">-- a partitioning combinator divides the input among constituent folds.</span><span>
+</span><a name="line-24"></a><span class="hs-comment">--</span><span>
+</span><a name="line-25"></a><span class="hs-comment">-- = Performance Notes</span><span>
+</span><a name="line-26"></a><span class="hs-comment">--</span><span>
+</span><a name="line-27"></a><span class="hs-comment">-- 'Fold' representation is more efficient than using streams when splitting</span><span>
+</span><a name="line-28"></a><span class="hs-comment">-- streams.  @Fold m a b@ can be considered roughly equivalent to a fold action</span><span>
+</span><a name="line-29"></a><span class="hs-comment">-- @m b -&gt; t m a -&gt; m b@ (where @t@ is a stream type and @m@ is a 'Monad').</span><span>
+</span><a name="line-30"></a><span class="hs-comment">-- Instead of using a 'Fold' type one could just use a fold action of the shape</span><span>
+</span><a name="line-31"></a><span class="hs-comment">-- @m b -&gt; t m a -&gt; m b@ for folding streams. However, multiple such actions</span><span>
+</span><a name="line-32"></a><span class="hs-comment">-- cannot be composed into a single fold function in an efficient manner.</span><span>
+</span><a name="line-33"></a><span class="hs-comment">-- Using the 'Fold' type we can efficiently split the stream across mutliple</span><span>
+</span><a name="line-34"></a><span class="hs-comment">-- folds because it allows the compiler to perform stream fusion optimizations.</span><span>
+</span><a name="line-35"></a><span class="hs-comment">--</span><span>
+</span><a name="line-36"></a><span class="hs-comment">-- On the other hand, transformation operations (e.g. 'Streamly.Prelude.map')</span><span>
+</span><a name="line-37"></a><span class="hs-comment">-- on stream types can be as efficient as transformations on 'Fold' (e.g.</span><span>
+</span><a name="line-38"></a><span class="hs-comment">-- 'Streamly.Internal.Data.Fold.lmap').</span><span>
+</span><a name="line-39"></a><span class="hs-comment">--</span><span>
+</span><a name="line-40"></a><span class="hs-comment">-- = Left folds vs Right Folds</span><span>
+</span><a name="line-41"></a><span class="hs-comment">--</span><span>
+</span><a name="line-42"></a><span class="hs-comment">-- The folds in this module are left folds, therefore, even partial folds, e.g.</span><span>
+</span><a name="line-43"></a><span class="hs-comment">-- @head@ in this module, would drain the whole stream. On the other hand, the</span><span>
+</span><a name="line-44"></a><span class="hs-comment">-- partial folds in &quot;Streamly.Prelude&quot; module are lazy right folds and would</span><span>
+</span><a name="line-45"></a><span class="hs-comment">-- terminate as soon as the result is determined. However, the folds in this</span><span>
+</span><a name="line-46"></a><span class="hs-comment">-- module can be composed but the folds in &quot;Streamly.Prelude&quot; cannot be</span><span>
+</span><a name="line-47"></a><span class="hs-comment">-- composed.</span><span>
+</span><a name="line-48"></a><span class="hs-comment">--</span><span>
+</span><a name="line-49"></a><span class="hs-comment">-- = Programmer Notes</span><span>
+</span><a name="line-50"></a><span class="hs-comment">--</span><span>
+</span><a name="line-51"></a><span class="hs-comment">-- &gt; import qualified Streamly.Data.Fold as FL</span><span>
+</span><a name="line-52"></a><span class="hs-comment">--</span><span>
+</span><a name="line-53"></a><span class="hs-comment">-- More, not yet exposed, fold combinators can be found in</span><span>
+</span><a name="line-54"></a><span class="hs-comment">-- &quot;Streamly.Internal.Data.Fold&quot;.</span><span>
+</span><a name="line-55"></a><span>
+</span><a name="line-56"></a><span class="hs-comment">-- IMPORTANT: keep the signatures consistent with the folds in Streamly.Prelude</span><span>
+</span><a name="line-57"></a><span>
+</span><a name="line-58"></a><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Streamly.Data.Fold</span><span>
+</span><a name="line-59"></a><span>    </span><span class="hs-special">(</span><span>
+</span><a name="line-60"></a><span>    </span><span class="hs-comment">-- * Fold Type</span><span>
+</span><a name="line-61"></a><span>    </span><span class="hs-comment">-- |</span><span>
+</span><a name="line-62"></a><span>    </span><span class="hs-comment">-- A 'Fold' can be run over a stream using the 'Streamly.Prelude.fold'</span><span>
+</span><a name="line-63"></a><span>    </span><span class="hs-comment">-- combinator:</span><span>
+</span><a name="line-64"></a><span>    </span><span class="hs-comment">--</span><span>
+</span><a name="line-65"></a><span>    </span><span class="hs-comment">-- &gt;&gt;&gt; S.fold FL.sum (S.enumerateFromTo 1 100)</span><span>
+</span><a name="line-66"></a><span>    </span><span class="hs-comment">-- 5050</span><span>
+</span><a name="line-67"></a><span>
+</span><a name="line-68"></a><span>      </span><a href="Streamly.Internal.Data.Fold.Types.html#Fold"><span class="hs-identifier hs-type">Fold</span></a><span> </span><span class="hs-comment">-- (..)</span><span>
+</span><a name="line-69"></a><span>
+</span><a name="line-70"></a><span>    </span><span class="hs-comment">-- , tail</span><span>
+</span><a name="line-71"></a><span>    </span><span class="hs-comment">-- , init</span><span>
+</span><a name="line-72"></a><span>
+</span><a name="line-73"></a><span>    </span><span class="hs-comment">-- ** Full Folds</span><span>
+</span><a name="line-74"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Data.Fold.html#drain"><span class="hs-identifier hs-var">drain</span></a><span>
+</span><a name="line-75"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Data.Fold.html#drainBy"><span class="hs-identifier hs-var">drainBy</span></a><span>
+</span><a name="line-76"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Data.Fold.html#last"><span class="hs-identifier hs-var">last</span></a><span>
+</span><a name="line-77"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Data.Fold.html#length"><span class="hs-identifier hs-var">length</span></a><span>
+</span><a name="line-78"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Data.Fold.html#sum"><span class="hs-identifier hs-var">sum</span></a><span>
+</span><a name="line-79"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Data.Fold.html#product"><span class="hs-identifier hs-var">product</span></a><span>
+</span><a name="line-80"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Data.Fold.html#maximumBy"><span class="hs-identifier hs-var">maximumBy</span></a><span>
+</span><a name="line-81"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Data.Fold.html#maximum"><span class="hs-identifier hs-var">maximum</span></a><span>
+</span><a name="line-82"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Data.Fold.html#minimumBy"><span class="hs-identifier hs-var">minimumBy</span></a><span>
+</span><a name="line-83"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Data.Fold.html#minimum"><span class="hs-identifier hs-var">minimum</span></a><span>
+</span><a name="line-84"></a><span>    </span><span class="hs-comment">-- , the</span><span>
+</span><a name="line-85"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Data.Fold.html#mean"><span class="hs-identifier hs-var">mean</span></a><span>
+</span><a name="line-86"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Data.Fold.html#variance"><span class="hs-identifier hs-var">variance</span></a><span>
+</span><a name="line-87"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Data.Fold.html#stdDev"><span class="hs-identifier hs-var">stdDev</span></a><span>
+</span><a name="line-88"></a><span>
+</span><a name="line-89"></a><span>    </span><span class="hs-comment">-- ** Full Folds (Monoidal)</span><span>
+</span><a name="line-90"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Data.Fold.html#mconcat"><span class="hs-identifier hs-var">mconcat</span></a><span>
+</span><a name="line-91"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Data.Fold.html#foldMap"><span class="hs-identifier hs-var">foldMap</span></a><span>
+</span><a name="line-92"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Data.Fold.html#foldMapM"><span class="hs-identifier hs-var">foldMapM</span></a><span>
+</span><a name="line-93"></a><span>
+</span><a name="line-94"></a><span>    </span><span class="hs-comment">-- ** Full Folds (To Containers)</span><span>
+</span><a name="line-95"></a><span>    </span><span class="hs-comment">-- | Avoid using these folds in scalable or performance critical</span><span>
+</span><a name="line-96"></a><span>    </span><span class="hs-comment">-- applications, they buffer all the input in GC memory which can be</span><span>
+</span><a name="line-97"></a><span>    </span><span class="hs-comment">-- detrimental to performance if the input is large.</span><span>
+</span><a name="line-98"></a><span>
+</span><a name="line-99"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Data.Fold.html#toList"><span class="hs-identifier hs-var">toList</span></a><span>
+</span><a name="line-100"></a><span>
+</span><a name="line-101"></a><span>    </span><span class="hs-comment">-- ** Partial Folds</span><span>
+</span><a name="line-102"></a><span>    </span><span class="hs-comment">-- , drainN</span><span>
+</span><a name="line-103"></a><span>    </span><span class="hs-comment">-- , drainWhile</span><span>
+</span><a name="line-104"></a><span>    </span><span class="hs-comment">-- , lastN</span><span>
+</span><a name="line-105"></a><span>    </span><span class="hs-comment">-- , (!!)</span><span>
+</span><a name="line-106"></a><span>    </span><span class="hs-comment">-- , genericIndex</span><span>
+</span><a name="line-107"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Data.Fold.html#index"><span class="hs-identifier hs-var">index</span></a><span>
+</span><a name="line-108"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Data.Fold.html#head"><span class="hs-identifier hs-var">head</span></a><span>
+</span><a name="line-109"></a><span>    </span><span class="hs-comment">-- , findM</span><span>
+</span><a name="line-110"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Data.Fold.html#find"><span class="hs-identifier hs-var">find</span></a><span>
+</span><a name="line-111"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Data.Fold.html#lookup"><span class="hs-identifier hs-var">lookup</span></a><span>
+</span><a name="line-112"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Data.Fold.html#findIndex"><span class="hs-identifier hs-var">findIndex</span></a><span>
+</span><a name="line-113"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Data.Fold.html#elemIndex"><span class="hs-identifier hs-var">elemIndex</span></a><span>
+</span><a name="line-114"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Data.Fold.html#null"><span class="hs-identifier hs-var">null</span></a><span>
+</span><a name="line-115"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Data.Fold.html#elem"><span class="hs-identifier hs-var">elem</span></a><span>
+</span><a name="line-116"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Data.Fold.html#notElem"><span class="hs-identifier hs-var">notElem</span></a><span>
+</span><a name="line-117"></a><span>    </span><span class="hs-comment">-- XXX these are slower than right folds even when full input is used</span><span>
+</span><a name="line-118"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Data.Fold.html#all"><span class="hs-identifier hs-var">all</span></a><span>
+</span><a name="line-119"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Data.Fold.html#any"><span class="hs-identifier hs-var">any</span></a><span>
+</span><a name="line-120"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Data.Fold.html#and"><span class="hs-identifier hs-var">and</span></a><span>
+</span><a name="line-121"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Data.Fold.html#or"><span class="hs-identifier hs-var">or</span></a><span>
+</span><a name="line-122"></a><span>
+</span><a name="line-123"></a><span>    </span><span class="hs-comment">-- * Transformations</span><span>
+</span><a name="line-124"></a><span>    </span><span class="hs-comment">-- | Unlike stream producer types (e.g. @SerialT m a@) which have only</span><span>
+</span><a name="line-125"></a><span>    </span><span class="hs-comment">-- output side, folds have an input side as well as an output side.  In the</span><span>
+</span><a name="line-126"></a><span>    </span><span class="hs-comment">-- type @Fold m a b@, the input type is @a@ and the output type is @b@.</span><span>
+</span><a name="line-127"></a><span>    </span><span class="hs-comment">-- Transformations can be applied either on the input side or on the output</span><span>
+</span><a name="line-128"></a><span>    </span><span class="hs-comment">-- side. The 'Functor' instance of a fold maps on the output of the fold:</span><span>
+</span><a name="line-129"></a><span>    </span><span class="hs-comment">--</span><span>
+</span><a name="line-130"></a><span>    </span><span class="hs-comment">-- &gt;&gt;&gt; S.fold (fmap show FL.sum) (S.enumerateFromTo 1 100)</span><span>
+</span><a name="line-131"></a><span>    </span><span class="hs-comment">-- &quot;5050&quot;</span><span>
+</span><a name="line-132"></a><span>    </span><span class="hs-comment">--</span><span>
+</span><a name="line-133"></a><span>    </span><span class="hs-comment">-- However, the input side or contravariant transformations are more</span><span>
+</span><a name="line-134"></a><span>    </span><span class="hs-comment">-- interesting for folds.  The following sections describe the input</span><span>
+</span><a name="line-135"></a><span>    </span><span class="hs-comment">-- transformation operations on a fold.  The names of the operations are</span><span>
+</span><a name="line-136"></a><span>    </span><span class="hs-comment">-- consistent with their covariant counterparts in &quot;Streamly.Prelude&quot;, the</span><span>
+</span><a name="line-137"></a><span>    </span><span class="hs-comment">-- only difference is that they are prefixed with 'l' which stands for</span><span>
+</span><a name="line-138"></a><span>    </span><span class="hs-comment">-- 'left' assuming left side is the input side, notice that in @Fold m a b@</span><span>
+</span><a name="line-139"></a><span>    </span><span class="hs-comment">-- the type variable @a@ is on the left side.</span><span>
+</span><a name="line-140"></a><span>
+</span><a name="line-141"></a><span>    </span><span class="hs-comment">-- ** Covariant Operations</span><span>
+</span><a name="line-142"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Data.Fold.html#sequence"><span class="hs-identifier hs-var">sequence</span></a><span>
+</span><a name="line-143"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Data.Fold.html#mapM"><span class="hs-identifier hs-var">mapM</span></a><span>
+</span><a name="line-144"></a><span>
+</span><a name="line-145"></a><span>    </span><span class="hs-comment">{-
+    -- ** Mapping
+    --, transform
+    -- , lmap
+    --, lsequence
+    -- , lmapM
+
+    -- -- ** Filtering
+    -- , lfilter
+    -- , lfilterM
+    -- , ldeleteBy
+    -- , luniq
+
+    -- ** Mapping Filters
+    , lmapMaybe
+    , lmapMaybeM
+
+    -- ** Scanning Filters
+    , lfindIndices
+    , lelemIndices
+
+    -- ** Insertion
+    -- | Insertion adds more elements to the stream.
+
+    , linsertBy
+    , lintersperseM
+
+    -- ** Reordering
+    , lreverse
+    -}</span><span>
+</span><a name="line-175"></a><span>
+</span><a name="line-176"></a><span>    </span><span class="hs-comment">{-
+    -- * Parsing
+    -- ** Trimming
+    , ltake
+    -- , lrunFor -- time
+    , ltakeWhile
+    , ltakeWhileM
+    , ldrop
+    , ldropWhile
+    , ldropWhileM
+    -}</span><span>
+</span><a name="line-187"></a><span>
+</span><a name="line-188"></a><span>    </span><span class="hs-comment">-- * Distributing</span><span>
+</span><a name="line-189"></a><span>    </span><span class="hs-comment">-- |</span><span>
+</span><a name="line-190"></a><span>    </span><span class="hs-comment">-- The 'Applicative' instance of a distributing 'Fold' distributes one copy</span><span>
+</span><a name="line-191"></a><span>    </span><span class="hs-comment">-- of the stream to each fold and combines the results using a function.</span><span>
+</span><a name="line-192"></a><span>    </span><span class="hs-comment">--</span><span>
+</span><a name="line-193"></a><span>    </span><span class="hs-comment">-- @</span><span>
+</span><a name="line-194"></a><span>    </span><span class="hs-comment">--</span><span>
+</span><a name="line-195"></a><span>    </span><span class="hs-comment">--                 |-------Fold m a b--------|</span><span>
+</span><a name="line-196"></a><span>    </span><span class="hs-comment">-- ---stream m a---|                         |---m (b,c,...)</span><span>
+</span><a name="line-197"></a><span>    </span><span class="hs-comment">--                 |-------Fold m a c--------|</span><span>
+</span><a name="line-198"></a><span>    </span><span class="hs-comment">--                 |                         |</span><span>
+</span><a name="line-199"></a><span>    </span><span class="hs-comment">--                            ...</span><span>
+</span><a name="line-200"></a><span>    </span><span class="hs-comment">-- @</span><span>
+</span><a name="line-201"></a><span>    </span><span class="hs-comment">--</span><span>
+</span><a name="line-202"></a><span>    </span><span class="hs-comment">-- To compute the average of numbers in a stream without going through the</span><span>
+</span><a name="line-203"></a><span>    </span><span class="hs-comment">-- stream twice:</span><span>
+</span><a name="line-204"></a><span>    </span><span class="hs-comment">--</span><span>
+</span><a name="line-205"></a><span>    </span><span class="hs-comment">-- &gt;&gt;&gt; let avg = (/) &lt;$&gt; FL.sum &lt;*&gt; fmap fromIntegral FL.length</span><span>
+</span><a name="line-206"></a><span>    </span><span class="hs-comment">-- &gt;&gt;&gt; S.fold avg (S.enumerateFromTo 1.0 100.0)</span><span>
+</span><a name="line-207"></a><span>    </span><span class="hs-comment">-- 50.5</span><span>
+</span><a name="line-208"></a><span>    </span><span class="hs-comment">--</span><span>
+</span><a name="line-209"></a><span>    </span><span class="hs-comment">-- The 'Semigroup' and 'Monoid' instances of a distributing fold distribute</span><span>
+</span><a name="line-210"></a><span>    </span><span class="hs-comment">-- the input to both the folds and combines the outputs using Monoid or</span><span>
+</span><a name="line-211"></a><span>    </span><span class="hs-comment">-- Semigroup instances of the output types:</span><span>
+</span><a name="line-212"></a><span>    </span><span class="hs-comment">--</span><span>
+</span><a name="line-213"></a><span>    </span><span class="hs-comment">-- &gt;&gt;&gt; import Data.Monoid (Sum)</span><span>
+</span><a name="line-214"></a><span>    </span><span class="hs-comment">-- &gt;&gt;&gt; S.fold (FL.head &lt;&gt; FL.last) (fmap Sum $ S.enumerateFromTo 1.0 100.0)</span><span>
+</span><a name="line-215"></a><span>    </span><span class="hs-comment">-- Just (Sum {getSum = 101.0})</span><span>
+</span><a name="line-216"></a><span>    </span><span class="hs-comment">--</span><span>
+</span><a name="line-217"></a><span>    </span><span class="hs-comment">-- The 'Num', 'Floating', and 'Fractional' instances work in the same way.</span><span>
+</span><a name="line-218"></a><span>
+</span><a name="line-219"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Data.Fold.html#tee"><span class="hs-identifier hs-var">tee</span></a><span>
+</span><a name="line-220"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Data.Fold.html#distribute"><span class="hs-identifier hs-var">distribute</span></a><span>
+</span><a name="line-221"></a><span>
+</span><a name="line-222"></a><span>    </span><span class="hs-comment">-- * Partitioning</span><span>
+</span><a name="line-223"></a><span>    </span><span class="hs-comment">-- |</span><span>
+</span><a name="line-224"></a><span>    </span><span class="hs-comment">-- Direct items in the input stream to different folds using a binary</span><span>
+</span><a name="line-225"></a><span>    </span><span class="hs-comment">-- fold selector.</span><span>
+</span><a name="line-226"></a><span>
+</span><a name="line-227"></a><span>    </span><span class="hs-comment">-- , partitionByM</span><span>
+</span><a name="line-228"></a><span>    </span><span class="hs-comment">-- , partitionBy</span><span>
+</span><a name="line-229"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Data.Fold.html#partition"><span class="hs-identifier hs-var">partition</span></a><span>
+</span><a name="line-230"></a><span>
+</span><a name="line-231"></a><span>    </span><span class="hs-comment">{-
+    -- * Demultiplexing
+    -- | Direct values in the input stream to different folds using an n-ary
+    -- fold selector.
+
+    , demux
+    -- , demuxWith
+    , demux_
+    -- , demuxWith_
+
+    -- * Classifying
+    -- | In an input stream of key value pairs fold values for different keys
+    -- in individual output buckets using the given fold.
+
+    , classify
+    -- , classifyWith
+    -}</span><span>
+</span><a name="line-248"></a><span>
+</span><a name="line-249"></a><span>    </span><span class="hs-comment">-- * Unzipping</span><span>
+</span><a name="line-250"></a><span>    </span><span class="hs-special">,</span><span> </span><a href="Streamly.Internal.Data.Fold.html#unzip"><span class="hs-identifier hs-var">unzip</span></a><span>
+</span><a name="line-251"></a><span>    </span><span class="hs-comment">-- These can be expressed using lmap/lmapM and unzip</span><span>
+</span><a name="line-252"></a><span>    </span><span class="hs-comment">-- , unzipWith</span><span>
+</span><a name="line-253"></a><span>    </span><span class="hs-comment">-- , unzipWithM</span><span>
+</span><a name="line-254"></a><span>
+</span><a name="line-255"></a><span>    </span><span class="hs-comment">-- -- * Nested Folds</span><span>
+</span><a name="line-256"></a><span>    </span><span class="hs-comment">-- , concatMap</span><span>
+</span><a name="line-257"></a><span>    </span><span class="hs-comment">-- , chunksOf</span><span>
+</span><a name="line-258"></a><span>    </span><span class="hs-comment">-- , duplicate  -- experimental</span><span>
+</span><a name="line-259"></a><span>    </span><span class="hs-special">)</span><span>
+</span><a name="line-260"></a><span class="hs-keyword">where</span><span>
+</span><a name="line-261"></a><span>
+</span><a name="line-262"></a><span class="hs-keyword">import</span><span> </span><span class="hs-identifier">Prelude</span><span>
+</span><a name="line-263"></a><span>       </span><span class="hs-keyword">hiding</span><span> </span><span class="hs-special">(</span><span class="hs-identifier hs-var">filter</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-var">drop</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-var">dropWhile</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-var">take</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-var">takeWhile</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-var">zipWith</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-var">foldr</span><span class="hs-special">,</span><span>
+</span><a name="line-264"></a><span>               </span><span class="hs-identifier hs-var">foldl</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-var">map</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-var">mapM_</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-var">sequence</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-var">all</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-var">any</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-var">sum</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-var">product</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-var">elem</span><span class="hs-special">,</span><span>
+</span><a name="line-265"></a><span>               </span><span class="hs-identifier hs-var">notElem</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-var">maximum</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-var">minimum</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-var">head</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-var">last</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-var">tail</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-var">length</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-var">null</span><span class="hs-special">,</span><span>
+</span><a name="line-266"></a><span>               </span><span class="hs-identifier hs-var">reverse</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-var">iterate</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-var">init</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-var">and</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-var">or</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-var">lookup</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-var">foldr1</span><span class="hs-special">,</span><span> </span><span class="hs-special">(</span><span class="hs-operator hs-var">!!</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><a name="line-267"></a><span>               </span><span class="hs-identifier hs-var">scanl</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-var">scanl1</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-var">replicate</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-var">concatMap</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-var">mconcat</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-var">foldMap</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-var">unzip</span><span class="hs-special">,</span><span>
+</span><a name="line-268"></a><span>               </span><span class="hs-identifier hs-var">span</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-var">splitAt</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-var">break</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-var">mapM</span><span class="hs-special">)</span><span>
+</span><a name="line-269"></a><span>
+</span><a name="line-270"></a><span class="hs-keyword">import</span><span> </span><a href="Streamly.Internal.Data.Fold.html"><span class="hs-identifier">Streamly.Internal.Data.Fold</span></a><span>
+</span><a name="line-271"></a></pre></body></html>

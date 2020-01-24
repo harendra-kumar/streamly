@@ -1,0 +1,657 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE UndecidableInstances #-}</span><span>
+</span><span id="line-2"></span><span>
+</span><span id="line-3"></span><span class="hs-comment">-- |</span><span>
+</span><span id="line-4"></span><span class="hs-comment">-- Module      : Streamly.Internal.Data.Stream.Zip</span><span>
+</span><span id="line-5"></span><span class="hs-comment">-- Copyright   : (c) 2017 Composewell Technologies</span><span>
+</span><span id="line-6"></span><span class="hs-comment">--</span><span>
+</span><span id="line-7"></span><span class="hs-comment">-- License     : BSD3</span><span>
+</span><span id="line-8"></span><span class="hs-comment">-- Maintainer  : streamly@composewell.com</span><span>
+</span><span id="line-9"></span><span class="hs-comment">-- Stability   : experimental</span><span>
+</span><span id="line-10"></span><span class="hs-comment">-- Portability : GHC</span><span>
+</span><span id="line-11"></span><span class="hs-comment">--</span><span>
+</span><span id="line-12"></span><span class="hs-comment">--</span><span>
+</span><span id="line-13"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Streamly.Internal.Data.Stream.Zip</span><span>
+</span><span id="line-14"></span><span>    </span><span class="hs-special">(</span><span>
+</span><span id="line-15"></span><span>      </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Zip.html#ZipSerialM"><span class="hs-identifier">ZipSerialM</span></a></span><span>
+</span><span id="line-16"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Zip.html#ZipSerial"><span class="hs-identifier">ZipSerial</span></a></span><span>
+</span><span id="line-17"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Zip.html#zipSerially"><span class="hs-identifier">zipSerially</span></a></span><span>
+</span><span id="line-18"></span><span>
+</span><span id="line-19"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Zip.html#ZipAsyncM"><span class="hs-identifier">ZipAsyncM</span></a></span><span>
+</span><span id="line-20"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Zip.html#ZipAsync"><span class="hs-identifier">ZipAsync</span></a></span><span>
+</span><span id="line-21"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Zip.html#zipAsyncly"><span class="hs-identifier">zipAsyncly</span></a></span><span>
+</span><span id="line-22"></span><span>
+</span><span id="line-23"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Zip.html#zipWith"><span class="hs-identifier">zipWith</span></a></span><span>
+</span><span id="line-24"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Zip.html#zipWithM"><span class="hs-identifier">zipWithM</span></a></span><span>
+</span><span id="line-25"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Zip.html#zipAsyncWith"><span class="hs-identifier">zipAsyncWith</span></a></span><span>
+</span><span id="line-26"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Zip.html#zipAsyncWithM"><span class="hs-identifier">zipAsyncWithM</span></a></span><span>
+</span><span id="line-27"></span><span>
+</span><span id="line-28"></span><span>    </span><span class="annot"><span class="hs-comment">-- * Deprecated</span></span><span>
+</span><span id="line-29"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Zip.html#ZipStream"><span class="hs-identifier">ZipStream</span></a></span><span>
+</span><span id="line-30"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Zip.html#zipping"><span class="hs-identifier">zipping</span></a></span><span>
+</span><span id="line-31"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Zip.html#zippingAsync"><span class="hs-identifier">zippingAsync</span></a></span><span>
+</span><span id="line-32"></span><span>    </span><span class="hs-special">)</span><span>
+</span><span id="line-33"></span><span class="hs-keyword">where</span><span>
+</span><span id="line-34"></span><span>
+</span><span id="line-35"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Applicative</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">liftA2</span></span><span class="hs-special">)</span><span>
+</span><span id="line-36"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.DeepSeq</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">NFData</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-cpp">
+#if MIN_VERSION_deepseq(1,4,3)
+</span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.DeepSeq</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">NFData1</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-cpp">
+#endif
+</span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Foldable</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Foldable</span></span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">foldl'</span></span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">fold</span></span><span class="hs-special">)</span><span>
+</span><span id="line-41"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Functor.Identity</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Identity</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">runIdentity</span></span><span class="hs-special">)</span><span>
+</span><span id="line-42"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Maybe</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">fromMaybe</span></span><span class="hs-special">)</span><span>
+</span><span id="line-43"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Semigroup</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Endo</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-cpp">
+#if __GLASGOW_HASKELL__ &lt; 808
+</span><span class="hs-keyword">import</span><span> </span><span class="hs-identifier">Data.Semigroup</span><span> </span><span class="hs-special">(</span><span class="hs-identifier">Semigroup</span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-cpp">
+#endif
+</span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">GHC.Exts</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">IsList</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">IsString</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-48"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Text.Read</span></span><span>
+</span><span id="line-49"></span><span>       </span><span class="hs-special">(</span><span> </span><span class="annot"><span class="hs-identifier">Lexeme</span></span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Ident</span></span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">lexP</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">parens</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">prec</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">readPrec</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">readListPrec</span></span><span>
+</span><span id="line-50"></span><span>       </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">readListPrecDefault</span></span><span class="hs-special">)</span><span>
+</span><span id="line-51"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Streamly.Internal.BaseCompat.html"><span class="hs-identifier">Streamly.Internal.BaseCompat</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.BaseCompat.html#%23."><span class="hs-operator">(#.)</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">errorWithoutStackTrace</span></span><span class="hs-special">)</span><span>
+</span><span id="line-52"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.StreamK.html"><span class="hs-identifier">Streamly.Internal.Data.Stream.StreamK</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.Stream.StreamK.Type.html#IsStream"><span class="hs-identifier">IsStream</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.StreamK.Type.html#Stream"><span class="hs-identifier">Stream</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-53"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Maybe.Strict.html"><span class="hs-identifier">Streamly.Internal.Data.Maybe.Strict</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.Maybe.Strict.html#Maybe%27"><span class="hs-identifier">Maybe'</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Maybe.Strict.html#toMaybe"><span class="hs-identifier">toMaybe</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-54"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.SVar.html"><span class="hs-identifier">Streamly.Internal.Data.SVar</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.SVar.html#MonadAsync"><span class="hs-identifier">MonadAsync</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-55"></span><span>
+</span><span id="line-56"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Parallel.html"><span class="hs-identifier">Streamly.Internal.Data.Stream.Parallel</span></a></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Par</span></span><span>
+</span><span id="line-57"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Prelude.html"><span class="hs-identifier">Streamly.Internal.Data.Stream.Prelude</span></a></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">P</span></span><span>
+</span><span id="line-58"></span><span>    </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.Stream.Prelude.html#cmpBy"><span class="hs-identifier">cmpBy</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Prelude.html#eqBy"><span class="hs-identifier">eqBy</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Prelude.html#foldl%27"><span class="hs-identifier">foldl'</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Prelude.html#foldr"><span class="hs-identifier">foldr</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Prelude.html#fromList"><span class="hs-identifier">fromList</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Prelude.html#toList"><span class="hs-identifier">toList</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Prelude.html#fromStreamS"><span class="hs-identifier">fromStreamS</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Prelude.html#toStreamS"><span class="hs-identifier">toStreamS</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-59"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.StreamK.html"><span class="hs-identifier">Streamly.Internal.Data.Stream.StreamK</span></a></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">K</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.Stream.StreamK.html#repeat"><span class="hs-identifier">repeat</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-60"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.StreamK.Type.html"><span class="hs-identifier">Streamly.Internal.Data.Stream.StreamK.Type</span></a></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">K</span></span><span>
+</span><span id="line-61"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.StreamD.html"><span class="hs-identifier">Streamly.Internal.Data.Stream.StreamD</span></a></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">D</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.Stream.StreamD.Nesting.html#zipWithM"><span class="hs-identifier">zipWithM</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-62"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.StreamD.Type.html"><span class="hs-identifier">Streamly.Internal.Data.Stream.StreamD.Type</span></a></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">D</span></span><span class="hs-cpp">
+#ifdef USE_STREAMK_ONLY
+</span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-identifier">Streamly.Internal.Data.Stream.StreamK</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">S</span><span> </span><span class="hs-special">(</span><span class="hs-identifier">zipWith</span><span class="hs-special">,</span><span> </span><span class="hs-identifier">zipWithM</span><span class="hs-special">)</span><span class="hs-cpp">
+#else
+</span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.StreamD.html"><span class="hs-identifier">Streamly.Internal.Data.Stream.StreamD</span></a></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">S</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.Stream.StreamD.Nesting.html#zipWith"><span class="hs-identifier">zipWith</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.StreamD.Nesting.html#zipWithM"><span class="hs-identifier">zipWithM</span></a></span><span class="hs-special">)</span><span class="hs-cpp">
+#endif
+</span><span>
+</span><span id="line-69"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Prelude</span></span><span> </span><span class="hs-keyword">hiding</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">map</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">repeat</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">zipWith</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">errorWithoutStackTrace</span></span><span class="hs-special">)</span><span class="hs-cpp">
+
+#include &quot;Instances.hs&quot;
+</span><span>
+</span><span id="line-73"></span><span class="hs-comment">-- | Like 'zipWith' but using a monadic zipping function.</span><span>
+</span><span id="line-74"></span><span class="hs-comment">--</span><span>
+</span><span id="line-75"></span><span class="hs-comment">-- @since 0.4.0</span><span>
+</span><span id="line-76"></span><span class="hs-pragma">{-# INLINABLE</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Zip.html#zipWithM"><span class="hs-pragma hs-type">zipWithM</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-77"></span><span id="local-6989586621679385369"><span id="local-6989586621679385370"><span id="local-6989586621679385371"><span id="local-6989586621679385372"><span id="local-6989586621679385373"><span class="annot"><a href="Streamly.Internal.Data.Stream.Zip.html#zipWithM"><span class="hs-identifier hs-type">zipWithM</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.Stream.StreamK.Type.html#IsStream"><span class="hs-identifier hs-type">IsStream</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679385373"><span class="hs-identifier hs-type">t</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Monad</span></span><span> </span><span class="annot"><a href="#local-6989586621679385372"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679385371"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679385370"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679385372"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679385369"><span class="hs-identifier hs-type">c</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679385373"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679385372"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679385371"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679385373"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679385372"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679385370"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679385373"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679385372"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679385369"><span class="hs-identifier hs-type">c</span></a></span></span></span></span></span></span><span>
+</span><span id="line-78"></span><span id="zipWithM"><span class="annot"><span class="annottext">zipWithM :: (a -&gt; b -&gt; m c) -&gt; t m a -&gt; t m b -&gt; t m c
+</span><a href="Streamly.Internal.Data.Stream.Zip.html#zipWithM"><span class="hs-identifier hs-var hs-var">zipWithM</span></a></span></span><span> </span><span id="local-6989586621679385368"><span class="annot"><span class="annottext">f :: a -&gt; b -&gt; m c
+</span><a href="#local-6989586621679385368"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span id="local-6989586621679385367"><span class="annot"><span class="annottext">m1 :: t m a
+</span><a href="#local-6989586621679385367"><span class="hs-identifier hs-var">m1</span></a></span></span><span> </span><span id="local-6989586621679385366"><span class="annot"><span class="annottext">m2 :: t m b
+</span><a href="#local-6989586621679385366"><span class="hs-identifier hs-var">m2</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Stream m c -&gt; t m c
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) (m :: * -&gt; *) a.
+(IsStream t, Monad m) =&gt;
+Stream m a -&gt; t m a
+</span><a href="Streamly.Internal.Data.Stream.Prelude.html#fromStreamS"><span class="hs-identifier hs-var">P.fromStreamS</span></a></span><span> </span><span class="annot"><span class="annottext">(Stream m c -&gt; t m c) -&gt; Stream m c -&gt; t m c
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">(a -&gt; b -&gt; m c) -&gt; Stream m a -&gt; Stream m b -&gt; Stream m c
+forall (m :: * -&gt; *) a b c.
+Monad m =&gt;
+(a -&gt; b -&gt; m c) -&gt; Stream m a -&gt; Stream m b -&gt; Stream m c
+</span><a href="Streamly.Internal.Data.Stream.StreamD.Nesting.html#zipWithM"><span class="hs-identifier hs-var">S.zipWithM</span></a></span><span> </span><span class="annot"><span class="annottext">a -&gt; b -&gt; m c
+</span><a href="#local-6989586621679385368"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">t m a -&gt; Stream m a
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) (m :: * -&gt; *) a.
+(IsStream t, Monad m) =&gt;
+t m a -&gt; Stream m a
+</span><a href="Streamly.Internal.Data.Stream.Prelude.html#toStreamS"><span class="hs-identifier hs-var">P.toStreamS</span></a></span><span> </span><span class="annot"><span class="annottext">t m a
+</span><a href="#local-6989586621679385367"><span class="hs-identifier hs-var">m1</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">t m b -&gt; Stream m b
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) (m :: * -&gt; *) a.
+(IsStream t, Monad m) =&gt;
+t m a -&gt; Stream m a
+</span><a href="Streamly.Internal.Data.Stream.Prelude.html#toStreamS"><span class="hs-identifier hs-var">P.toStreamS</span></a></span><span> </span><span class="annot"><span class="annottext">t m b
+</span><a href="#local-6989586621679385366"><span class="hs-identifier hs-var">m2</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-79"></span><span>
+</span><span id="line-80"></span><span class="hs-comment">-- | Zip two streams serially using a pure zipping function.</span><span>
+</span><span id="line-81"></span><span class="hs-comment">--</span><span>
+</span><span id="line-82"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-83"></span><span class="hs-comment">-- &gt; S.toList $ S.zipWith (+) (S.fromList [1,2,3]) (S.fromList [4,5,6])</span><span>
+</span><span id="line-84"></span><span class="hs-comment">-- [5,7,9]</span><span>
+</span><span id="line-85"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-86"></span><span class="hs-comment">--</span><span>
+</span><span id="line-87"></span><span class="hs-comment">-- @since 0.1.0</span><span>
+</span><span id="line-88"></span><span class="hs-pragma">{-# INLINABLE</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Zip.html#zipWith"><span class="hs-pragma hs-type">zipWith</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-89"></span><span id="local-6989586621679385551"><span id="local-6989586621679385552"><span id="local-6989586621679385553"><span id="local-6989586621679385554"><span id="local-6989586621679385555"><span class="annot"><a href="Streamly.Internal.Data.Stream.Zip.html#zipWith"><span class="hs-identifier hs-type">zipWith</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.Stream.StreamK.Type.html#IsStream"><span class="hs-identifier hs-type">IsStream</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679385555"><span class="hs-identifier hs-type">t</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Monad</span></span><span> </span><span class="annot"><a href="#local-6989586621679385554"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679385553"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679385552"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679385551"><span class="hs-identifier hs-type">c</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679385555"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679385554"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679385553"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679385555"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679385554"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679385552"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679385555"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679385554"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679385551"><span class="hs-identifier hs-type">c</span></a></span></span></span></span></span></span><span>
+</span><span id="line-90"></span><span id="zipWith"><span class="annot"><span class="annottext">zipWith :: (a -&gt; b -&gt; c) -&gt; t m a -&gt; t m b -&gt; t m c
+</span><a href="Streamly.Internal.Data.Stream.Zip.html#zipWith"><span class="hs-identifier hs-var hs-var">zipWith</span></a></span></span><span> </span><span id="local-6989586621679385365"><span class="annot"><span class="annottext">f :: a -&gt; b -&gt; c
+</span><a href="#local-6989586621679385365"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span id="local-6989586621679385364"><span class="annot"><span class="annottext">m1 :: t m a
+</span><a href="#local-6989586621679385364"><span class="hs-identifier hs-var">m1</span></a></span></span><span> </span><span id="local-6989586621679385363"><span class="annot"><span class="annottext">m2 :: t m b
+</span><a href="#local-6989586621679385363"><span class="hs-identifier hs-var">m2</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Stream m c -&gt; t m c
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) (m :: * -&gt; *) a.
+(IsStream t, Monad m) =&gt;
+Stream m a -&gt; t m a
+</span><a href="Streamly.Internal.Data.Stream.Prelude.html#fromStreamS"><span class="hs-identifier hs-var">P.fromStreamS</span></a></span><span> </span><span class="annot"><span class="annottext">(Stream m c -&gt; t m c) -&gt; Stream m c -&gt; t m c
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">(a -&gt; b -&gt; c) -&gt; Stream m a -&gt; Stream m b -&gt; Stream m c
+forall (m :: * -&gt; *) a b c.
+Monad m =&gt;
+(a -&gt; b -&gt; c) -&gt; Stream m a -&gt; Stream m b -&gt; Stream m c
+</span><a href="Streamly.Internal.Data.Stream.StreamD.Nesting.html#zipWith"><span class="hs-identifier hs-var">S.zipWith</span></a></span><span> </span><span class="annot"><span class="annottext">a -&gt; b -&gt; c
+</span><a href="#local-6989586621679385365"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">t m a -&gt; Stream m a
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) (m :: * -&gt; *) a.
+(IsStream t, Monad m) =&gt;
+t m a -&gt; Stream m a
+</span><a href="Streamly.Internal.Data.Stream.Prelude.html#toStreamS"><span class="hs-identifier hs-var">P.toStreamS</span></a></span><span> </span><span class="annot"><span class="annottext">t m a
+</span><a href="#local-6989586621679385364"><span class="hs-identifier hs-var">m1</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">t m b -&gt; Stream m b
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) (m :: * -&gt; *) a.
+(IsStream t, Monad m) =&gt;
+t m a -&gt; Stream m a
+</span><a href="Streamly.Internal.Data.Stream.Prelude.html#toStreamS"><span class="hs-identifier hs-var">P.toStreamS</span></a></span><span> </span><span class="annot"><span class="annottext">t m b
+</span><a href="#local-6989586621679385363"><span class="hs-identifier hs-var">m2</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-91"></span><span>
+</span><span id="line-92"></span><span class="hs-comment">------------------------------------------------------------------------------</span><span>
+</span><span id="line-93"></span><span class="hs-comment">-- Parallel Zipping</span><span>
+</span><span id="line-94"></span><span class="hs-comment">------------------------------------------------------------------------------</span><span>
+</span><span id="line-95"></span><span>
+</span><span id="line-96"></span><span class="hs-comment">-- | Like 'zipWithM' but zips concurrently i.e. both the streams being zipped</span><span>
+</span><span id="line-97"></span><span class="hs-comment">-- are generated concurrently.</span><span>
+</span><span id="line-98"></span><span class="hs-comment">--</span><span>
+</span><span id="line-99"></span><span class="hs-comment">-- @since 0.4.0</span><span>
+</span><span id="line-100"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Zip.html#zipAsyncWithM"><span class="hs-pragma hs-type">zipAsyncWithM</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-101"></span><span id="local-6989586621679385704"><span id="local-6989586621679385705"><span id="local-6989586621679385706"><span id="local-6989586621679385707"><span id="local-6989586621679385708"><span class="annot"><a href="Streamly.Internal.Data.Stream.Zip.html#zipAsyncWithM"><span class="hs-identifier hs-type">zipAsyncWithM</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.Stream.StreamK.Type.html#IsStream"><span class="hs-identifier hs-type">IsStream</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679385708"><span class="hs-identifier hs-type">t</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.SVar.html#MonadAsync"><span class="hs-identifier hs-type">MonadAsync</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679385707"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-102"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679385706"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679385705"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679385707"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679385704"><span class="hs-identifier hs-type">c</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679385708"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679385707"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679385706"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679385708"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679385707"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679385705"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679385708"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679385707"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679385704"><span class="hs-identifier hs-type">c</span></a></span></span></span></span></span></span><span>
+</span><span id="line-103"></span><span id="zipAsyncWithM"><span class="annot"><span class="annottext">zipAsyncWithM :: (a -&gt; b -&gt; m c) -&gt; t m a -&gt; t m b -&gt; t m c
+</span><a href="Streamly.Internal.Data.Stream.Zip.html#zipAsyncWithM"><span class="hs-identifier hs-var hs-var">zipAsyncWithM</span></a></span></span><span> </span><span id="local-6989586621679385362"><span class="annot"><span class="annottext">f :: a -&gt; b -&gt; m c
+</span><a href="#local-6989586621679385362"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span id="local-6989586621679385361"><span class="annot"><span class="annottext">m1 :: t m a
+</span><a href="#local-6989586621679385361"><span class="hs-identifier hs-var">m1</span></a></span></span><span> </span><span id="local-6989586621679385360"><span class="annot"><span class="annottext">m2 :: t m b
+</span><a href="#local-6989586621679385360"><span class="hs-identifier hs-var">m2</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Stream m c -&gt; t m c
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) (m :: * -&gt; *) a.
+(IsStream t, Monad m) =&gt;
+Stream m a -&gt; t m a
+</span><a href="Streamly.Internal.Data.Stream.StreamD.Type.html#fromStreamD"><span class="hs-identifier hs-var">D.fromStreamD</span></a></span><span> </span><span class="annot"><span class="annottext">(Stream m c -&gt; t m c) -&gt; Stream m c -&gt; t m c
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span>
+</span><span id="line-104"></span><span>    </span><span class="annot"><span class="annottext">(a -&gt; b -&gt; m c) -&gt; Stream m a -&gt; Stream m b -&gt; Stream m c
+forall (m :: * -&gt; *) a b c.
+Monad m =&gt;
+(a -&gt; b -&gt; m c) -&gt; Stream m a -&gt; Stream m b -&gt; Stream m c
+</span><a href="Streamly.Internal.Data.Stream.StreamD.Nesting.html#zipWithM"><span class="hs-identifier hs-var">D.zipWithM</span></a></span><span> </span><span class="annot"><span class="annottext">a -&gt; b -&gt; m c
+</span><a href="#local-6989586621679385362"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Stream m a -&gt; Stream m a
+forall (m :: * -&gt; *) a. MonadAsync m =&gt; Stream m a -&gt; Stream m a
+</span><a href="Streamly.Internal.Data.Stream.Parallel.html#mkParallelD"><span class="hs-identifier hs-var">Par.mkParallelD</span></a></span><span> </span><span class="annot"><span class="annottext">(Stream m a -&gt; Stream m a) -&gt; Stream m a -&gt; Stream m a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">t m a -&gt; Stream m a
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) (m :: * -&gt; *) a.
+(IsStream t, Monad m) =&gt;
+t m a -&gt; Stream m a
+</span><a href="Streamly.Internal.Data.Stream.StreamD.Type.html#toStreamD"><span class="hs-identifier hs-var">D.toStreamD</span></a></span><span> </span><span class="annot"><span class="annottext">t m a
+</span><a href="#local-6989586621679385361"><span class="hs-identifier hs-var">m1</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-105"></span><span>                 </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Stream m b -&gt; Stream m b
+forall (m :: * -&gt; *) a. MonadAsync m =&gt; Stream m a -&gt; Stream m a
+</span><a href="Streamly.Internal.Data.Stream.Parallel.html#mkParallelD"><span class="hs-identifier hs-var">Par.mkParallelD</span></a></span><span> </span><span class="annot"><span class="annottext">(Stream m b -&gt; Stream m b) -&gt; Stream m b -&gt; Stream m b
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">t m b -&gt; Stream m b
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) (m :: * -&gt; *) a.
+(IsStream t, Monad m) =&gt;
+t m a -&gt; Stream m a
+</span><a href="Streamly.Internal.Data.Stream.StreamD.Type.html#toStreamD"><span class="hs-identifier hs-var">D.toStreamD</span></a></span><span> </span><span class="annot"><span class="annottext">t m b
+</span><a href="#local-6989586621679385360"><span class="hs-identifier hs-var">m2</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-106"></span><span>
+</span><span id="line-107"></span><span class="hs-comment">-- | Like 'zipWith' but zips concurrently i.e. both the streams being zipped</span><span>
+</span><span id="line-108"></span><span class="hs-comment">-- are generated concurrently.</span><span>
+</span><span id="line-109"></span><span class="hs-comment">--</span><span>
+</span><span id="line-110"></span><span class="hs-comment">-- @since 0.1.0</span><span>
+</span><span id="line-111"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Zip.html#zipAsyncWith"><span class="hs-pragma hs-type">zipAsyncWith</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-112"></span><span id="local-6989586621679385413"><span id="local-6989586621679385414"><span id="local-6989586621679385415"><span id="local-6989586621679385416"><span id="local-6989586621679385417"><span class="annot"><a href="Streamly.Internal.Data.Stream.Zip.html#zipAsyncWith"><span class="hs-identifier hs-type">zipAsyncWith</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.Stream.StreamK.Type.html#IsStream"><span class="hs-identifier hs-type">IsStream</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679385417"><span class="hs-identifier hs-type">t</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.SVar.html#MonadAsync"><span class="hs-identifier hs-type">MonadAsync</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679385416"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-113"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679385415"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679385414"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679385413"><span class="hs-identifier hs-type">c</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679385417"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679385416"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679385415"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679385417"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679385416"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679385414"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679385417"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679385416"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679385413"><span class="hs-identifier hs-type">c</span></a></span></span></span></span></span></span><span>
+</span><span id="line-114"></span><span id="zipAsyncWith"><span class="annot"><span class="annottext">zipAsyncWith :: (a -&gt; b -&gt; c) -&gt; t m a -&gt; t m b -&gt; t m c
+</span><a href="Streamly.Internal.Data.Stream.Zip.html#zipAsyncWith"><span class="hs-identifier hs-var hs-var">zipAsyncWith</span></a></span></span><span> </span><span id="local-6989586621679385356"><span class="annot"><span class="annottext">f :: a -&gt; b -&gt; c
+</span><a href="#local-6989586621679385356"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(a -&gt; b -&gt; m c) -&gt; t m a -&gt; t m b -&gt; t m c
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) (m :: * -&gt; *) a b c.
+(IsStream t, MonadAsync m) =&gt;
+(a -&gt; b -&gt; m c) -&gt; t m a -&gt; t m b -&gt; t m c
+</span><a href="Streamly.Internal.Data.Stream.Zip.html#zipAsyncWithM"><span class="hs-identifier hs-var">zipAsyncWithM</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621679385355"><span class="annot"><span class="annottext">a :: a
+</span><a href="#local-6989586621679385355"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span id="local-6989586621679385354"><span class="annot"><span class="annottext">b :: b
+</span><a href="#local-6989586621679385354"><span class="hs-identifier hs-var">b</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">c -&gt; m c
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">a -&gt; b -&gt; c
+</span><a href="#local-6989586621679385356"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679385355"><span class="hs-identifier hs-var">a</span></a></span><span> </span><span class="annot"><span class="annottext">b
+</span><a href="#local-6989586621679385354"><span class="hs-identifier hs-var">b</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-115"></span><span>
+</span><span id="line-116"></span><span class="hs-comment">------------------------------------------------------------------------------</span><span>
+</span><span id="line-117"></span><span class="hs-comment">-- Serially Zipping Streams</span><span>
+</span><span id="line-118"></span><span class="hs-comment">------------------------------------------------------------------------------</span><span>
+</span><span id="line-119"></span><span>
+</span><span id="line-120"></span><span class="hs-comment">-- | The applicative instance of 'ZipSerialM' zips a number of streams serially</span><span>
+</span><span id="line-121"></span><span class="hs-comment">-- i.e. it produces one element from each stream serially and then zips all</span><span>
+</span><span id="line-122"></span><span class="hs-comment">-- those elements.</span><span>
+</span><span id="line-123"></span><span class="hs-comment">--</span><span>
+</span><span id="line-124"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-125"></span><span class="hs-comment">-- main = (toList . 'zipSerially' $ (,,) \&lt;$\&gt; s1 \&lt;*\&gt; s2 \&lt;*\&gt; s3) &gt;&gt;= print</span><span>
+</span><span id="line-126"></span><span class="hs-comment">--     where s1 = fromFoldable [1, 2]</span><span>
+</span><span id="line-127"></span><span class="hs-comment">--           s2 = fromFoldable [3, 4]</span><span>
+</span><span id="line-128"></span><span class="hs-comment">--           s3 = fromFoldable [5, 6]</span><span>
+</span><span id="line-129"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-130"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-131"></span><span class="hs-comment">-- [(1,3,5),(2,4,6)]</span><span>
+</span><span id="line-132"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-133"></span><span class="hs-comment">--</span><span>
+</span><span id="line-134"></span><span class="hs-comment">-- The 'Semigroup' instance of this type works the same way as that of</span><span>
+</span><span id="line-135"></span><span class="hs-comment">-- 'SerialT'.</span><span>
+</span><span id="line-136"></span><span class="hs-comment">--</span><span>
+</span><span id="line-137"></span><span class="hs-comment">-- /Since: 0.2.0 (&quot;Streamly&quot;)/</span><span>
+</span><span id="line-138"></span><span class="hs-comment">--</span><span>
+</span><span id="line-139"></span><span class="hs-comment">-- @since 0.8.0</span><span>
+</span><span id="line-140"></span><span class="hs-keyword">newtype</span><span> </span><span id="ZipSerialM"><span class="annot"><a href="Streamly.Internal.Data.Stream.Zip.html#ZipSerialM"><span class="hs-identifier hs-var">ZipSerialM</span></a></span></span><span> </span><span id="local-6989586621679385353"><span class="annot"><a href="#local-6989586621679385353"><span class="hs-identifier hs-type">m</span></a></span></span><span> </span><span id="local-6989586621679385352"><span class="annot"><a href="#local-6989586621679385352"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="ZipSerialM"><span class="annot"><a href="Streamly.Internal.Data.Stream.Zip.html#ZipSerialM"><span class="hs-identifier hs-var">ZipSerialM</span></a></span></span><span> </span><span class="hs-special">{</span><span id="getZipSerialM"><span class="annot"><span class="annottext">ZipSerialM m a -&gt; Stream m a
+</span><a href="Streamly.Internal.Data.Stream.Zip.html#getZipSerialM"><span class="hs-identifier hs-var hs-var">getZipSerialM</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.StreamK.Type.html#Stream"><span class="hs-identifier hs-type">Stream</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679385353"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679385352"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">}</span><span>
+</span><span id="line-141"></span><span>        </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span id="local-6989586621679385344"><span id="local-6989586621679385346"><span id="local-6989586621679385348"><span class="annot"><span class="annottext">b -&gt; ZipSerialM m a -&gt; ZipSerialM m a
+NonEmpty (ZipSerialM m a) -&gt; ZipSerialM m a
+ZipSerialM m a -&gt; ZipSerialM m a -&gt; ZipSerialM m a
+(ZipSerialM m a -&gt; ZipSerialM m a -&gt; ZipSerialM m a)
+-&gt; (NonEmpty (ZipSerialM m a) -&gt; ZipSerialM m a)
+-&gt; (forall b. Integral b =&gt; b -&gt; ZipSerialM m a -&gt; ZipSerialM m a)
+-&gt; Semigroup (ZipSerialM m a)
+forall b. Integral b =&gt; b -&gt; ZipSerialM m a -&gt; ZipSerialM m a
+forall a.
+(a -&gt; a -&gt; a)
+-&gt; (NonEmpty a -&gt; a)
+-&gt; (forall b. Integral b =&gt; b -&gt; a -&gt; a)
+-&gt; Semigroup a
+forall (m :: * -&gt; *) a. NonEmpty (ZipSerialM m a) -&gt; ZipSerialM m a
+forall (m :: * -&gt; *) a.
+ZipSerialM m a -&gt; ZipSerialM m a -&gt; ZipSerialM m a
+forall (m :: * -&gt; *) a b.
+Integral b =&gt;
+b -&gt; ZipSerialM m a -&gt; ZipSerialM m a
+stimes :: b -&gt; ZipSerialM m a -&gt; ZipSerialM m a
+$cstimes :: forall (m :: * -&gt; *) a b.
+Integral b =&gt;
+b -&gt; ZipSerialM m a -&gt; ZipSerialM m a
+sconcat :: NonEmpty (ZipSerialM m a) -&gt; ZipSerialM m a
+$csconcat :: forall (m :: * -&gt; *) a. NonEmpty (ZipSerialM m a) -&gt; ZipSerialM m a
+&lt;&gt; :: ZipSerialM m a -&gt; ZipSerialM m a -&gt; ZipSerialM m a
+$c&lt;&gt; :: forall (m :: * -&gt; *) a.
+ZipSerialM m a -&gt; ZipSerialM m a -&gt; ZipSerialM m a
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Semigroup</span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679385336"><span id="local-6989586621679385338"><span id="local-6989586621679385340"><span class="annot"><span class="annottext">Semigroup (ZipSerialM m a)
+ZipSerialM m a
+Semigroup (ZipSerialM m a) =&gt;
+ZipSerialM m a
+-&gt; (ZipSerialM m a -&gt; ZipSerialM m a -&gt; ZipSerialM m a)
+-&gt; ([ZipSerialM m a] -&gt; ZipSerialM m a)
+-&gt; Monoid (ZipSerialM m a)
+[ZipSerialM m a] -&gt; ZipSerialM m a
+ZipSerialM m a -&gt; ZipSerialM m a -&gt; ZipSerialM m a
+forall a.
+Semigroup a =&gt;
+a -&gt; (a -&gt; a -&gt; a) -&gt; ([a] -&gt; a) -&gt; Monoid a
+forall (m :: * -&gt; *) a. Semigroup (ZipSerialM m a)
+forall (m :: * -&gt; *) a. ZipSerialM m a
+forall (m :: * -&gt; *) a. [ZipSerialM m a] -&gt; ZipSerialM m a
+forall (m :: * -&gt; *) a.
+ZipSerialM m a -&gt; ZipSerialM m a -&gt; ZipSerialM m a
+mconcat :: [ZipSerialM m a] -&gt; ZipSerialM m a
+$cmconcat :: forall (m :: * -&gt; *) a. [ZipSerialM m a] -&gt; ZipSerialM m a
+mappend :: ZipSerialM m a -&gt; ZipSerialM m a -&gt; ZipSerialM m a
+$cmappend :: forall (m :: * -&gt; *) a.
+ZipSerialM m a -&gt; ZipSerialM m a -&gt; ZipSerialM m a
+mempty :: ZipSerialM m a
+$cmempty :: forall (m :: * -&gt; *) a. ZipSerialM m a
+$cp1Monoid :: forall (m :: * -&gt; *) a. Semigroup (ZipSerialM m a)
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Monoid</span></span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-142"></span><span>
+</span><span id="line-143"></span><span class="hs-comment">-- |</span><span>
+</span><span id="line-144"></span><span class="hs-comment">-- @since 0.1.0</span><span>
+</span><span id="line-145"></span><span class="hs-pragma">{-# DEPRECATED</span><span> </span><span class="hs-pragma">ZipStream</span><span> </span><span class="hs-pragma">&quot;Please use 'ZipSerialM' instead.&quot;</span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-146"></span><span class="hs-keyword">type</span><span> </span><span id="ZipStream"><span class="annot"><a href="Streamly.Internal.Data.Stream.Zip.html#ZipStream"><span class="hs-identifier hs-var">ZipStream</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Zip.html#ZipSerialM"><span class="hs-identifier hs-type">ZipSerialM</span></a></span><span>
+</span><span id="line-147"></span><span>
+</span><span id="line-148"></span><span class="hs-comment">-- | An IO stream whose applicative instance zips streams serially.</span><span>
+</span><span id="line-149"></span><span class="hs-comment">--</span><span>
+</span><span id="line-150"></span><span class="hs-comment">-- /Since: 0.2.0 (&quot;Streamly&quot;)/</span><span>
+</span><span id="line-151"></span><span class="hs-comment">--</span><span>
+</span><span id="line-152"></span><span class="hs-comment">-- @since 0.8.0</span><span>
+</span><span id="line-153"></span><span class="hs-keyword">type</span><span> </span><span id="ZipSerial"><span class="annot"><a href="Streamly.Internal.Data.Stream.Zip.html#ZipSerial"><span class="hs-identifier hs-var">ZipSerial</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Zip.html#ZipSerialM"><span class="hs-identifier hs-type">ZipSerialM</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span>
+</span><span id="line-154"></span><span>
+</span><span id="line-155"></span><span class="hs-comment">-- | Fix the type of a polymorphic stream as 'ZipSerialM'.</span><span>
+</span><span id="line-156"></span><span class="hs-comment">--</span><span>
+</span><span id="line-157"></span><span class="hs-comment">-- /Since: 0.2.0 (&quot;Streamly&quot;)/</span><span>
+</span><span id="line-158"></span><span class="hs-comment">--</span><span>
+</span><span id="line-159"></span><span class="hs-comment">-- @since 0.8.0</span><span>
+</span><span id="line-160"></span><span id="local-6989586621679385676"><span id="local-6989586621679385677"><span id="local-6989586621679385678"><span class="annot"><a href="Streamly.Internal.Data.Stream.Zip.html#zipSerially"><span class="hs-identifier hs-type">zipSerially</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.StreamK.Type.html#IsStream"><span class="hs-identifier hs-type">IsStream</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679385678"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Zip.html#ZipSerialM"><span class="hs-identifier hs-type">ZipSerialM</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679385677"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679385676"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679385678"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679385677"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679385676"><span class="hs-identifier hs-type">a</span></a></span></span></span></span><span>
+</span><span id="line-161"></span><span id="zipSerially"><span class="annot"><span class="annottext">zipSerially :: ZipSerialM m a -&gt; t m a
+</span><a href="Streamly.Internal.Data.Stream.Zip.html#zipSerially"><span class="hs-identifier hs-var hs-var">zipSerially</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ZipSerialM m a -&gt; t m a
+forall (t1 :: (* -&gt; *) -&gt; * -&gt; *) (t2 :: (* -&gt; *) -&gt; * -&gt; *)
+       (m :: * -&gt; *) a.
+(IsStream t1, IsStream t2) =&gt;
+t1 m a -&gt; t2 m a
+</span><a href="Streamly.Internal.Data.Stream.StreamK.Type.html#adapt"><span class="hs-identifier hs-var">K.adapt</span></a></span><span>
+</span><span id="line-162"></span><span>
+</span><span id="line-163"></span><span class="hs-comment">-- | Same as 'zipSerially'.</span><span>
+</span><span id="line-164"></span><span class="hs-comment">--</span><span>
+</span><span id="line-165"></span><span class="hs-comment">-- @since 0.1.0</span><span>
+</span><span id="line-166"></span><span class="hs-pragma">{-# DEPRECATED</span><span> </span><span class="hs-pragma">zipping</span><span> </span><span class="hs-pragma">&quot;Please use zipSerially instead.&quot;</span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-167"></span><span id="local-6989586621679385331"><span id="local-6989586621679385332"><span id="local-6989586621679385333"><span class="annot"><a href="Streamly.Internal.Data.Stream.Zip.html#zipping"><span class="hs-identifier hs-type">zipping</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.StreamK.Type.html#IsStream"><span class="hs-identifier hs-type">IsStream</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679385333"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Zip.html#ZipSerialM"><span class="hs-identifier hs-type">ZipSerialM</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679385332"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679385331"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679385333"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679385332"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679385331"><span class="hs-identifier hs-type">a</span></a></span></span></span></span><span>
+</span><span id="line-168"></span><span id="zipping"><span class="annot"><span class="annottext">zipping :: ZipSerialM m a -&gt; t m a
+</span><a href="Streamly.Internal.Data.Stream.Zip.html#zipping"><span class="hs-identifier hs-var hs-var">zipping</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ZipSerialM m a -&gt; t m a
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) (m :: * -&gt; *) a.
+IsStream t =&gt;
+ZipSerialM m a -&gt; t m a
+</span><a href="Streamly.Internal.Data.Stream.Zip.html#zipSerially"><span class="hs-identifier hs-var">zipSerially</span></a></span><span>
+</span><span id="line-169"></span><span>
+</span><span id="line-170"></span><span id="local-6989586621679385651"><span id="local-6989586621679385652"><span class="annot"><a href="Streamly.Internal.Data.Stream.Zip.html#consMZip"><span class="hs-identifier hs-type">consMZip</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Monad</span></span><span> </span><span class="annot"><a href="#local-6989586621679385652"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679385652"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679385651"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Zip.html#ZipSerialM"><span class="hs-identifier hs-type">ZipSerialM</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679385652"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679385651"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Zip.html#ZipSerialM"><span class="hs-identifier hs-type">ZipSerialM</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679385652"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679385651"><span class="hs-identifier hs-type">a</span></a></span></span></span><span>
+</span><span id="line-171"></span><span id="consMZip"><span class="annot"><span class="annottext">consMZip :: m a -&gt; ZipSerialM m a -&gt; ZipSerialM m a
+</span><a href="Streamly.Internal.Data.Stream.Zip.html#consMZip"><span class="hs-identifier hs-var hs-var">consMZip</span></a></span></span><span> </span><span id="local-6989586621679385329"><span class="annot"><span class="annottext">m :: m a
+</span><a href="#local-6989586621679385329"><span class="hs-identifier hs-var">m</span></a></span></span><span> </span><span id="local-6989586621679385328"><span class="annot"><span class="annottext">ms :: ZipSerialM m a
+</span><a href="#local-6989586621679385328"><span class="hs-identifier hs-var">ms</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Stream m a -&gt; ZipSerialM m a
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) (m :: * -&gt; *) a.
+IsStream t =&gt;
+Stream m a -&gt; t m a
+</span><a href="Streamly.Internal.Data.Stream.StreamK.Type.html#fromStream"><span class="hs-identifier hs-var">fromStream</span></a></span><span> </span><span class="annot"><span class="annottext">(Stream m a -&gt; ZipSerialM m a) -&gt; Stream m a -&gt; ZipSerialM m a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">m a -&gt; Stream m a -&gt; Stream m a
+forall (m :: * -&gt; *) a. Monad m =&gt; m a -&gt; Stream m a -&gt; Stream m a
+</span><a href="Streamly.Internal.Data.Stream.StreamK.Type.html#consMStream"><span class="hs-identifier hs-var">K.consMStream</span></a></span><span> </span><span class="annot"><span class="annottext">m a
+</span><a href="#local-6989586621679385329"><span class="hs-identifier hs-var">m</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ZipSerialM m a -&gt; Stream m a
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) (m :: * -&gt; *) a.
+IsStream t =&gt;
+t m a -&gt; Stream m a
+</span><a href="Streamly.Internal.Data.Stream.StreamK.Type.html#toStream"><span class="hs-identifier hs-var">toStream</span></a></span><span> </span><span class="annot"><span class="annottext">ZipSerialM m a
+</span><a href="#local-6989586621679385328"><span class="hs-identifier hs-var">ms</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-172"></span><span>
+</span><span id="line-173"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.StreamK.Type.html#IsStream"><span class="hs-identifier hs-type">IsStream</span></a></span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Zip.html#ZipSerialM"><span class="hs-identifier hs-type">ZipSerialM</span></a></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-174"></span><span>    </span><span id="local-6989586621679385315"><span class="annot"><span class="annottext">toStream :: ZipSerialM m a -&gt; Stream m a
+</span><a href="#local-6989586621679385315"><span class="hs-identifier hs-var hs-var hs-var hs-var">toStream</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ZipSerialM m a -&gt; Stream m a
+forall (m :: * -&gt; *) a. ZipSerialM m a -&gt; Stream m a
+</span><a href="Streamly.Internal.Data.Stream.Zip.html#getZipSerialM"><span class="hs-identifier hs-var hs-var">getZipSerialM</span></a></span><span>
+</span><span id="line-175"></span><span>    </span><span id="local-6989586621679385314"><span class="annot"><span class="annottext">fromStream :: Stream m a -&gt; ZipSerialM m a
+</span><a href="#local-6989586621679385314"><span class="hs-identifier hs-var hs-var hs-var hs-var">fromStream</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Stream m a -&gt; ZipSerialM m a
+forall (m :: * -&gt; *) a. Stream m a -&gt; ZipSerialM m a
+</span><a href="Streamly.Internal.Data.Stream.Zip.html#ZipSerialM"><span class="hs-identifier hs-var">ZipSerialM</span></a></span><span>
+</span><span id="line-176"></span><span>
+</span><span id="line-177"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.StreamK.Type.html#consM"><span class="hs-pragma hs-type">consM</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-178"></span><span>    </span><span id="local-6989586621679385312"><span class="hs-pragma">{-# SPECIALIZE</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.StreamK.Type.html#consM"><span class="hs-pragma hs-type">consM</span></a></span><span> </span><span class="hs-pragma">::</span><span> </span><span class="annot"><span class="hs-pragma hs-type">IO</span></span><span> </span><span class="annot"><a href="#local-6989586621679385312"><span class="hs-pragma hs-type">a</span></a></span><span> </span><span class="hs-pragma">-&gt;</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Zip.html#ZipSerialM"><span class="hs-pragma hs-type">ZipSerialM</span></a></span><span> </span><span class="annot"><span class="hs-pragma hs-type">IO</span></span><span> </span><span class="annot"><a href="#local-6989586621679385312"><span class="hs-pragma hs-type">a</span></a></span><span> </span><span class="hs-pragma">-&gt;</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Zip.html#ZipSerialM"><span class="hs-pragma hs-type">ZipSerialM</span></a></span><span> </span><span class="annot"><span class="hs-pragma hs-type">IO</span></span><span> </span><span class="annot"><a href="#local-6989586621679385312"><span class="hs-pragma hs-type">a</span></a></span><span> </span><span class="hs-pragma">#-}</span></span><span>
+</span><span id="line-179"></span><span>    </span><span id="local-6989586621679385310"><span id="local-6989586621679385311"><span class="annot"><a href="Streamly.Internal.Data.Stream.StreamK.Type.html#consM"><span class="hs-identifier hs-type">consM</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Monad</span></span><span> </span><span class="annot"><a href="#local-6989586621679385311"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679385311"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679385310"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Zip.html#ZipSerialM"><span class="hs-identifier hs-type">ZipSerialM</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679385311"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679385310"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Zip.html#ZipSerialM"><span class="hs-identifier hs-type">ZipSerialM</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679385311"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679385310"><span class="hs-identifier hs-type">a</span></a></span></span></span><span>
+</span><span id="line-180"></span><span>    </span><span id="local-6989586621679385309"><span class="annot"><span class="annottext">consM :: m a -&gt; ZipSerialM m a -&gt; ZipSerialM m a
+</span><a href="#local-6989586621679385309"><span class="hs-identifier hs-var hs-var hs-var hs-var">consM</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">m a -&gt; ZipSerialM m a -&gt; ZipSerialM m a
+forall (m :: * -&gt; *) a.
+Monad m =&gt;
+m a -&gt; ZipSerialM m a -&gt; ZipSerialM m a
+</span><a href="Streamly.Internal.Data.Stream.Zip.html#consMZip"><span class="hs-identifier hs-var">consMZip</span></a></span><span>
+</span><span id="line-181"></span><span>
+</span><span id="line-182"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="hs-pragma">(</span><span class="hs-pragma">|:</span><span class="hs-pragma">)</span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-183"></span><span>    </span><span id="local-6989586621679385307"><span class="hs-pragma">{-# SPECIALIZE</span><span> </span><span class="hs-pragma">(</span><span class="hs-pragma">|:</span><span class="hs-pragma">)</span><span> </span><span class="hs-pragma">::</span><span> </span><span class="annot"><span class="hs-pragma hs-type">IO</span></span><span> </span><span class="annot"><a href="#local-6989586621679385307"><span class="hs-pragma hs-type">a</span></a></span><span> </span><span class="hs-pragma">-&gt;</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Zip.html#ZipSerialM"><span class="hs-pragma hs-type">ZipSerialM</span></a></span><span> </span><span class="annot"><span class="hs-pragma hs-type">IO</span></span><span> </span><span class="annot"><a href="#local-6989586621679385307"><span class="hs-pragma hs-type">a</span></a></span><span> </span><span class="hs-pragma">-&gt;</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Zip.html#ZipSerialM"><span class="hs-pragma hs-type">ZipSerialM</span></a></span><span> </span><span class="annot"><span class="hs-pragma hs-type">IO</span></span><span> </span><span class="annot"><a href="#local-6989586621679385307"><span class="hs-pragma hs-type">a</span></a></span><span> </span><span class="hs-pragma">#-}</span></span><span>
+</span><span id="line-184"></span><span>    </span><span id="local-6989586621679385305"><span id="local-6989586621679385306"><span class="annot"><a href="Streamly.Internal.Data.Stream.StreamK.Type.html#%7C%3A"><span class="hs-operator hs-type">(|:)</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Monad</span></span><span> </span><span class="annot"><a href="#local-6989586621679385306"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679385306"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679385305"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Zip.html#ZipSerialM"><span class="hs-identifier hs-type">ZipSerialM</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679385306"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679385305"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Zip.html#ZipSerialM"><span class="hs-identifier hs-type">ZipSerialM</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679385306"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679385305"><span class="hs-identifier hs-type">a</span></a></span></span></span><span>
+</span><span id="line-185"></span><span>    </span><span id="local-6989586621679385304"><span class="annot"><span class="annottext">|: :: m a -&gt; ZipSerialM m a -&gt; ZipSerialM m a
+</span><a href="#local-6989586621679385304"><span class="hs-operator hs-var hs-var hs-var hs-var">(|:)</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">m a -&gt; ZipSerialM m a -&gt; ZipSerialM m a
+forall (m :: * -&gt; *) a.
+Monad m =&gt;
+m a -&gt; ZipSerialM m a -&gt; ZipSerialM m a
+</span><a href="Streamly.Internal.Data.Stream.Zip.html#consMZip"><span class="hs-identifier hs-var">consMZip</span></a></span><span>
+</span><span id="line-186"></span><span>
+</span><span id="line-187"></span><span id="local-6989586621679385303"><span id="local-6989586621679385300"></span><span class="hs-identifier">LIST_INSTANCES</span><span class="hs-special">(</span><span class="hs-identifier">ZipSerialM</span><span class="hs-special">)</span></span><span id="local-6989586621679385294"></span><span id="local-6989586621679385286"></span><span id="local-6989586621679385249"></span><span id="local-6989586621679385235"></span><span id="local-6989586621679385224"></span><span id="local-6989586621679385220"></span><span>
+</span><span id="line-188"></span><span class="hs-identifier">NFDATA1_INSTANCE</span><span class="hs-special">(</span><span class="hs-identifier">ZipSerialM</span><span class="hs-special">)</span><span>
+</span><span id="line-189"></span><span>
+</span><span id="line-190"></span><span id="local-6989586621679385208"><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679385205"><span class="annot"><span class="hs-identifier hs-type">Monad</span></span><span> </span><span class="annot"><a href="#local-6989586621679385208"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Functor</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.Stream.Zip.html#ZipSerialM"><span class="hs-identifier hs-type">ZipSerialM</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679385208"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-191"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><span class="hs-pragma hs-type">fmap</span></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-192"></span><span>    </span><span id="local-6989586621679385203"><span class="annot"><span class="annottext">fmap :: (a -&gt; b) -&gt; ZipSerialM m a -&gt; ZipSerialM m b
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">fmap</span></span></span><span> </span><span id="local-6989586621679385202"><span class="annot"><span class="annottext">f :: a -&gt; b
+</span><a href="#local-6989586621679385202"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.Stream.Zip.html#ZipSerialM"><span class="hs-identifier hs-type">ZipSerialM</span></a></span><span> </span><span id="local-6989586621679385201"><span class="annot"><span class="annottext">m :: Stream m a
+</span><a href="#local-6989586621679385201"><span class="hs-identifier hs-var">m</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Stream m b -&gt; ZipSerialM m b
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) (m :: * -&gt; *) a.
+(IsStream t, Monad m) =&gt;
+Stream m a -&gt; t m a
+</span><a href="Streamly.Internal.Data.Stream.StreamD.Type.html#fromStreamD"><span class="hs-identifier hs-var">D.fromStreamD</span></a></span><span> </span><span class="annot"><span class="annottext">(Stream m b -&gt; ZipSerialM m b) -&gt; Stream m b -&gt; ZipSerialM m b
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">(a -&gt; m b) -&gt; Stream m a -&gt; Stream m b
+forall (m :: * -&gt; *) a b.
+Monad m =&gt;
+(a -&gt; m b) -&gt; Stream m a -&gt; Stream m b
+</span><a href="Streamly.Internal.Data.Stream.StreamD.Type.html#mapM"><span class="hs-identifier hs-var">D.mapM</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">b -&gt; m b
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">(b -&gt; m b) -&gt; (a -&gt; b) -&gt; a -&gt; m b
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; b
+</span><a href="#local-6989586621679385202"><span class="hs-identifier hs-var">f</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(Stream m a -&gt; Stream m b) -&gt; Stream m a -&gt; Stream m b
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Stream m a -&gt; Stream m a
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) (m :: * -&gt; *) a.
+(IsStream t, Monad m) =&gt;
+t m a -&gt; Stream m a
+</span><a href="Streamly.Internal.Data.Stream.StreamD.Type.html#toStreamD"><span class="hs-identifier hs-var">D.toStreamD</span></a></span><span> </span><span class="annot"><span class="annottext">Stream m a
+</span><a href="#local-6989586621679385201"><span class="hs-identifier hs-var">m</span></a></span></span><span>
+</span><span id="line-193"></span><span>
+</span><span id="line-194"></span><span id="local-6989586621679385199"><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679385190"><span id="local-6989586621679385192"><span id="local-6989586621679385194"><span class="annot"><span class="hs-identifier hs-type">Monad</span></span><span> </span><span class="annot"><a href="#local-6989586621679385199"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Applicative</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.Stream.Zip.html#ZipSerialM"><span class="hs-identifier hs-type">ZipSerialM</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679385199"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-195"></span><span>    </span><span id="local-6989586621679385188"><span class="annot"><span class="annottext">pure :: a -&gt; ZipSerialM m a
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">pure</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Stream m a -&gt; ZipSerialM m a
+forall (m :: * -&gt; *) a. Stream m a -&gt; ZipSerialM m a
+</span><a href="Streamly.Internal.Data.Stream.Zip.html#ZipSerialM"><span class="hs-identifier hs-var">ZipSerialM</span></a></span><span> </span><span class="annot"><span class="annottext">(Stream m a -&gt; ZipSerialM m a)
+-&gt; (a -&gt; Stream m a) -&gt; a -&gt; ZipSerialM m a
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; Stream m a
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) a (m :: * -&gt; *).
+IsStream t =&gt;
+a -&gt; t m a
+</span><a href="Streamly.Internal.Data.Stream.StreamK.html#repeat"><span class="hs-identifier hs-var">K.repeat</span></a></span><span>
+</span><span id="line-196"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="hs-pragma">(</span><span class="hs-pragma">&lt;*&gt;</span><span class="hs-pragma">)</span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-197"></span><span>    </span><span id="local-6989586621679385187"><span class="annot"><span class="annottext">&lt;*&gt; :: ZipSerialM m (a -&gt; b) -&gt; ZipSerialM m a -&gt; ZipSerialM m b
+</span><span class="hs-operator hs-var hs-var hs-var hs-var">(&lt;*&gt;)</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">((a -&gt; b) -&gt; a -&gt; b)
+-&gt; ZipSerialM m (a -&gt; b) -&gt; ZipSerialM m a -&gt; ZipSerialM m b
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) (m :: * -&gt; *) a b c.
+(IsStream t, Monad m) =&gt;
+(a -&gt; b -&gt; c) -&gt; t m a -&gt; t m b -&gt; t m c
+</span><a href="Streamly.Internal.Data.Stream.Zip.html#zipWith"><span class="hs-identifier hs-var">zipWith</span></a></span><span> </span><span class="annot"><span class="annottext">(a -&gt; b) -&gt; a -&gt; b
+forall a. a -&gt; a
+</span><span class="hs-identifier hs-var">id</span></span></span><span>
+</span><span id="line-198"></span><span>
+</span><span id="line-199"></span><span id="local-6989586621679385185"><span id="local-6989586621679385166"><span id="local-6989586621679385168"><span id="local-6989586621679385170"><span id="local-6989586621679385172"><span id="local-6989586621679385175"><span id="local-6989586621679385177"><span id="local-6989586621679385180"><span id="local-6989586621679385183"></span></span></span></span></span></span></span></span><span class="hs-identifier">FOLDABLE_INSTANCE</span><span class="hs-special">(</span><span class="hs-identifier">ZipSerialM</span><span class="hs-special">)</span></span><span>
+</span><span id="line-200"></span><span id="local-6989586621679385105"><span id="local-6989586621679385107"><span id="local-6989586621679385109"></span></span></span><span class="hs-identifier">TRAVERSABLE_INSTANCE</span><span class="hs-special">(</span><span class="hs-identifier">ZipSerialM</span><span class="hs-special">)</span><span>
+</span><span id="line-201"></span><span>
+</span><span id="line-202"></span><span class="hs-comment">------------------------------------------------------------------------------</span><span>
+</span><span id="line-203"></span><span class="hs-comment">-- Parallely Zipping Streams</span><span>
+</span><span id="line-204"></span><span class="hs-comment">------------------------------------------------------------------------------</span><span>
+</span><span id="line-205"></span><span class="hs-comment">--</span><span>
+</span><span id="line-206"></span><span class="hs-comment">-- | Like 'ZipSerialM' but zips in parallel, it generates all the elements to</span><span>
+</span><span id="line-207"></span><span class="hs-comment">-- be zipped concurrently.</span><span>
+</span><span id="line-208"></span><span class="hs-comment">--</span><span>
+</span><span id="line-209"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-210"></span><span class="hs-comment">-- main = (toList . 'zipAsyncly' $ (,,) \&lt;$\&gt; s1 \&lt;*\&gt; s2 \&lt;*\&gt; s3) &gt;&gt;= print</span><span>
+</span><span id="line-211"></span><span class="hs-comment">--     where s1 = fromFoldable [1, 2]</span><span>
+</span><span id="line-212"></span><span class="hs-comment">--           s2 = fromFoldable [3, 4]</span><span>
+</span><span id="line-213"></span><span class="hs-comment">--           s3 = fromFoldable [5, 6]</span><span>
+</span><span id="line-214"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-215"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-216"></span><span class="hs-comment">-- [(1,3,5),(2,4,6)]</span><span>
+</span><span id="line-217"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-218"></span><span class="hs-comment">--</span><span>
+</span><span id="line-219"></span><span class="hs-comment">-- The 'Semigroup' instance of this type works the same way as that of</span><span>
+</span><span id="line-220"></span><span class="hs-comment">-- 'SerialT'.</span><span>
+</span><span id="line-221"></span><span class="hs-comment">--</span><span>
+</span><span id="line-222"></span><span class="hs-comment">-- /Since: 0.2.0 (&quot;Streamly&quot;)/</span><span>
+</span><span id="line-223"></span><span class="hs-comment">--</span><span>
+</span><span id="line-224"></span><span class="hs-comment">-- @since 0.8.0</span><span>
+</span><span id="line-225"></span><span class="hs-keyword">newtype</span><span> </span><span id="ZipAsyncM"><span class="annot"><a href="Streamly.Internal.Data.Stream.Zip.html#ZipAsyncM"><span class="hs-identifier hs-var">ZipAsyncM</span></a></span></span><span> </span><span id="local-6989586621679385095"><span class="annot"><a href="#local-6989586621679385095"><span class="hs-identifier hs-type">m</span></a></span></span><span> </span><span id="local-6989586621679385094"><span class="annot"><a href="#local-6989586621679385094"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="ZipAsyncM"><span class="annot"><a href="Streamly.Internal.Data.Stream.Zip.html#ZipAsyncM"><span class="hs-identifier hs-var">ZipAsyncM</span></a></span></span><span> </span><span class="hs-special">{</span><span id="getZipAsyncM"><span class="annot"><span class="annottext">ZipAsyncM m a -&gt; Stream m a
+</span><a href="Streamly.Internal.Data.Stream.Zip.html#getZipAsyncM"><span class="hs-identifier hs-var hs-var">getZipAsyncM</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.StreamK.Type.html#Stream"><span class="hs-identifier hs-type">Stream</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679385095"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679385094"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">}</span><span>
+</span><span id="line-226"></span><span>        </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span id="local-6989586621679385086"><span id="local-6989586621679385088"><span id="local-6989586621679385090"><span class="annot"><span class="annottext">b -&gt; ZipAsyncM m a -&gt; ZipAsyncM m a
+NonEmpty (ZipAsyncM m a) -&gt; ZipAsyncM m a
+ZipAsyncM m a -&gt; ZipAsyncM m a -&gt; ZipAsyncM m a
+(ZipAsyncM m a -&gt; ZipAsyncM m a -&gt; ZipAsyncM m a)
+-&gt; (NonEmpty (ZipAsyncM m a) -&gt; ZipAsyncM m a)
+-&gt; (forall b. Integral b =&gt; b -&gt; ZipAsyncM m a -&gt; ZipAsyncM m a)
+-&gt; Semigroup (ZipAsyncM m a)
+forall b. Integral b =&gt; b -&gt; ZipAsyncM m a -&gt; ZipAsyncM m a
+forall a.
+(a -&gt; a -&gt; a)
+-&gt; (NonEmpty a -&gt; a)
+-&gt; (forall b. Integral b =&gt; b -&gt; a -&gt; a)
+-&gt; Semigroup a
+forall (m :: * -&gt; *) a. NonEmpty (ZipAsyncM m a) -&gt; ZipAsyncM m a
+forall (m :: * -&gt; *) a.
+ZipAsyncM m a -&gt; ZipAsyncM m a -&gt; ZipAsyncM m a
+forall (m :: * -&gt; *) a b.
+Integral b =&gt;
+b -&gt; ZipAsyncM m a -&gt; ZipAsyncM m a
+stimes :: b -&gt; ZipAsyncM m a -&gt; ZipAsyncM m a
+$cstimes :: forall (m :: * -&gt; *) a b.
+Integral b =&gt;
+b -&gt; ZipAsyncM m a -&gt; ZipAsyncM m a
+sconcat :: NonEmpty (ZipAsyncM m a) -&gt; ZipAsyncM m a
+$csconcat :: forall (m :: * -&gt; *) a. NonEmpty (ZipAsyncM m a) -&gt; ZipAsyncM m a
+&lt;&gt; :: ZipAsyncM m a -&gt; ZipAsyncM m a -&gt; ZipAsyncM m a
+$c&lt;&gt; :: forall (m :: * -&gt; *) a.
+ZipAsyncM m a -&gt; ZipAsyncM m a -&gt; ZipAsyncM m a
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Semigroup</span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679385079"><span id="local-6989586621679385081"><span id="local-6989586621679385083"><span class="annot"><span class="annottext">Semigroup (ZipAsyncM m a)
+ZipAsyncM m a
+Semigroup (ZipAsyncM m a) =&gt;
+ZipAsyncM m a
+-&gt; (ZipAsyncM m a -&gt; ZipAsyncM m a -&gt; ZipAsyncM m a)
+-&gt; ([ZipAsyncM m a] -&gt; ZipAsyncM m a)
+-&gt; Monoid (ZipAsyncM m a)
+[ZipAsyncM m a] -&gt; ZipAsyncM m a
+ZipAsyncM m a -&gt; ZipAsyncM m a -&gt; ZipAsyncM m a
+forall a.
+Semigroup a =&gt;
+a -&gt; (a -&gt; a -&gt; a) -&gt; ([a] -&gt; a) -&gt; Monoid a
+forall (m :: * -&gt; *) a. Semigroup (ZipAsyncM m a)
+forall (m :: * -&gt; *) a. ZipAsyncM m a
+forall (m :: * -&gt; *) a. [ZipAsyncM m a] -&gt; ZipAsyncM m a
+forall (m :: * -&gt; *) a.
+ZipAsyncM m a -&gt; ZipAsyncM m a -&gt; ZipAsyncM m a
+mconcat :: [ZipAsyncM m a] -&gt; ZipAsyncM m a
+$cmconcat :: forall (m :: * -&gt; *) a. [ZipAsyncM m a] -&gt; ZipAsyncM m a
+mappend :: ZipAsyncM m a -&gt; ZipAsyncM m a -&gt; ZipAsyncM m a
+$cmappend :: forall (m :: * -&gt; *) a.
+ZipAsyncM m a -&gt; ZipAsyncM m a -&gt; ZipAsyncM m a
+mempty :: ZipAsyncM m a
+$cmempty :: forall (m :: * -&gt; *) a. ZipAsyncM m a
+$cp1Monoid :: forall (m :: * -&gt; *) a. Semigroup (ZipAsyncM m a)
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Monoid</span></span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-227"></span><span>
+</span><span id="line-228"></span><span class="hs-comment">-- | An IO stream whose applicative instance zips streams wAsyncly.</span><span>
+</span><span id="line-229"></span><span class="hs-comment">--</span><span>
+</span><span id="line-230"></span><span class="hs-comment">-- /Since: 0.2.0 (&quot;Streamly&quot;)/</span><span>
+</span><span id="line-231"></span><span class="hs-comment">--</span><span>
+</span><span id="line-232"></span><span class="hs-comment">-- @since 0.8.0</span><span>
+</span><span id="line-233"></span><span class="hs-keyword">type</span><span> </span><span id="ZipAsync"><span class="annot"><a href="Streamly.Internal.Data.Stream.Zip.html#ZipAsync"><span class="hs-identifier hs-var">ZipAsync</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Zip.html#ZipAsyncM"><span class="hs-identifier hs-type">ZipAsyncM</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span>
+</span><span id="line-234"></span><span>
+</span><span id="line-235"></span><span class="hs-comment">-- | Fix the type of a polymorphic stream as 'ZipAsyncM'.</span><span>
+</span><span id="line-236"></span><span class="hs-comment">--</span><span>
+</span><span id="line-237"></span><span class="hs-comment">-- /Since: 0.2.0 (&quot;Streamly&quot;)/</span><span>
+</span><span id="line-238"></span><span class="hs-comment">--</span><span>
+</span><span id="line-239"></span><span class="hs-comment">-- @since 0.8.0</span><span>
+</span><span id="line-240"></span><span id="local-6989586621679385446"><span id="local-6989586621679385447"><span id="local-6989586621679385448"><span class="annot"><a href="Streamly.Internal.Data.Stream.Zip.html#zipAsyncly"><span class="hs-identifier hs-type">zipAsyncly</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.StreamK.Type.html#IsStream"><span class="hs-identifier hs-type">IsStream</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679385448"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Zip.html#ZipAsyncM"><span class="hs-identifier hs-type">ZipAsyncM</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679385447"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679385446"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679385448"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679385447"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679385446"><span class="hs-identifier hs-type">a</span></a></span></span></span></span><span>
+</span><span id="line-241"></span><span id="zipAsyncly"><span class="annot"><span class="annottext">zipAsyncly :: ZipAsyncM m a -&gt; t m a
+</span><a href="Streamly.Internal.Data.Stream.Zip.html#zipAsyncly"><span class="hs-identifier hs-var hs-var">zipAsyncly</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ZipAsyncM m a -&gt; t m a
+forall (t1 :: (* -&gt; *) -&gt; * -&gt; *) (t2 :: (* -&gt; *) -&gt; * -&gt; *)
+       (m :: * -&gt; *) a.
+(IsStream t1, IsStream t2) =&gt;
+t1 m a -&gt; t2 m a
+</span><a href="Streamly.Internal.Data.Stream.StreamK.Type.html#adapt"><span class="hs-identifier hs-var">K.adapt</span></a></span><span>
+</span><span id="line-242"></span><span>
+</span><span id="line-243"></span><span class="hs-comment">-- | Same as 'zipAsyncly'.</span><span>
+</span><span id="line-244"></span><span class="hs-comment">--</span><span>
+</span><span id="line-245"></span><span class="hs-comment">-- @since 0.1.0</span><span>
+</span><span id="line-246"></span><span class="hs-pragma">{-# DEPRECATED</span><span> </span><span class="hs-pragma">zippingAsync</span><span> </span><span class="hs-pragma">&quot;Please use zipAsyncly instead.&quot;</span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-247"></span><span id="local-6989586621679385076"><span id="local-6989586621679385077"><span id="local-6989586621679385078"><span class="annot"><a href="Streamly.Internal.Data.Stream.Zip.html#zippingAsync"><span class="hs-identifier hs-type">zippingAsync</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.StreamK.Type.html#IsStream"><span class="hs-identifier hs-type">IsStream</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679385078"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Zip.html#ZipAsyncM"><span class="hs-identifier hs-type">ZipAsyncM</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679385077"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679385076"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679385078"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679385077"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679385076"><span class="hs-identifier hs-type">a</span></a></span></span></span></span><span>
+</span><span id="line-248"></span><span id="zippingAsync"><span class="annot"><span class="annottext">zippingAsync :: ZipAsyncM m a -&gt; t m a
+</span><a href="Streamly.Internal.Data.Stream.Zip.html#zippingAsync"><span class="hs-identifier hs-var hs-var">zippingAsync</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ZipAsyncM m a -&gt; t m a
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) (m :: * -&gt; *) a.
+IsStream t =&gt;
+ZipAsyncM m a -&gt; t m a
+</span><a href="Streamly.Internal.Data.Stream.Zip.html#zipAsyncly"><span class="hs-identifier hs-var">zipAsyncly</span></a></span><span>
+</span><span id="line-249"></span><span>
+</span><span id="line-250"></span><span id="local-6989586621679385436"><span id="local-6989586621679385437"><span class="annot"><a href="Streamly.Internal.Data.Stream.Zip.html#consMZipAsync"><span class="hs-identifier hs-type">consMZipAsync</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Monad</span></span><span> </span><span class="annot"><a href="#local-6989586621679385437"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679385437"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679385436"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Zip.html#ZipAsyncM"><span class="hs-identifier hs-type">ZipAsyncM</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679385437"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679385436"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Zip.html#ZipAsyncM"><span class="hs-identifier hs-type">ZipAsyncM</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679385437"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679385436"><span class="hs-identifier hs-type">a</span></a></span></span></span><span>
+</span><span id="line-251"></span><span id="consMZipAsync"><span class="annot"><span class="annottext">consMZipAsync :: m a -&gt; ZipAsyncM m a -&gt; ZipAsyncM m a
+</span><a href="Streamly.Internal.Data.Stream.Zip.html#consMZipAsync"><span class="hs-identifier hs-var hs-var">consMZipAsync</span></a></span></span><span> </span><span id="local-6989586621679385074"><span class="annot"><span class="annottext">m :: m a
+</span><a href="#local-6989586621679385074"><span class="hs-identifier hs-var">m</span></a></span></span><span> </span><span id="local-6989586621679385073"><span class="annot"><span class="annottext">ms :: ZipAsyncM m a
+</span><a href="#local-6989586621679385073"><span class="hs-identifier hs-var">ms</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Stream m a -&gt; ZipAsyncM m a
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) (m :: * -&gt; *) a.
+IsStream t =&gt;
+Stream m a -&gt; t m a
+</span><a href="Streamly.Internal.Data.Stream.StreamK.Type.html#fromStream"><span class="hs-identifier hs-var">fromStream</span></a></span><span> </span><span class="annot"><span class="annottext">(Stream m a -&gt; ZipAsyncM m a) -&gt; Stream m a -&gt; ZipAsyncM m a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">m a -&gt; Stream m a -&gt; Stream m a
+forall (m :: * -&gt; *) a. Monad m =&gt; m a -&gt; Stream m a -&gt; Stream m a
+</span><a href="Streamly.Internal.Data.Stream.StreamK.Type.html#consMStream"><span class="hs-identifier hs-var">K.consMStream</span></a></span><span> </span><span class="annot"><span class="annottext">m a
+</span><a href="#local-6989586621679385074"><span class="hs-identifier hs-var">m</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ZipAsyncM m a -&gt; Stream m a
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) (m :: * -&gt; *) a.
+IsStream t =&gt;
+t m a -&gt; Stream m a
+</span><a href="Streamly.Internal.Data.Stream.StreamK.Type.html#toStream"><span class="hs-identifier hs-var">toStream</span></a></span><span> </span><span class="annot"><span class="annottext">ZipAsyncM m a
+</span><a href="#local-6989586621679385073"><span class="hs-identifier hs-var">ms</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-252"></span><span>
+</span><span id="line-253"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.StreamK.Type.html#IsStream"><span class="hs-identifier hs-type">IsStream</span></a></span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Zip.html#ZipAsyncM"><span class="hs-identifier hs-type">ZipAsyncM</span></a></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-254"></span><span>    </span><span id="local-6989586621679385064"><span class="annot"><span class="annottext">toStream :: ZipAsyncM m a -&gt; Stream m a
+</span><a href="#local-6989586621679385064"><span class="hs-identifier hs-var hs-var hs-var hs-var">toStream</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ZipAsyncM m a -&gt; Stream m a
+forall (m :: * -&gt; *) a. ZipAsyncM m a -&gt; Stream m a
+</span><a href="Streamly.Internal.Data.Stream.Zip.html#getZipAsyncM"><span class="hs-identifier hs-var hs-var">getZipAsyncM</span></a></span><span>
+</span><span id="line-255"></span><span>    </span><span id="local-6989586621679385063"><span class="annot"><span class="annottext">fromStream :: Stream m a -&gt; ZipAsyncM m a
+</span><a href="#local-6989586621679385063"><span class="hs-identifier hs-var hs-var hs-var hs-var">fromStream</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Stream m a -&gt; ZipAsyncM m a
+forall (m :: * -&gt; *) a. Stream m a -&gt; ZipAsyncM m a
+</span><a href="Streamly.Internal.Data.Stream.Zip.html#ZipAsyncM"><span class="hs-identifier hs-var">ZipAsyncM</span></a></span><span>
+</span><span id="line-256"></span><span>
+</span><span id="line-257"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.StreamK.Type.html#consM"><span class="hs-pragma hs-type">consM</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-258"></span><span>    </span><span id="local-6989586621679385062"><span class="hs-pragma">{-# SPECIALIZE</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.StreamK.Type.html#consM"><span class="hs-pragma hs-type">consM</span></a></span><span> </span><span class="hs-pragma">::</span><span> </span><span class="annot"><span class="hs-pragma hs-type">IO</span></span><span> </span><span class="annot"><a href="#local-6989586621679385062"><span class="hs-pragma hs-type">a</span></a></span><span> </span><span class="hs-pragma">-&gt;</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Zip.html#ZipAsyncM"><span class="hs-pragma hs-type">ZipAsyncM</span></a></span><span> </span><span class="annot"><span class="hs-pragma hs-type">IO</span></span><span> </span><span class="annot"><a href="#local-6989586621679385062"><span class="hs-pragma hs-type">a</span></a></span><span> </span><span class="hs-pragma">-&gt;</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Zip.html#ZipAsyncM"><span class="hs-pragma hs-type">ZipAsyncM</span></a></span><span> </span><span class="annot"><span class="hs-pragma hs-type">IO</span></span><span> </span><span class="annot"><a href="#local-6989586621679385062"><span class="hs-pragma hs-type">a</span></a></span><span> </span><span class="hs-pragma">#-}</span></span><span>
+</span><span id="line-259"></span><span>    </span><span id="local-6989586621679385060"><span id="local-6989586621679385061"><span class="annot"><a href="Streamly.Internal.Data.Stream.StreamK.Type.html#consM"><span class="hs-identifier hs-type">consM</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Monad</span></span><span> </span><span class="annot"><a href="#local-6989586621679385061"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679385061"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679385060"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Zip.html#ZipAsyncM"><span class="hs-identifier hs-type">ZipAsyncM</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679385061"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679385060"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Zip.html#ZipAsyncM"><span class="hs-identifier hs-type">ZipAsyncM</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679385061"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679385060"><span class="hs-identifier hs-type">a</span></a></span></span></span><span>
+</span><span id="line-260"></span><span>    </span><span id="local-6989586621679385059"><span class="annot"><span class="annottext">consM :: m a -&gt; ZipAsyncM m a -&gt; ZipAsyncM m a
+</span><a href="#local-6989586621679385059"><span class="hs-identifier hs-var hs-var hs-var hs-var">consM</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">m a -&gt; ZipAsyncM m a -&gt; ZipAsyncM m a
+forall (m :: * -&gt; *) a.
+Monad m =&gt;
+m a -&gt; ZipAsyncM m a -&gt; ZipAsyncM m a
+</span><a href="Streamly.Internal.Data.Stream.Zip.html#consMZipAsync"><span class="hs-identifier hs-var">consMZipAsync</span></a></span><span>
+</span><span id="line-261"></span><span>
+</span><span id="line-262"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="hs-pragma">(</span><span class="hs-pragma">|:</span><span class="hs-pragma">)</span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-263"></span><span>    </span><span id="local-6989586621679385058"><span class="hs-pragma">{-# SPECIALIZE</span><span> </span><span class="hs-pragma">(</span><span class="hs-pragma">|:</span><span class="hs-pragma">)</span><span> </span><span class="hs-pragma">::</span><span> </span><span class="annot"><span class="hs-pragma hs-type">IO</span></span><span> </span><span class="annot"><a href="#local-6989586621679385058"><span class="hs-pragma hs-type">a</span></a></span><span> </span><span class="hs-pragma">-&gt;</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Zip.html#ZipAsyncM"><span class="hs-pragma hs-type">ZipAsyncM</span></a></span><span> </span><span class="annot"><span class="hs-pragma hs-type">IO</span></span><span> </span><span class="annot"><a href="#local-6989586621679385058"><span class="hs-pragma hs-type">a</span></a></span><span> </span><span class="hs-pragma">-&gt;</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Zip.html#ZipAsyncM"><span class="hs-pragma hs-type">ZipAsyncM</span></a></span><span> </span><span class="annot"><span class="hs-pragma hs-type">IO</span></span><span> </span><span class="annot"><a href="#local-6989586621679385058"><span class="hs-pragma hs-type">a</span></a></span><span> </span><span class="hs-pragma">#-}</span></span><span>
+</span><span id="line-264"></span><span>    </span><span id="local-6989586621679385056"><span id="local-6989586621679385057"><span class="annot"><a href="Streamly.Internal.Data.Stream.StreamK.Type.html#%7C%3A"><span class="hs-operator hs-type">(|:)</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Monad</span></span><span> </span><span class="annot"><a href="#local-6989586621679385057"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679385057"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679385056"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Zip.html#ZipAsyncM"><span class="hs-identifier hs-type">ZipAsyncM</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679385057"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679385056"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Stream.Zip.html#ZipAsyncM"><span class="hs-identifier hs-type">ZipAsyncM</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679385057"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679385056"><span class="hs-identifier hs-type">a</span></a></span></span></span><span>
+</span><span id="line-265"></span><span>    </span><span id="local-6989586621679385055"><span class="annot"><span class="annottext">|: :: m a -&gt; ZipAsyncM m a -&gt; ZipAsyncM m a
+</span><a href="#local-6989586621679385055"><span class="hs-operator hs-var hs-var hs-var hs-var">(|:)</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">m a -&gt; ZipAsyncM m a -&gt; ZipAsyncM m a
+forall (m :: * -&gt; *) a.
+Monad m =&gt;
+m a -&gt; ZipAsyncM m a -&gt; ZipAsyncM m a
+</span><a href="Streamly.Internal.Data.Stream.Zip.html#consMZipAsync"><span class="hs-identifier hs-var">consMZipAsync</span></a></span><span>
+</span><span id="line-266"></span><span>
+</span><span id="line-267"></span><span id="local-6989586621679385054"><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679385051"><span class="annot"><span class="hs-identifier hs-type">Monad</span></span><span> </span><span class="annot"><a href="#local-6989586621679385054"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Functor</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.Stream.Zip.html#ZipAsyncM"><span class="hs-identifier hs-type">ZipAsyncM</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679385054"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-268"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><span class="hs-pragma hs-type">fmap</span></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-269"></span><span>    </span><span id="local-6989586621679385050"><span class="annot"><span class="annottext">fmap :: (a -&gt; b) -&gt; ZipAsyncM m a -&gt; ZipAsyncM m b
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">fmap</span></span></span><span> </span><span id="local-6989586621679385049"><span class="annot"><span class="annottext">f :: a -&gt; b
+</span><a href="#local-6989586621679385049"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.Stream.Zip.html#ZipAsyncM"><span class="hs-identifier hs-type">ZipAsyncM</span></a></span><span> </span><span id="local-6989586621679385048"><span class="annot"><span class="annottext">m :: Stream m a
+</span><a href="#local-6989586621679385048"><span class="hs-identifier hs-var">m</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Stream m b -&gt; ZipAsyncM m b
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) (m :: * -&gt; *) a.
+(IsStream t, Monad m) =&gt;
+Stream m a -&gt; t m a
+</span><a href="Streamly.Internal.Data.Stream.StreamD.Type.html#fromStreamD"><span class="hs-identifier hs-var">D.fromStreamD</span></a></span><span> </span><span class="annot"><span class="annottext">(Stream m b -&gt; ZipAsyncM m b) -&gt; Stream m b -&gt; ZipAsyncM m b
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">(a -&gt; m b) -&gt; Stream m a -&gt; Stream m b
+forall (m :: * -&gt; *) a b.
+Monad m =&gt;
+(a -&gt; m b) -&gt; Stream m a -&gt; Stream m b
+</span><a href="Streamly.Internal.Data.Stream.StreamD.Type.html#mapM"><span class="hs-identifier hs-var">D.mapM</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">b -&gt; m b
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">(b -&gt; m b) -&gt; (a -&gt; b) -&gt; a -&gt; m b
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; b
+</span><a href="#local-6989586621679385049"><span class="hs-identifier hs-var">f</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(Stream m a -&gt; Stream m b) -&gt; Stream m a -&gt; Stream m b
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Stream m a -&gt; Stream m a
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) (m :: * -&gt; *) a.
+(IsStream t, Monad m) =&gt;
+t m a -&gt; Stream m a
+</span><a href="Streamly.Internal.Data.Stream.StreamD.Type.html#toStreamD"><span class="hs-identifier hs-var">D.toStreamD</span></a></span><span> </span><span class="annot"><span class="annottext">Stream m a
+</span><a href="#local-6989586621679385048"><span class="hs-identifier hs-var">m</span></a></span></span><span>
+</span><span id="line-270"></span><span>
+</span><span id="line-271"></span><span id="local-6989586621679385047"><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679385038"><span id="local-6989586621679385040"><span id="local-6989586621679385042"><span class="annot"><a href="Streamly.Internal.Data.SVar.html#MonadAsync"><span class="hs-identifier hs-type">MonadAsync</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679385047"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Applicative</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.Stream.Zip.html#ZipAsyncM"><span class="hs-identifier hs-type">ZipAsyncM</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679385047"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-272"></span><span>    </span><span id="local-6989586621679385037"><span class="annot"><span class="annottext">pure :: a -&gt; ZipAsyncM m a
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">pure</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Stream m a -&gt; ZipAsyncM m a
+forall (m :: * -&gt; *) a. Stream m a -&gt; ZipAsyncM m a
+</span><a href="Streamly.Internal.Data.Stream.Zip.html#ZipAsyncM"><span class="hs-identifier hs-var">ZipAsyncM</span></a></span><span> </span><span class="annot"><span class="annottext">(Stream m a -&gt; ZipAsyncM m a)
+-&gt; (a -&gt; Stream m a) -&gt; a -&gt; ZipAsyncM m a
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; Stream m a
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) a (m :: * -&gt; *).
+IsStream t =&gt;
+a -&gt; t m a
+</span><a href="Streamly.Internal.Data.Stream.StreamK.html#repeat"><span class="hs-identifier hs-var">K.repeat</span></a></span><span>
+</span><span id="line-273"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="hs-pragma">(</span><span class="hs-pragma">&lt;*&gt;</span><span class="hs-pragma">)</span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-274"></span><span>    </span><span id="local-6989586621679385036"><span class="annot"><span class="annottext">m1 :: ZipAsyncM m (a -&gt; b)
+</span><a href="#local-6989586621679385036"><span class="hs-identifier hs-var">m1</span></a></span></span><span> </span><span id="local-6989586621679385035"><span class="annot"><span class="annottext">&lt;*&gt; :: ZipAsyncM m (a -&gt; b) -&gt; ZipAsyncM m a -&gt; ZipAsyncM m b
+</span><span class="hs-operator hs-var hs-var hs-var hs-var">&lt;*&gt;</span></span></span><span> </span><span id="local-6989586621679385034"><span class="annot"><span class="annottext">m2 :: ZipAsyncM m a
+</span><a href="#local-6989586621679385034"><span class="hs-identifier hs-var">m2</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">((a -&gt; b) -&gt; a -&gt; b)
+-&gt; ZipAsyncM m (a -&gt; b) -&gt; ZipAsyncM m a -&gt; ZipAsyncM m b
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) (m :: * -&gt; *) a b c.
+(IsStream t, MonadAsync m) =&gt;
+(a -&gt; b -&gt; c) -&gt; t m a -&gt; t m b -&gt; t m c
+</span><a href="Streamly.Internal.Data.Stream.Zip.html#zipAsyncWith"><span class="hs-identifier hs-var">zipAsyncWith</span></a></span><span> </span><span class="annot"><span class="annottext">(a -&gt; b) -&gt; a -&gt; b
+forall a. a -&gt; a
+</span><span class="hs-identifier hs-var">id</span></span><span> </span><span class="annot"><span class="annottext">ZipAsyncM m (a -&gt; b)
+</span><a href="#local-6989586621679385036"><span class="hs-identifier hs-var">m1</span></a></span><span> </span><span class="annot"><span class="annottext">ZipAsyncM m a
+</span><a href="#local-6989586621679385034"><span class="hs-identifier hs-var">m2</span></a></span></span><span>
+</span><span id="line-275"></span></pre></body></html>

@@ -1,0 +1,63 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-cpp">#include &quot;inline.hs&quot;
+</span><span>
+</span><span id="line-3"></span><span class="hs-comment">-- |</span><span>
+</span><span id="line-4"></span><span class="hs-comment">-- Module      : Streamly.Data.Unfold</span><span>
+</span><span id="line-5"></span><span class="hs-comment">-- Copyright   : (c) 2019 Composewell Technologies</span><span>
+</span><span id="line-6"></span><span class="hs-comment">-- License     : BSD3</span><span>
+</span><span id="line-7"></span><span class="hs-comment">-- Maintainer  : streamly@composewell.com</span><span>
+</span><span id="line-8"></span><span class="hs-comment">-- Stability   : experimental</span><span>
+</span><span id="line-9"></span><span class="hs-comment">-- Portability : GHC</span><span>
+</span><span id="line-10"></span><span class="hs-comment">--</span><span>
+</span><span id="line-11"></span><span class="hs-comment">-- 'Unfold' type represents an effectful action that generates a stream of</span><span>
+</span><span id="line-12"></span><span class="hs-comment">-- values from a single starting value often called a seed value. Values can be</span><span>
+</span><span id="line-13"></span><span class="hs-comment">-- generated and /pulled/ from the 'Unfold' one at a time. It can also be</span><span>
+</span><span id="line-14"></span><span class="hs-comment">-- called a producer or a source of stream.  It is a data representation of the</span><span>
+</span><span id="line-15"></span><span class="hs-comment">-- standard 'Streamly.Prelude.unfoldr' function.  An 'Unfold' can be converted</span><span>
+</span><span id="line-16"></span><span class="hs-comment">-- into a stream type using 'Streamly.Prelude.unfold' by supplying the seed.</span><span>
+</span><span id="line-17"></span><span class="hs-comment">--</span><span>
+</span><span id="line-18"></span><span class="hs-comment">-- = Performance Notes</span><span>
+</span><span id="line-19"></span><span class="hs-comment">--</span><span>
+</span><span id="line-20"></span><span class="hs-comment">-- 'Unfold' representation is more efficient than using streams when combining</span><span>
+</span><span id="line-21"></span><span class="hs-comment">-- streams.  'Unfold' type allows multiple unfold actions to be composed into a</span><span>
+</span><span id="line-22"></span><span class="hs-comment">-- single unfold function in an efficient manner by enabling the compiler to</span><span>
+</span><span id="line-23"></span><span class="hs-comment">-- perform stream fusion optimization.</span><span>
+</span><span id="line-24"></span><span class="hs-comment">-- @Unfold m a b@ can be considered roughly equivalent to an action @a -&gt; t m</span><span>
+</span><span id="line-25"></span><span class="hs-comment">-- b@ (where @t@ is a stream type). Instead of using an 'Unfold' one could just</span><span>
+</span><span id="line-26"></span><span class="hs-comment">-- use a function of the shape @a -&gt; t m b@. However, working with stream types</span><span>
+</span><span id="line-27"></span><span class="hs-comment">-- like t'Streamly.SerialT' does not allow the compiler to perform stream fusion</span><span>
+</span><span id="line-28"></span><span class="hs-comment">-- optimization when merging, appending or concatenating multiple streams.</span><span>
+</span><span id="line-29"></span><span class="hs-comment">-- Even though stream based combinator have excellent performance, they are</span><span>
+</span><span id="line-30"></span><span class="hs-comment">-- much less efficient when compared to combinators using 'Unfold'.  For</span><span>
+</span><span id="line-31"></span><span class="hs-comment">-- example, the 'Streamly.Prelude.concatMap' combinator which uses @a -&gt; t m b@</span><span>
+</span><span id="line-32"></span><span class="hs-comment">-- (where @t@ is a stream type) to generate streams is much less efficient</span><span>
+</span><span id="line-33"></span><span class="hs-comment">-- compared to 'Streamly.Prelude.concatUnfold'.</span><span>
+</span><span id="line-34"></span><span class="hs-comment">--</span><span>
+</span><span id="line-35"></span><span class="hs-comment">-- On the other hand, transformation operations on stream types are as</span><span>
+</span><span id="line-36"></span><span class="hs-comment">-- efficient as transformations on 'Unfold'.</span><span>
+</span><span id="line-37"></span><span class="hs-comment">--</span><span>
+</span><span id="line-38"></span><span class="hs-comment">-- We should note that in some cases working with stream types may be more</span><span>
+</span><span id="line-39"></span><span class="hs-comment">-- convenient compared to working with the 'Unfold' type.  However, if extra</span><span>
+</span><span id="line-40"></span><span class="hs-comment">-- performance boost is important then 'Unfold' based composition should be</span><span>
+</span><span id="line-41"></span><span class="hs-comment">-- preferred compared to stream based composition when merging or concatenating</span><span>
+</span><span id="line-42"></span><span class="hs-comment">-- streams.</span><span>
+</span><span id="line-43"></span><span class="hs-comment">--</span><span>
+</span><span id="line-44"></span><span class="hs-comment">-- = Programmer Notes</span><span>
+</span><span id="line-45"></span><span class="hs-comment">--</span><span>
+</span><span id="line-46"></span><span class="hs-comment">-- &gt; import qualified Streamly.Data.Unfold as UF</span><span>
+</span><span id="line-47"></span><span class="hs-comment">--</span><span>
+</span><span id="line-48"></span><span class="hs-comment">-- More, not yet exposed, unfold combinators can be found in</span><span>
+</span><span id="line-49"></span><span class="hs-comment">-- &quot;Streamly.Internal.Data.Unfold&quot;.</span><span>
+</span><span id="line-50"></span><span>
+</span><span id="line-51"></span><span class="hs-comment">-- The stream types (e.g. t'Streamly.SerialT') can be considered as a special</span><span>
+</span><span id="line-52"></span><span class="hs-comment">-- case of 'Unfold' with no starting seed.</span><span>
+</span><span id="line-53"></span><span class="hs-comment">--</span><span>
+</span><span id="line-54"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Streamly.Data.Unfold</span><span>
+</span><span id="line-55"></span><span>    </span><span class="hs-special">(</span><span>
+</span><span id="line-56"></span><span>    </span><span class="annot"><span class="hs-comment">-- * Unfold Type</span></span><span>
+</span><span id="line-57"></span><span>      </span><span class="annot"><a href="Streamly.Internal.Data.Unfold.Types.html#Unfold"><span class="hs-identifier">Unfold</span></a></span><span>
+</span><span id="line-58"></span><span>    </span><span class="hs-special">)</span><span>
+</span><span id="line-59"></span><span class="hs-keyword">where</span><span>
+</span><span id="line-60"></span><span>
+</span><span id="line-61"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Prelude</span></span><span> </span><span class="hs-keyword">hiding</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">concat</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">map</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">takeWhile</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">take</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">filter</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">const</span></span><span class="hs-special">)</span><span>
+</span><span id="line-62"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Unfold.html"><span class="hs-identifier">Streamly.Internal.Data.Unfold</span></a></span><span>
+</span><span id="line-63"></span></pre></body></html>

@@ -1,0 +1,68 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-comment">-- |</span><span>
+</span><span id="line-2"></span><span class="hs-comment">-- Module      : Streamly.Internal.Data.Cont</span><span>
+</span><span id="line-3"></span><span class="hs-comment">-- Copyright   : (c) 2020 Composewell Technologies</span><span>
+</span><span id="line-4"></span><span class="hs-comment">-- License     : BSD-3-Clause</span><span>
+</span><span id="line-5"></span><span class="hs-comment">-- Maintainer  : streamly@composewell.com</span><span>
+</span><span id="line-6"></span><span class="hs-comment">-- Stability   : experimental</span><span>
+</span><span id="line-7"></span><span class="hs-comment">-- Portability : GHC</span><span>
+</span><span id="line-8"></span><span class="hs-comment">--</span><span>
+</span><span id="line-9"></span><span class="hs-comment">-- Continuation style utilities.</span><span>
+</span><span id="line-10"></span><span class="hs-comment">--</span><span>
+</span><span id="line-11"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Streamly.Internal.Data.Cont</span><span>
+</span><span id="line-12"></span><span>    </span><span class="hs-special">(</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Cont.html#contListMap"><span class="hs-identifier">contListMap</span></a></span><span>
+</span><span id="line-13"></span><span>    </span><span class="hs-special">)</span><span>
+</span><span id="line-14"></span><span class="hs-keyword">where</span><span>
+</span><span id="line-15"></span><span>
+</span><span id="line-16"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad.Cont</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">runCont</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">cont</span></span><span class="hs-special">)</span><span>
+</span><span id="line-17"></span><span>
+</span><span id="line-18"></span><span class="hs-comment">-- | Given a continuation based transformation from @a@ to @b@ and a</span><span>
+</span><span id="line-19"></span><span class="hs-comment">-- continuation based transformation from @[b]@ to @c@, make continuation based</span><span>
+</span><span id="line-20"></span><span class="hs-comment">-- transformation from @[a]@ to @c@.</span><span>
+</span><span id="line-21"></span><span class="hs-comment">--</span><span>
+</span><span id="line-22"></span><span class="hs-comment">-- /Internal/</span><span>
+</span><span id="line-23"></span><span>
+</span><span id="line-24"></span><span class="hs-comment">-- You can read the definition as:</span><span>
+</span><span id="line-25"></span><span class="hs-comment">--</span><span>
+</span><span id="line-26"></span><span class="hs-comment">-- &gt; contListMap f g = \xs final -&gt;</span><span>
+</span><span id="line-27"></span><span class="hs-comment">--</span><span>
+</span><span id="line-28"></span><span id="local-6989586621679358644"><span id="local-6989586621679358645"><span id="local-6989586621679358646"><span id="local-6989586621679358647"><span class="annot"><a href="Streamly.Internal.Data.Cont.html#contListMap"><span class="hs-identifier hs-type">contListMap</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-29"></span><span>       </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679358647"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679358646"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679358645"><span class="hs-identifier hs-type">r</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679358645"><span class="hs-identifier hs-type">r</span></a></span><span class="hs-special">)</span><span>      </span><span class="hs-comment">-- transform a -&gt; b</span><span>
+</span><span id="line-30"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="hs-special">[</span><span class="annot"><a href="#local-6989586621679358646"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679358644"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679358645"><span class="hs-identifier hs-type">r</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679358645"><span class="hs-identifier hs-type">r</span></a></span><span class="hs-special">)</span><span>    </span><span class="hs-comment">-- transform [b] -&gt; c</span><span>
+</span><span id="line-31"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="hs-special">[</span><span class="annot"><a href="#local-6989586621679358647"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679358644"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679358645"><span class="hs-identifier hs-type">r</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679358645"><span class="hs-identifier hs-type">r</span></a></span><span class="hs-special">)</span></span></span></span></span><span>    </span><span class="hs-comment">-- transform [a] -&gt; c</span><span>
+</span><span id="line-32"></span><span id="contListMap"><span class="annot"><span class="annottext">contListMap :: (a -&gt; (b -&gt; r) -&gt; r)
+-&gt; ([b] -&gt; (c -&gt; r) -&gt; r) -&gt; [a] -&gt; (c -&gt; r) -&gt; r
+</span><a href="Streamly.Internal.Data.Cont.html#contListMap"><span class="hs-identifier hs-var hs-var">contListMap</span></a></span></span><span> </span><span id="local-6989586621679358643"><span class="annot"><span class="annottext">f :: a -&gt; (b -&gt; r) -&gt; r
+</span><a href="#local-6989586621679358643"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span id="local-6989586621679358642"><span class="annot"><span class="annottext">g :: [b] -&gt; (c -&gt; r) -&gt; r
+</span><a href="#local-6989586621679358642"><span class="hs-identifier hs-var">g</span></a></span></span><span> </span><span id="local-6989586621679358641"><span class="annot"><span class="annottext">xs :: [a]
+</span><a href="#local-6989586621679358641"><span class="hs-identifier hs-var">xs</span></a></span></span><span> </span><span id="local-6989586621679358640"><span class="annot"><span class="annottext">final :: c -&gt; r
+</span><a href="#local-6989586621679358640"><span class="hs-identifier hs-var">final</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-33"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679358639"><span class="annot"><span class="annottext">bconts :: [Cont r b]
+</span><a href="#local-6989586621679358639"><span class="hs-identifier hs-var hs-var">bconts</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(a -&gt; Cont r b) -&gt; [a] -&gt; [Cont r b]
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">((b -&gt; r) -&gt; r) -&gt; Cont r b
+forall a r. ((a -&gt; r) -&gt; r) -&gt; Cont r a
+</span><span class="hs-identifier hs-var">cont</span></span><span> </span><span class="annot"><span class="annottext">(((b -&gt; r) -&gt; r) -&gt; Cont r b)
+-&gt; (a -&gt; (b -&gt; r) -&gt; r) -&gt; a -&gt; Cont r b
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; (b -&gt; r) -&gt; r
+</span><a href="#local-6989586621679358643"><span class="hs-identifier hs-var">f</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">[a]
+</span><a href="#local-6989586621679358641"><span class="hs-identifier hs-var">xs</span></a></span><span>  </span><span class="hs-comment">-- [Cont b]</span><span>
+</span><span id="line-34"></span><span>        </span><span id="local-6989586621679358637"><span class="annot"><span class="annottext">blistCont :: ContT r Identity [b]
+</span><a href="#local-6989586621679358637"><span class="hs-identifier hs-var hs-var">blistCont</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[Cont r b] -&gt; ContT r Identity [b]
+forall (t :: * -&gt; *) (m :: * -&gt; *) a.
+(Traversable t, Monad m) =&gt;
+t (m a) -&gt; m (t a)
+</span><span class="hs-identifier hs-var">sequence</span></span><span> </span><span class="annot"><span class="annottext">[Cont r b]
+</span><a href="#local-6989586621679358639"><span class="hs-identifier hs-var">bconts</span></a></span><span>  </span><span class="hs-comment">-- Cont [b]</span><span>
+</span><span id="line-35"></span><span>        </span><span id="local-6989586621679358635"><span class="annot"><span class="annottext">k :: [b] -&gt; r
+</span><a href="#local-6989586621679358635"><span class="hs-identifier hs-var hs-var">k</span></a></span></span><span> </span><span id="local-6989586621679358634"><span class="annot"><span class="annottext">ys :: [b]
+</span><a href="#local-6989586621679358634"><span class="hs-identifier hs-var">ys</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[b] -&gt; (c -&gt; r) -&gt; r
+</span><a href="#local-6989586621679358642"><span class="hs-identifier hs-var">g</span></a></span><span> </span><span class="annot"><span class="annottext">[b]
+</span><a href="#local-6989586621679358634"><span class="hs-identifier hs-var">ys</span></a></span><span> </span><span class="annot"><span class="annottext">c -&gt; r
+</span><a href="#local-6989586621679358640"><span class="hs-identifier hs-var">final</span></a></span><span>            </span><span class="hs-comment">-- [b] -&gt; r</span><span>
+</span><span id="line-36"></span><span>     </span><span class="hs-keyword">in</span><span> </span><span class="annot"><span class="annottext">ContT r Identity [b] -&gt; ([b] -&gt; r) -&gt; r
+forall r a. Cont r a -&gt; (a -&gt; r) -&gt; r
+</span><span class="hs-identifier hs-var">runCont</span></span><span> </span><span class="annot"><span class="annottext">ContT r Identity [b]
+</span><a href="#local-6989586621679358637"><span class="hs-identifier hs-var">blistCont</span></a></span><span> </span><span class="annot"><span class="annottext">[b] -&gt; r
+</span><a href="#local-6989586621679358635"><span class="hs-identifier hs-var">k</span></a></span><span>          </span><span class="hs-comment">-- r</span><span>
+</span><span id="line-37"></span></pre></body></html>

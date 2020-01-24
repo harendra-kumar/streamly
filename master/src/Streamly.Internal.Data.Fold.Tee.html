@@ -1,0 +1,107 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-comment">-- |</span><span>
+</span><span id="line-2"></span><span class="hs-comment">-- Module      : Streamly.Internal.Data.Fold.Tee</span><span>
+</span><span id="line-3"></span><span class="hs-comment">-- Copyright   : (c) 2020 Composewell Technologies</span><span>
+</span><span id="line-4"></span><span class="hs-comment">-- License     : BSD-3-Clause</span><span>
+</span><span id="line-5"></span><span class="hs-comment">-- Maintainer  : streamly@composewell.com</span><span>
+</span><span id="line-6"></span><span class="hs-comment">-- Stability   : experimental</span><span>
+</span><span id="line-7"></span><span class="hs-comment">-- Portability : GHC</span><span>
+</span><span id="line-8"></span><span class="hs-comment">--</span><span>
+</span><span id="line-9"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Streamly.Internal.Data.Fold.Tee</span><span>
+</span><span id="line-10"></span><span>    </span><span class="hs-special">(</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Fold.Tee.html#Tee"><span class="hs-identifier">Tee</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-11"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Fold.Tee.html#fromFold"><span class="hs-identifier">fromFold</span></a></span><span>
+</span><span id="line-12"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Fold.Tee.html#toFold"><span class="hs-identifier">toFold</span></a></span><span>
+</span><span id="line-13"></span><span>    </span><span class="hs-special">)</span><span>
+</span><span id="line-14"></span><span class="hs-keyword">where</span><span>
+</span><span id="line-15"></span><span>
+</span><span id="line-16"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Coerce</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">coerce</span></span><span class="hs-special">)</span><span>
+</span><span id="line-17"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Fold.Types.html"><span class="hs-identifier">Streamly.Internal.Data.Fold.Types</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.Fold.Types.html#Fold"><span class="hs-identifier">Fold</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-18"></span><span>
+</span><span id="line-19"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Fold.Types.html"><span class="hs-identifier">Streamly.Internal.Data.Fold.Types</span></a></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Fold</span></span><span>
+</span><span id="line-20"></span><span>
+</span><span id="line-21"></span><span class="hs-comment">-- | The type @Tee m a b@ represents a left fold over an input stream of values</span><span>
+</span><span id="line-22"></span><span class="hs-comment">-- of type @a@ to a single value of type @b@ in 'Monad' @m@.</span><span>
+</span><span id="line-23"></span><span class="hs-comment">--</span><span>
+</span><span id="line-24"></span><span class="hs-comment">-- @Tee@ is a wrapper over 'Fold' that uses 'teeWith' to define the applicative</span><span>
+</span><span id="line-25"></span><span class="hs-comment">-- instance.</span><span>
+</span><span id="line-26"></span><span class="hs-comment">--</span><span>
+</span><span id="line-27"></span><span class="hs-comment">-- /Internal/</span><span>
+</span><span id="line-28"></span><span class="hs-keyword">newtype</span><span> </span><span id="Tee"><span class="annot"><a href="Streamly.Internal.Data.Fold.Tee.html#Tee"><span class="hs-identifier hs-var">Tee</span></a></span></span><span> </span><span id="local-6989586621679367479"><span class="annot"><a href="#local-6989586621679367479"><span class="hs-identifier hs-type">m</span></a></span></span><span> </span><span id="local-6989586621679367478"><span class="annot"><a href="#local-6989586621679367478"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span id="local-6989586621679367477"><span class="annot"><a href="#local-6989586621679367477"><span class="hs-identifier hs-type">b</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-29"></span><span>    </span><span id="Tee"><span class="annot"><a href="Streamly.Internal.Data.Fold.Tee.html#Tee"><span class="hs-identifier hs-var">Tee</span></a></span></span><span> </span><span class="hs-special">{</span><span> </span><span id="runTee"><span class="annot"><span class="annottext">Tee m a b -&gt; Fold m a b
+</span><a href="Streamly.Internal.Data.Fold.Tee.html#runTee"><span class="hs-identifier hs-var hs-var">runTee</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Fold.Types.html#Fold"><span class="hs-identifier hs-type">Fold</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679367479"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679367478"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679367477"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-special">}</span><span>
+</span><span id="line-30"></span><span>    </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span id="local-6989586621679367471"><span id="local-6989586621679367473"><span class="annot"><span class="annottext">a -&gt; Tee m a b -&gt; Tee m a a
+(a -&gt; b) -&gt; Tee m a a -&gt; Tee m a b
+(forall a b. (a -&gt; b) -&gt; Tee m a a -&gt; Tee m a b)
+-&gt; (forall a b. a -&gt; Tee m a b -&gt; Tee m a a) -&gt; Functor (Tee m a)
+forall a b. a -&gt; Tee m a b -&gt; Tee m a a
+forall a b. (a -&gt; b) -&gt; Tee m a a -&gt; Tee m a b
+forall (f :: * -&gt; *).
+(forall a b. (a -&gt; b) -&gt; f a -&gt; f b)
+-&gt; (forall a b. a -&gt; f b -&gt; f a) -&gt; Functor f
+forall (m :: * -&gt; *) a a b.
+Functor m =&gt;
+a -&gt; Tee m a b -&gt; Tee m a a
+forall (m :: * -&gt; *) a a b.
+Functor m =&gt;
+(a -&gt; b) -&gt; Tee m a a -&gt; Tee m a b
+&lt;$ :: a -&gt; Tee m a b -&gt; Tee m a a
+$c&lt;$ :: forall (m :: * -&gt; *) a a b.
+Functor m =&gt;
+a -&gt; Tee m a b -&gt; Tee m a a
+fmap :: (a -&gt; b) -&gt; Tee m a a -&gt; Tee m a b
+$cfmap :: forall (m :: * -&gt; *) a a b.
+Functor m =&gt;
+(a -&gt; b) -&gt; Tee m a a -&gt; Tee m a b
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Functor</span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-31"></span><span>
+</span><span id="line-32"></span><span class="hs-comment">-- | Convert a 'Tee' to 'Fold'.</span><span>
+</span><span id="line-33"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Fold.Tee.html#toFold"><span class="hs-pragma hs-type">toFold</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-34"></span><span id="local-6989586621679367482"><span id="local-6989586621679367483"><span id="local-6989586621679367484"><span class="annot"><a href="Streamly.Internal.Data.Fold.Tee.html#toFold"><span class="hs-identifier hs-type">toFold</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Fold.Tee.html#Tee"><span class="hs-identifier hs-type">Tee</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679367484"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679367483"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679367482"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Fold.Types.html#Fold"><span class="hs-identifier hs-type">Fold</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679367484"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679367483"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679367482"><span class="hs-identifier hs-type">b</span></a></span></span></span></span><span>
+</span><span id="line-35"></span><span id="toFold"><span class="annot"><span class="annottext">toFold :: Tee m a b -&gt; Fold m a b
+</span><a href="Streamly.Internal.Data.Fold.Tee.html#toFold"><span class="hs-identifier hs-var hs-var">toFold</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Tee m a b -&gt; Fold m a b
+forall a b. Coercible a b =&gt; a -&gt; b
+</span><span class="hs-identifier hs-var">coerce</span></span><span>
+</span><span id="line-36"></span><span>
+</span><span id="line-37"></span><span class="hs-comment">-- | Convert a 'Fold' to 'Tee'.</span><span>
+</span><span id="line-38"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Fold.Tee.html#fromFold"><span class="hs-pragma hs-type">fromFold</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-39"></span><span id="local-6989586621679367498"><span id="local-6989586621679367499"><span id="local-6989586621679367500"><span class="annot"><a href="Streamly.Internal.Data.Fold.Tee.html#fromFold"><span class="hs-identifier hs-type">fromFold</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Fold.Types.html#Fold"><span class="hs-identifier hs-type">Fold</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679367500"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679367499"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679367498"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Fold.Tee.html#Tee"><span class="hs-identifier hs-type">Tee</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679367500"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679367499"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679367498"><span class="hs-identifier hs-type">b</span></a></span></span></span></span><span>
+</span><span id="line-40"></span><span id="fromFold"><span class="annot"><span class="annottext">fromFold :: Fold m a b -&gt; Tee m a b
+</span><a href="Streamly.Internal.Data.Fold.Tee.html#fromFold"><span class="hs-identifier hs-var hs-var">fromFold</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Fold m a b -&gt; Tee m a b
+forall a b. Coercible a b =&gt; a -&gt; b
+</span><span class="hs-identifier hs-var">coerce</span></span><span>
+</span><span id="line-41"></span><span>
+</span><span id="line-42"></span><span class="hs-comment">-- | The 'Tee' resulting from '&lt;*&gt;' distributes its input to both the argument</span><span>
+</span><span id="line-43"></span><span class="hs-comment">-- 'Tee's and combines their output using function application.</span><span>
+</span><span id="line-44"></span><span class="hs-comment">--</span><span>
+</span><span id="line-45"></span><span id="local-6989586621679367468"><span id="local-6989586621679367469"><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679367459"><span id="local-6989586621679367461"><span id="local-6989586621679367463"><span class="annot"><span class="hs-identifier hs-type">Monad</span></span><span> </span><span class="annot"><a href="#local-6989586621679367469"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Applicative</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Streamly.Internal.Data.Fold.Tee.html#Tee"><span class="hs-identifier hs-type">Tee</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679367469"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679367468"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-46"></span><span>
+</span><span id="line-47"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><span class="hs-pragma hs-type">pure</span></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-48"></span><span>    </span><span id="local-6989586621679367457"><span class="annot"><span class="annottext">pure :: a -&gt; Tee m a a
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">pure</span></span></span><span> </span><span id="local-6989586621679367456"><span class="annot"><span class="annottext">a :: a
+</span><a href="#local-6989586621679367456"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Fold m a a -&gt; Tee m a a
+forall (m :: * -&gt; *) a b. Fold m a b -&gt; Tee m a b
+</span><a href="Streamly.Internal.Data.Fold.Tee.html#fromFold"><span class="hs-identifier hs-var">fromFold</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">a -&gt; Fold m a a
+forall (m :: * -&gt; *) b a. Applicative m =&gt; b -&gt; Fold m a b
+</span><a href="Streamly.Internal.Data.Fold.Types.html#yield"><span class="hs-identifier hs-var">Fold.yield</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679367456"><span class="hs-identifier hs-var">a</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-49"></span><span>
+</span><span id="line-50"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="hs-pragma">(</span><span class="hs-pragma">&lt;*&gt;</span><span class="hs-pragma">)</span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-51"></span><span>    </span><span id="local-6989586621679367454"><span class="annot"><span class="annottext">&lt;*&gt; :: Tee m a (a -&gt; b) -&gt; Tee m a a -&gt; Tee m a b
+</span><span class="hs-operator hs-var hs-var hs-var hs-var">(&lt;*&gt;)</span></span></span><span> </span><span id="local-6989586621679367453"><span class="annot"><span class="annottext">a :: Tee m a (a -&gt; b)
+</span><a href="#local-6989586621679367453"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span id="local-6989586621679367452"><span class="annot"><span class="annottext">b :: Tee m a a
+</span><a href="#local-6989586621679367452"><span class="hs-identifier hs-var">b</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Fold m a b -&gt; Tee m a b
+forall (m :: * -&gt; *) a b. Fold m a b -&gt; Tee m a b
+</span><a href="Streamly.Internal.Data.Fold.Tee.html#fromFold"><span class="hs-identifier hs-var">fromFold</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">((a -&gt; b) -&gt; a -&gt; b)
+-&gt; Fold m a (a -&gt; b) -&gt; Fold m a a -&gt; Fold m a b
+forall (m :: * -&gt; *) a b c x.
+Monad m =&gt;
+(a -&gt; b -&gt; c) -&gt; Fold m x a -&gt; Fold m x b -&gt; Fold m x c
+</span><a href="Streamly.Internal.Data.Fold.Types.html#teeWith"><span class="hs-identifier hs-var">Fold.teeWith</span></a></span><span> </span><span class="annot"><span class="annottext">(a -&gt; b) -&gt; a -&gt; b
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">($)</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Tee m a (a -&gt; b) -&gt; Fold m a (a -&gt; b)
+forall (m :: * -&gt; *) a b. Tee m a b -&gt; Fold m a b
+</span><a href="Streamly.Internal.Data.Fold.Tee.html#toFold"><span class="hs-identifier hs-var">toFold</span></a></span><span> </span><span class="annot"><span class="annottext">Tee m a (a -&gt; b)
+</span><a href="#local-6989586621679367453"><span class="hs-identifier hs-var">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Tee m a a -&gt; Fold m a a
+forall (m :: * -&gt; *) a b. Tee m a b -&gt; Fold m a b
+</span><a href="Streamly.Internal.Data.Fold.Tee.html#toFold"><span class="hs-identifier hs-var">toFold</span></a></span><span> </span><span class="annot"><span class="annottext">Tee m a a
+</span><a href="#local-6989586621679367452"><span class="hs-identifier hs-var">b</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span></span></span><span>
+</span><span id="line-52"></span></pre></body></html>

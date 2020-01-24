@@ -1,0 +1,131 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-comment">-- |</span><span>
+</span><span id="line-2"></span><span class="hs-comment">-- Module      : Streamly.Internal.Data.Atomics</span><span>
+</span><span id="line-3"></span><span class="hs-comment">-- Copyright   : (c) 2018-2019 Composewell Technologies</span><span>
+</span><span id="line-4"></span><span class="hs-comment">--</span><span>
+</span><span id="line-5"></span><span class="hs-comment">-- License     : BSD3</span><span>
+</span><span id="line-6"></span><span class="hs-comment">-- Maintainer  : streamly@composewell.com</span><span>
+</span><span id="line-7"></span><span class="hs-comment">-- Stability   : experimental</span><span>
+</span><span id="line-8"></span><span class="hs-comment">-- Portability : GHC</span><span>
+</span><span id="line-9"></span><span>
+</span><span id="line-10"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Streamly.Internal.Data.Atomics</span><span>
+</span><span id="line-11"></span><span>    </span><span class="hs-special">(</span><span>
+</span><span id="line-12"></span><span>      </span><span class="annot"><a href="Streamly.Internal.Data.Atomics.html#atomicModifyIORefCAS"><span class="hs-identifier">atomicModifyIORefCAS</span></a></span><span>
+</span><span id="line-13"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Atomics.html#atomicModifyIORefCAS_"><span class="hs-identifier">atomicModifyIORefCAS_</span></a></span><span>
+</span><span id="line-14"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Atomics.html#writeBarrier"><span class="hs-identifier">writeBarrier</span></a></span><span>
+</span><span id="line-15"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Atomics.html#storeLoadBarrier"><span class="hs-identifier">storeLoadBarrier</span></a></span><span>
+</span><span id="line-16"></span><span>    </span><span class="hs-special">)</span><span>
+</span><span id="line-17"></span><span class="hs-keyword">where</span><span>
+</span><span id="line-18"></span><span>
+</span><span id="line-19"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.IORef</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">IORef</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">atomicModifyIORef</span></span><span class="hs-special">)</span><span class="hs-cpp">
+#ifdef ghcjs_HOST_OS
+</span><span class="hs-keyword">import</span><span> </span><span class="hs-identifier">Data.IORef</span><span> </span><span class="hs-special">(</span><span class="hs-identifier">modifyIORef</span><span class="hs-special">)</span><span class="hs-cpp">
+#else
+</span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.Atomics</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">A</span></span><span class="hs-cpp">
+#endif
+</span><span class="hs-cpp">
+#ifndef ghcjs_HOST_OS
+</span><span>
+</span><span id="line-28"></span><span class="hs-comment">-- XXX Does it make sense to have replacements for atomicModifyIORef etc. on a</span><span>
+</span><span id="line-29"></span><span class="hs-comment">-- single threaded system.</span><span>
+</span><span id="line-30"></span><span class="hs-comment">--</span><span>
+</span><span id="line-31"></span><span class="hs-comment">-- Slightly faster version of CAS. Gained some improvement by avoiding the use</span><span>
+</span><span id="line-32"></span><span class="hs-comment">-- of &quot;evaluate&quot; because we know we do not have exceptions in fn.</span><span>
+</span><span id="line-33"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Atomics.html#atomicModifyIORefCAS"><span class="hs-pragma hs-type">atomicModifyIORefCAS</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-34"></span><span id="local-6989586621679358609"><span id="local-6989586621679358610"><span class="annot"><a href="Streamly.Internal.Data.Atomics.html#atomicModifyIORefCAS"><span class="hs-identifier hs-type">atomicModifyIORefCAS</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IORef</span></span><span> </span><span class="annot"><a href="#local-6989586621679358610"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679358610"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679358610"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">,</span><span class="annot"><a href="#local-6989586621679358609"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="#local-6989586621679358609"><span class="hs-identifier hs-type">b</span></a></span></span></span><span>
+</span><span id="line-35"></span><span id="atomicModifyIORefCAS"><span class="annot"><span class="annottext">atomicModifyIORefCAS :: IORef a -&gt; (a -&gt; (a, b)) -&gt; IO b
+</span><a href="Streamly.Internal.Data.Atomics.html#atomicModifyIORefCAS"><span class="hs-identifier hs-var hs-var">atomicModifyIORefCAS</span></a></span></span><span> </span><span id="local-6989586621679358608"><span class="annot"><span class="annottext">ref :: IORef a
+</span><a href="#local-6989586621679358608"><span class="hs-identifier hs-var">ref</span></a></span></span><span> </span><span id="local-6989586621679358607"><span class="annot"><span class="annottext">fn :: a -&gt; (a, b)
+</span><a href="#local-6989586621679358607"><span class="hs-identifier hs-var">fn</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-36"></span><span>    </span><span id="local-6989586621679358606"><span class="annot"><span class="annottext">Ticket a
+</span><a href="#local-6989586621679358606"><span class="hs-identifier hs-var">tkt</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IORef a -&gt; IO (Ticket a)
+forall a. IORef a -&gt; IO (Ticket a)
+</span><span class="hs-identifier hs-var">A.readForCAS</span></span><span> </span><span class="annot"><span class="annottext">IORef a
+</span><a href="#local-6989586621679358608"><span class="hs-identifier hs-var">ref</span></a></span><span>
+</span><span id="line-37"></span><span>    </span><span class="annot"><span class="annottext">Ticket a -&gt; Int -&gt; IO b
+forall t. (Eq t, Num t) =&gt; Ticket a -&gt; t -&gt; IO b
+</span><a href="#local-6989586621679358604"><span class="hs-identifier hs-var">loop</span></a></span><span> </span><span class="annot"><span class="annottext">Ticket a
+</span><a href="#local-6989586621679358606"><span class="hs-identifier hs-var">tkt</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679358603"><span class="hs-identifier hs-var">retries</span></a></span><span>
+</span><span id="line-38"></span><span>
+</span><span id="line-39"></span><span>    </span><span class="hs-keyword">where</span><span>
+</span><span id="line-40"></span><span>
+</span><span id="line-41"></span><span>    </span><span id="local-6989586621679358603"><span class="annot"><span class="annottext">retries :: Int
+</span><a href="#local-6989586621679358603"><span class="hs-identifier hs-var hs-var">retries</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-number">25</span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span>
+</span><span id="line-42"></span><span>    </span><span id="local-6989586621679358604"><span class="annot"><span class="annottext">loop :: Ticket a -&gt; t -&gt; IO b
+</span><a href="#local-6989586621679358604"><span class="hs-identifier hs-var hs-var">loop</span></a></span></span><span> </span><span class="hs-identifier">_</span><span>   </span><span class="hs-number">0</span><span>     </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IORef a -&gt; (a -&gt; (a, b)) -&gt; IO b
+forall a b. IORef a -&gt; (a -&gt; (a, b)) -&gt; IO b
+</span><span class="hs-identifier hs-var">atomicModifyIORef</span></span><span> </span><span class="annot"><span class="annottext">IORef a
+</span><a href="#local-6989586621679358608"><span class="hs-identifier hs-var">ref</span></a></span><span> </span><span class="annot"><span class="annottext">a -&gt; (a, b)
+</span><a href="#local-6989586621679358607"><span class="hs-identifier hs-var">fn</span></a></span><span>
+</span><span id="line-43"></span><span>    </span><span class="annot"><a href="#local-6989586621679358604"><span class="hs-identifier hs-var">loop</span></a></span><span> </span><span id="local-6989586621679358602"><span class="annot"><span class="annottext">old :: Ticket a
+</span><a href="#local-6989586621679358602"><span class="hs-identifier hs-var">old</span></a></span></span><span> </span><span id="local-6989586621679358601"><span class="annot"><span class="annottext">tries :: t
+</span><a href="#local-6989586621679358601"><span class="hs-identifier hs-var">tries</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-44"></span><span>        </span><span class="hs-keyword">let</span><span> </span><span class="hs-special">(</span><span id="local-6989586621679358600"><span class="annot"><span class="annottext">new :: a
+</span><a href="#local-6989586621679358600"><span class="hs-identifier hs-var">new</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679358599"><span class="annot"><span class="annottext">result :: b
+</span><a href="#local-6989586621679358599"><span class="hs-identifier hs-var">result</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">a -&gt; (a, b)
+</span><a href="#local-6989586621679358607"><span class="hs-identifier hs-var">fn</span></a></span><span> </span><span class="annot"><span class="annottext">(a -&gt; (a, b)) -&gt; a -&gt; (a, b)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Ticket a -&gt; a
+forall a. Ticket a -&gt; a
+</span><span class="hs-identifier hs-var">A.peekTicket</span></span><span> </span><span class="annot"><span class="annottext">Ticket a
+</span><a href="#local-6989586621679358602"><span class="hs-identifier hs-var">old</span></a></span><span>
+</span><span id="line-45"></span><span>        </span><span class="hs-special">(</span><span id="local-6989586621679358597"><span class="annot"><span class="annottext">success :: Bool
+</span><a href="#local-6989586621679358597"><span class="hs-identifier hs-var">success</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679358596"><span class="annot"><span class="annottext">tkt :: Ticket a
+</span><a href="#local-6989586621679358596"><span class="hs-identifier hs-var">tkt</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IORef a -&gt; Ticket a -&gt; a -&gt; IO (Bool, Ticket a)
+forall a. IORef a -&gt; Ticket a -&gt; a -&gt; IO (Bool, Ticket a)
+</span><span class="hs-identifier hs-var">A.casIORef</span></span><span> </span><span class="annot"><span class="annottext">IORef a
+</span><a href="#local-6989586621679358608"><span class="hs-identifier hs-var">ref</span></a></span><span> </span><span class="annot"><span class="annottext">Ticket a
+</span><a href="#local-6989586621679358602"><span class="hs-identifier hs-var">old</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679358600"><span class="hs-identifier hs-var">new</span></a></span><span>
+</span><span id="line-46"></span><span>        </span><span class="hs-keyword">if</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><a href="#local-6989586621679358597"><span class="hs-identifier hs-var">success</span></a></span><span>
+</span><span id="line-47"></span><span>        </span><span class="hs-keyword">then</span><span> </span><span class="annot"><span class="annottext">b -&gt; IO b
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">b
+</span><a href="#local-6989586621679358599"><span class="hs-identifier hs-var">result</span></a></span><span>
+</span><span id="line-48"></span><span>        </span><span class="hs-keyword">else</span><span> </span><span class="annot"><span class="annottext">Ticket a -&gt; t -&gt; IO b
+</span><a href="#local-6989586621679358604"><span class="hs-identifier hs-var">loop</span></a></span><span> </span><span class="annot"><span class="annottext">Ticket a
+</span><a href="#local-6989586621679358596"><span class="hs-identifier hs-var">tkt</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">t
+</span><a href="#local-6989586621679358601"><span class="hs-identifier hs-var">tries</span></a></span><span> </span><span class="annot"><span class="annottext">t -&gt; t -&gt; t
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-glyph hs-var">-</span></span><span> </span><span class="annot"><span class="hs-number">1</span></span><span class="hs-special">)</span><span>
+</span><span id="line-49"></span><span>
+</span><span id="line-50"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Atomics.html#atomicModifyIORefCAS_"><span class="hs-pragma hs-type">atomicModifyIORefCAS_</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-51"></span><span id="local-6989586621679358594"><span class="annot"><a href="Streamly.Internal.Data.Atomics.html#atomicModifyIORefCAS_"><span class="hs-identifier hs-type">atomicModifyIORefCAS_</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IORef</span></span><span> </span><span class="annot"><a href="#local-6989586621679358594"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679358594"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679358594"><span class="hs-identifier hs-type">t</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
+</span><span id="line-52"></span><span id="atomicModifyIORefCAS_"><span class="annot"><span class="annottext">atomicModifyIORefCAS_ :: IORef t -&gt; (t -&gt; t) -&gt; IO ()
+</span><a href="Streamly.Internal.Data.Atomics.html#atomicModifyIORefCAS_"><span class="hs-identifier hs-var hs-var">atomicModifyIORefCAS_</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IORef t -&gt; (t -&gt; t) -&gt; IO ()
+forall t. IORef t -&gt; (t -&gt; t) -&gt; IO ()
+</span><span class="hs-identifier hs-var">A.atomicModifyIORefCAS_</span></span><span>
+</span><span id="line-53"></span><span>
+</span><span id="line-54"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Atomics.html#writeBarrier"><span class="hs-pragma hs-type">writeBarrier</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-55"></span><span class="annot"><a href="Streamly.Internal.Data.Atomics.html#writeBarrier"><span class="hs-identifier hs-type">writeBarrier</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-56"></span><span id="writeBarrier"><span class="annot"><span class="annottext">writeBarrier :: IO ()
+</span><a href="Streamly.Internal.Data.Atomics.html#writeBarrier"><span class="hs-identifier hs-var hs-var">writeBarrier</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IO ()
+</span><span class="hs-identifier hs-var">A.writeBarrier</span></span><span>
+</span><span id="line-57"></span><span>
+</span><span id="line-58"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Streamly.Internal.Data.Atomics.html#storeLoadBarrier"><span class="hs-pragma hs-type">storeLoadBarrier</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-59"></span><span class="annot"><a href="Streamly.Internal.Data.Atomics.html#storeLoadBarrier"><span class="hs-identifier hs-type">storeLoadBarrier</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-60"></span><span id="storeLoadBarrier"><span class="annot"><span class="annottext">storeLoadBarrier :: IO ()
+</span><a href="Streamly.Internal.Data.Atomics.html#storeLoadBarrier"><span class="hs-identifier hs-var hs-var">storeLoadBarrier</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IO ()
+</span><span class="hs-identifier hs-var">A.storeLoadBarrier</span></span><span class="hs-cpp">
+
+#else
+</span><span>
+</span><span id="line-64"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="hs-pragma">atomicModifyIORefCAS</span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-65"></span><span class="hs-identifier">atomicModifyIORefCAS</span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier">IORef</span><span> </span><span class="hs-identifier">a</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="hs-identifier">a</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="hs-identifier">a</span><span class="hs-special">,</span><span class="hs-identifier">b</span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier">IO</span><span> </span><span class="hs-identifier">b</span><span>
+</span><span id="line-66"></span><span class="hs-identifier">atomicModifyIORefCAS</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-identifier">atomicModifyIORef</span><span>
+</span><span id="line-67"></span><span>
+</span><span id="line-68"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="hs-pragma">atomicModifyIORefCAS_</span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-69"></span><span class="hs-identifier">atomicModifyIORefCAS_</span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier">IORef</span><span> </span><span class="hs-identifier">a</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="hs-identifier">a</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier">a</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier">IO</span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-70"></span><span class="hs-identifier">atomicModifyIORefCAS_</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-identifier">modifyIORef</span><span>
+</span><span id="line-71"></span><span>
+</span><span id="line-72"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="hs-pragma">writeBarrier</span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-73"></span><span class="hs-identifier">writeBarrier</span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier">IO</span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-74"></span><span class="hs-identifier">writeBarrier</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-identifier">return</span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-75"></span><span>
+</span><span id="line-76"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="hs-pragma">storeLoadBarrier</span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-77"></span><span class="hs-identifier">storeLoadBarrier</span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier">IO</span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-78"></span><span class="hs-identifier">storeLoadBarrier</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-identifier">return</span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-cpp">
+
+#endif
+</span></pre></body></html>
