@@ -58,6 +58,8 @@ module Streamly.Internal.Network.Socket
     , writeChunks
     , writeChunksWithBufferOf
     , writeStrings
+    , chunksOfTimeout
+    , writeWithBufferOfMaybe
 
     -- reading/writing datagrams
     )
@@ -94,7 +96,6 @@ import Streamly.Internal.Data.Array.Storable.Foreign.Mut.Types (mutableArray)
 import Streamly.Internal.Data.Stream.Serial (SerialT)
 import Streamly.Internal.Data.Stream.StreamK.Type (IsStream, mkStream)
 import Streamly.Data.Fold (Fold)
--- import Streamly.String (encodeUtf8, decodeUtf8, foldLines)
 
 import qualified Streamly.Data.Fold as FL
 import qualified Streamly.Internal.Data.Fold.Types as FL
@@ -103,7 +104,7 @@ import qualified Streamly.Internal.Data.Array.Storable.Foreign as IA
 import qualified Streamly.Data.Array.Storable.Foreign as A
 import qualified Streamly.Internal.Memory.ArrayStream as AS
 import qualified Streamly.Internal.Data.Array.Storable.Foreign.Types as A
-import qualified Streamly.Prelude as S
+import qualified Streamly.Internal.Data.Stream.IsStream as S
 import qualified Streamly.Internal.Data.Stream.StreamD.Type as D
 
 -- | @'handleWithM' socket act@ runs the monadic computation @act@ passing the
@@ -497,6 +498,17 @@ writeStrings encode h =
 fromBytesWithBufferOf :: MonadIO m => Int -> Socket -> SerialT m Word8 -> m ()
 fromBytesWithBufferOf n h m = fromChunks h $ AS.arraysOf n m
 
+-- | Transform a stream of @a@ to @(Just a)@ then intersperse a Nothing into the input 
+-- stream after every n elements then interject Nothing every @t@ seconds.
+-- @since 0.8.0
+{-# INLINE chunksOfTimeout #-}
+chunksOfTimeout :: (MonadIO m , IsStream t, MonadAsync m)
+    => Int -> Double -> t m a -> t m (Maybe a)
+chunksOfTimeout n t =   
+          S.interjectSuffix t (return Nothing)
+        . S.intersperseSuffixBySpan n (return Nothing)
+        . S.map Just
+
 -- | Write a byte stream to a socket. Accumulates the input in chunks of
 -- specified number of bytes before writing.
 --
@@ -504,6 +516,19 @@ fromBytesWithBufferOf n h m = fromChunks h $ AS.arraysOf n m
 {-# INLINE writeWithBufferOf #-}
 writeWithBufferOf :: MonadIO m => Int -> Socket -> Fold m Word8 ()
 writeWithBufferOf n h = FL.lchunksOf n (A.writeNUnsafe n) (writeChunks h)
+
+-- | Write a (Maybe Word8) stream to a socket. Accumulates the input in chunks of
+-- specified number of bytes or till Nothing before writing.
+--
+-- @since 0.8.0
+-- >>> S.unfold readWithBufferOf (1024, sk)  
+--             & chunksOfTimeout 1024 1
+--             & S.fold (writeWithBufferOfMaybe 1024 sk)
+
+{-# INLINE writeWithBufferOfMaybe #-}
+writeWithBufferOfMaybe :: (MonadIO m ) 
+    => Int -> Socket -> Fold m (Maybe Word8) ()
+writeWithBufferOfMaybe n h = FL.many (writeChunks h) ( A.writeNUnsafeMaybe n) 
 
 -- > write = 'writeWithBufferOf' A.defaultChunkSize
 --
