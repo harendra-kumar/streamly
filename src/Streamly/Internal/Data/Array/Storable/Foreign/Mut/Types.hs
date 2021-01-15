@@ -86,7 +86,8 @@ module Streamly.Internal.Data.Array.Storable.Foreign.Mut.Types
     , memcpy
     , memcmp
     , bytesToElemCount
-    , writeNUnsafeMaybe
+    , writeMaybesN
+    , writeMaybes
     )
 where
 
@@ -1368,23 +1369,54 @@ instance Storable a => Monoid (Array a) where
     {-# INLINE mappend #-}
     mappend = (<>)
 
-{-# INLINE_NORMAL writeNUnsafeMaybe #-}
-writeNUnsafeMaybe :: forall m a. (MonadIO m, Storable a)
+{-# INLINE_NORMAL writeMaybesN #-}
+writeMaybesN :: forall m a. (MonadIO m, Storable a)
     => Int -> Fold m (Maybe a) (Array a)
-writeNUnsafeMaybe n = Fold step initial extract
+writeMaybesN n = Fold step initial extract
 
     where
 
     initial = do
         (Array start end _) <- liftIO $ newArray (max n 0)
-        return $ ArrayUnsafe start end
+        return $ FL.Partial (ArrayUnsafe start end, 0 :: Int)
 
-    step (ArrayUnsafe start end) x = do            
-        if isJust x
-        then  do 
+    step (ArrayUnsafe start end, i :: Int) x = do
+        if isJust x && i < n -- check for boundary
+        then  do
             liftIO $ poke end (fromJust x)
-            return $ FL.Partial $ ArrayUnsafe start (end `plusPtr` sizeOf (undefined :: a))
+            return $ FL.Partial (ArrayUnsafe start (end `plusPtr` sizeOf (undefined :: a)), i+1)
         else do
-            return $ FL.Done $ Array start end end    
+            return $ FL.Done $ Array start end end
 
-    extract (ArrayUnsafe start end) = return $ Array start end end -- liftIO . shrinkToFit 
+    extract (ArrayUnsafe start end , _) = return $ Array start end end -- liftIO . shrinkToFit
+
+{-# INLINE_NORMAL writeMaybes #-}
+writeMaybes :: forall m a. (MonadIO m, Storable a)
+    => Fold m (Maybe a) (Array a)
+writeMaybes = FL.mkAccumM step initial extract
+
+    where
+
+    alignSize = alignment (undefined :: a)
+
+    elemCount = bytesToElemCount (undefined :: a) (mkChunkSize 1024)
+
+    insertElem (Array start end bound) x = do
+        if isJust x
+        then  do
+            liftIO $ poke end (fromJust x)
+            return $ Array start (end `plusPtr` sizeOf (undefined :: a)) bound
+        else do
+            return $ Array start end bound
+
+    initial = do
+        when (elemCount < 0) $ error "toArrayMinChunk: elemCount is negative"
+        liftIO $ newArrayAligned alignSize elemCount
+    step arr@(Array start end bound) x | end == bound = do
+        let p = unsafeForeignPtrToPtr start
+            oldSize = end `minusPtr` p
+            newSize = max (oldSize * 2) 1
+        arr1 <- liftIO $ reallocAligned alignSize newSize arr
+        insertElem arr1 x
+    step arr x = insertElem arr x
+    extract = liftIO . shrinkToFit

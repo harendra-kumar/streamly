@@ -22,6 +22,7 @@ module Streamly.Internal.Data.Stream.IsStream.Transform
     , sequence
     , mapM
     , smapM
+    , justsOf
 
     -- * Mapping Side Effects
     , trace
@@ -99,6 +100,7 @@ module Streamly.Internal.Data.Stream.IsStream.Transform
     , intersperseM -- XXX naming
     , intersperseSuffix
     , intersperseSuffixBySpan
+    , justsOfTimeout
     -- , intersperseBySpan
     -- , intersperseByIndices -- using an index function/stream
 
@@ -1245,3 +1247,22 @@ applyAsync = (|$)
 x |& f = f |$ x
 
 infixl 1 |&
+
+-- | Transform a stream of @a@ to @(Just a)@
+-- /Internal/
+--
+{-# INLINE justsOf #-}
+justsOf :: (MonadIO m, IsStream t)
+    => t m a -> t m (Maybe a)
+justsOf = Serial.map Just
+
+-- | Transform a stream of @a@ to @(Just a)@ then intersperse a Nothing into the input
+-- stream after every n elements then interject Nothing every @t@ seconds.
+-- @since 0.8.0
+{-# INLINE justsOfTimeout #-}
+justsOfTimeout :: (MonadIO m, IsStream t, MonadAsync m)
+    => Int -> Double -> t m a -> t m (Maybe a)
+justsOfTimeout n t =
+      interjectSuffix t (return Nothing)
+    . intersperseSuffixBySpan n (return Nothing)
+    . justsOf

@@ -309,6 +309,7 @@ module Streamly.Internal.Data.Stream.IsStream
     , intersperseSuffix_
     , interspersePrefix_
     , intersperseSuffixBySpan
+    , justsOfTimeout
     -- , intersperseBySpan
     -- , intersperseByIndices -- using an index function/stream
 
