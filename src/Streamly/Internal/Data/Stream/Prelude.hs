@@ -33,7 +33,7 @@ module Streamly.Internal.Data.Stream.Prelude
     , foldlx'
     , foldlMx'
     , foldl'
-    , foldOnce
+    , fold
 
     -- Lazy left folds are useful only for reversing the stream
     , foldlS
@@ -188,9 +188,9 @@ foldlT :: (Monad m, IsStream t, Monad (s m), MonadTrans s)
     => (s m b -> a -> s m b) -> s m b -> t m a -> s m b
 foldlT f z s = S.foldlT f z (toStreamS s)
 
-{-# INLINE foldOnce #-}
-foldOnce :: (Monad m, IsStream t) => Fold m a b -> t m a -> m b
-foldOnce fld m = S.foldOnce fld $ toStreamS m
+{-# INLINE fold #-}
+fold :: (Monad m, IsStream t) => Fold m a b -> t m a -> m b
+fold fld m = S.fold fld $ toStreamS m
 
 ------------------------------------------------------------------------------
 -- Scans

@@ -182,7 +182,7 @@ utf8d =
       unsafePerformIO
     -- Aligning to cacheline makes a barely noticeable difference
     -- XXX currently alignment is not implemented for unmanaged allocation
-    $ D.foldOnce (A.writeNAlignedUnmanaged 64 (length decodeTable))
+    $ D.fold (A.writeNAlignedUnmanaged 64 (length decodeTable))
               (D.fromList decodeTable)
 
 -- | Return element at the specified index without checking the bounds.

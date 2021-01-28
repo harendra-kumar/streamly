@@ -88,7 +88,7 @@ module Streamly.Internal.Data.Stream.StreamK
     , foldlT
     , foldlx'
     , foldlMx'
-    , foldOnce
+    , fold
 
     -- ** Specialized Folds
     , drain
@@ -400,9 +400,9 @@ foldlMx' step begin done m = go begin m
             yieldk a r = acc >>= \b -> step b a >>= \x -> go (return x) r
          in foldStream defState yieldk single stop m1
 
-{-# INLINABLE foldOnce #-}
-foldOnce :: (IsStream t, Monad m) => FL.Fold m a b -> t m a -> m b
-foldOnce (FL.Fold step begin done) m = do
+{-# INLINABLE fold #-}
+fold :: (IsStream t, Monad m) => FL.Fold m a b -> t m a -> m b
+fold (FL.Fold step begin done) m = do
     res <- begin
     case res of
         FL.Partial fs -> go fs m

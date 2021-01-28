@@ -346,7 +346,7 @@ pollCounts predicate transf fld (Stream step state) = Stream step' Nothing
         -- However, an Int on a 32-bit machine may overflow quickly.
         countVar <- liftIO $ Prim.newIORef (0 :: Int)
         tid <- forkManaged
-            $ void $ foldOnce fld
+            $ void $ fold fld
             $ transf $ Prim.toStreamD countVar
         return $ Skip (Just (countVar, tid, state))
 

@@ -23,6 +23,7 @@ module Streamly.Internal.Data.Stream.IsStream.Common
 
     -- * Elimination
     , fold
+    , fold_
 
     -- * Transformation
     , scanlMAfter'
@@ -248,7 +249,15 @@ relTimesWith = fmap snd . timesWith
 -- @since 0.7.0
 {-# INLINE fold #-}
 fold :: Monad m => Fold m a b -> SerialT m a -> m b
-fold = P.foldOnce
+fold fl strm = do
+    (b, _) <- fold_ fl strm
+    return $! b
+
+{-# INLINE fold_ #-}
+fold_ :: Monad m => Fold m a b -> SerialT m a -> m (b, SerialT m a)
+fold_ fl strm = do
+    (b, str) <- D.fold_ fl $ D.toStreamD strm
+    return $! (b, D.fromStreamD str)
 
 ------------------------------------------------------------------------------
 -- Transformation

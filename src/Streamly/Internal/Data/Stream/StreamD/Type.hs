@@ -43,7 +43,8 @@ module Streamly.Internal.Data.Stream.StreamD.Type
     , fromStreamD
 
     -- * Running a 'Fold'
-    , foldOnce
+    , fold
+    , fold_
 
     -- * Right Folds
     , foldrT
@@ -268,13 +269,19 @@ toStreamD = fromStreamK . K.toStream
 -- Running a 'Fold'
 ------------------------------------------------------------------------------
 
-{-# INLINE_NORMAL foldOnce #-}
-foldOnce :: (Monad m) => Fold m a b -> Stream m a -> m b
-foldOnce (Fold fstep begin done) (Stream step state) = do
+{-# INLINE_NORMAL fold #-}
+fold :: (Monad m) => Fold m a b -> Stream m a -> m b
+fold fld strm = do
+    (b, _) <- fold_ fld strm
+    return b
+
+{-# INLINE_NORMAL fold_ #-}
+fold_ :: Monad m => Fold m a b -> Stream m a -> m (b, Stream m a)
+fold_ (Fold fstep begin done) (Stream step state) = do
     res <- begin
     case res of
         FL.Partial fs -> go SPEC fs state
-        FL.Done fb -> return fb
+        FL.Done fb -> return $! (fb, Stream step state)
 
     where
 
@@ -285,10 +292,12 @@ foldOnce (Fold fstep begin done) (Stream step state) = do
             Yield x s -> do
                 res <- fstep fs x
                 case res of
-                    FL.Done b -> return b
+                    FL.Done b -> return $! (b, Stream step s)
                     FL.Partial fs1 -> go SPEC fs1 s
             Skip s -> go SPEC fs s
-            Stop -> done fs
+            Stop -> do
+                b <- done fs
+                return $! (b, Stream (\ _ _ -> return Stop) ())
 
 ------------------------------------------------------------------------------
 -- Right Folds

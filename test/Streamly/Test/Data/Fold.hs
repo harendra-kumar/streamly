@@ -431,6 +431,19 @@ many =
 
     split i = F.take i F.toList
 
+headAndRest :: [Int] -> Property
+headAndRest ls = monadicIO $ do
+    (mbh, rest) <- run $ Stream.fold_ FL.head (S.fromList ls)
+    rests <- run $ S.toList rest
+    assert (mbh == headl ls)
+    listEquals (==) rests (taill ls)
+
+    where
+
+    taill :: [a] -> [a]
+    taill [] = []
+    taill (_:xs) = xs
+
 main :: IO ()
 main = hspec $
     describe "Fold" $ do
@@ -510,3 +523,5 @@ main = hspec $
         prop "many" Main.many
         -- concatMap
         -- chunksOf
+    describe "FoldAndReturn s" $ do
+        prop "head from fold_" headAndRest

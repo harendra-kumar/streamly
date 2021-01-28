@@ -20,6 +20,7 @@ module Streamly.Internal.Data.Stream.IsStream.Eliminate
     -- * Running a 'Fold'
     --  See "Streamly.Internal.Data.Fold".
       fold
+    , fold_
 
     -- * Running a 'Parser'
     -- "Streamly.Internal.Data.Parser".
@@ -150,7 +151,8 @@ import Foreign.Storable (Storable)
 import Streamly.Internal.Data.Parser (Parser (..))
 import Streamly.Internal.Data.SVar (MonadAsync, defState)
 import Streamly.Internal.Data.Stream.IsStream.Common
-    (fold, drop, findIndices, reverse, splitOnSeq, take, takeWhile)
+    ( fold, fold_, drop, findIndices, reverse, splitOnSeq, take
+    , takeWhile)
 import Streamly.Internal.Data.Stream.Prelude (toStreamS)
 import Streamly.Internal.Data.Stream.StreamD (fromStreamD, toStreamD)
 import Streamly.Internal.Data.Stream.StreamK (IsStream)

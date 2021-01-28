@@ -216,7 +216,7 @@ fromStreamDN limit str = do
 
 {-# INLINE fromStreamD #-}
 fromStreamD :: (MonadIO m, Prim a) => D.Stream m a -> m (Array a)
-fromStreamD str = D.foldOnce write str
+fromStreamD str = D.fold write str
 
 {-# INLINABLE fromListNM #-}
 fromListNM :: (MonadIO m, Prim a) => Int -> [a] -> m (Array a)

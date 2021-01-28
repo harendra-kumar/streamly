@@ -374,10 +374,10 @@ toSVarParallel st sv xs =
     where
 
     {-# NOINLINE work #-}
-    work info = D.foldOnce (write sv info) xs
+    work info = D.fold (write sv info) xs
 
     {-# NOINLINE workLim #-}
-    workLim info = D.foldOnce (writeLimited sv info) xs
+    workLim info = D.fold (writeLimited sv info) xs
 
     {-# NOINLINE forkWithDiag #-}
     forkWithDiag = do
@@ -567,7 +567,7 @@ newFoldSVarF stt f = do
     where
 
     {-# NOINLINE work #-}
-    work sv = void $ D.foldOnce f $ fromProducerD sv
+    work sv = void $ D.fold f $ fromProducerD sv
 
 -------------------------------------------------------------------------------
 -- Process events received by the producer thread from the consumer side

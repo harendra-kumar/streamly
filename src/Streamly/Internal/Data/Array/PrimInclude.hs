@@ -45,7 +45,7 @@ fromStreamN n m = do
 -- /Pre-release/
 {-# INLINE fromStream #-}
 fromStream :: (MonadIO m, Prim a) => SerialT m a -> m (Array a)
-fromStream = P.foldOnce A.write
+fromStream = P.fold A.write
 -- write m = A.fromStreamD $ D.toStreamD m
 
 -------------------------------------------------------------------------------
@@ -128,7 +128,7 @@ null arr = length arr == 0
 -- /Pre-release/
 {-# INLINE fold #-}
 fold :: forall m a b. (MonadIO m, Prim a) => Fold m a b -> Array a -> m b
-fold f arr = P.foldOnce f (toStream arr :: Serial.SerialT m a)
+fold f arr = P.fold f (toStream arr :: Serial.SerialT m a)
 
 -- | Fold an array using a stream fold operation.
 --

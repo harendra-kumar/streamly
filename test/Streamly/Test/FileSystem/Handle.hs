@@ -120,7 +120,7 @@ testWrite hfold =
                         writeFile fpathWrite ""
                         h <- openFile fpathWrite ReadWriteMode
                         hSeek h AbsoluteSeek 0
-                        Stream.fold (hfold h) $ Stream.fromList list
+                        _ <- Stream.fold (hfold h) $ Stream.fromList list
                         hFlush h
                         hSeek h AbsoluteSeek 0
                         ls <- Stream.toList $ Stream.unfold Handle.read h
@@ -144,7 +144,7 @@ testWriteWithChunk =
                 hr <- openFile fpathRead ReadMode
                 hw <- openFile fpathWrite ReadWriteMode
                 hSeek hw AbsoluteSeek 0
-                Stream.fold (Handle.writeChunks hw)
+                _ <- Stream.fold (Handle.writeChunks hw)
                     $ Stream.unfold Handle.readChunksWithBufferOf (1024, hr)
                 hFlush hw
                 hSeek hw AbsoluteSeek 0

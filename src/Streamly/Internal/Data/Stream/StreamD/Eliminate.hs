@@ -13,7 +13,7 @@
 module Streamly.Internal.Data.Stream.StreamD.Eliminate
     (
     -- * Running a 'Fold'
-      foldOnce -- XXX rename to "fold"
+      fold
 
     -- -- * Running a 'Parser'
     , parse

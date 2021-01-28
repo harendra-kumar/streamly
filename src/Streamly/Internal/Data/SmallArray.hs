@@ -169,7 +169,7 @@ toStreamRev = D.fromStreamD . toStreamDRev
 
 {-# INLINE fold #-}
 fold :: Monad m => Fold m a b -> SmallArray a -> m b
-fold f arr = D.foldOnce f (toStreamD arr)
+fold f arr = D.fold f (toStreamD arr)
 
 {-# INLINE streamFold #-}
 streamFold :: Monad m => (SerialT m a -> m b) -> SmallArray a -> m b

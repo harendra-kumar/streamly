@@ -1762,8 +1762,8 @@ splitOnSeq patArr (Fold fstep initial done) (Stream step state) =
                 rh1 <- liftIO $ RB.unsafeInsert rb rh x
                 if idx == maxIndex
                 then do
-                    let fold = RB.unsafeFoldRing (RB.ringBound rb)
-                    let !ringHash = fold addCksum 0 rb
+                    let fld = RB.unsafeFoldRing (RB.ringBound rb)
+                    let !ringHash = fld addCksum 0 rb
                     if ringHash == patHash
                     then skip $ SplitOnSeqKRCheck fs s rb rh1
                     else skip $ SplitOnSeqKRLoop fs s rb rh1 ringHash
@@ -2137,8 +2137,8 @@ splitOnSuffixSeq withSep patArr (Fold fstep initial done) (Stream step state) =
                             if idx /= maxIndex
                             then go SPEC (idx + 1) rh1 s fs1
                             else skip $
-                                let fold = RB.unsafeFoldRing (RB.ringBound rb)
-                                    !ringHash = fold addCksum 0 rb
+                                let fld = RB.unsafeFoldRing (RB.ringBound rb)
+                                    !ringHash = fld addCksum 0 rb
                                  in if ringHash == patHash
                                     then SplitOnSuffixSeqKRCheck fs1 s rb rh1
                                     else SplitOnSuffixSeqKRLoop

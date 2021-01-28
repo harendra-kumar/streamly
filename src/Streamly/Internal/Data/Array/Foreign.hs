@@ -201,7 +201,7 @@ fromStreamN n m = do
 -- /Pre-release/
 {-# INLINE fromStream #-}
 fromStream :: (MonadIO m, Storable a) => SerialT m a -> m (Array a)
-fromStream = P.foldOnce A.write
+fromStream = P.fold A.write
 -- write m = A.fromStreamD $ D.toStreamD m
 
 -------------------------------------------------------------------------------
@@ -492,7 +492,7 @@ runPipe f arr = P.runPipe (toArrayMinChunk (length arr)) $ f (A.read arr)
 streamTransform :: forall m a b. (MonadIO m, Storable a, Storable b)
     => (SerialT m a -> SerialT m b) -> Array a -> m (Array b)
 streamTransform f arr =
-    P.foldOnce (A.toArrayMinChunk (alignment (undefined :: a)) (length arr))
+    P.fold (A.toArrayMinChunk (alignment (undefined :: a)) (length arr))
         $ f (A.toStream arr)
 
 -------------------------------------------------------------------------------
@@ -566,7 +566,7 @@ asCString arr act = do
 -- /Pre-release/
 {-# INLINE fold #-}
 fold :: forall m a b. (MonadIO m, Storable a) => Fold m a b -> Array a -> m b
-fold f arr = P.foldOnce f (A.toStream arr :: Serial.SerialT m a)
+fold f arr = P.fold f (A.toStream arr :: Serial.SerialT m a)
 
 -- | Fold an array using a stream fold operation.
 --
