@@ -17,6 +17,7 @@ module Streamly.Internal.Data.Stream.StreamD.Eliminate
 
     -- -- * Running a 'Parser'
     , parse
+    , parse_
 
     -- * Stream Deconstruction
     , uncons
@@ -133,12 +134,27 @@ newtype List a = List {getList :: [a]}
 
 -- | Run a 'Parse' over a stream.
 {-# INLINE_NORMAL parse #-}
-parse :: MonadThrow m => PRD.Parser m a b -> Stream m a -> m b
-parse (PRD.Parser pstep initial extract) (Stream step state) = do
+parse
+    :: MonadThrow m
+    => PRD.Parser m a b
+    -> Stream m a
+    -> m b
+parse parser strm = do
+    (b, _) <- parse_ parser strm
+    return b
+
+-- | Run a 'Parse' over a stream and return rest of the Stream.
+{-# INLINE_NORMAL parse_ #-}
+parse_
+    :: MonadThrow m
+    => PRD.Parser m a b
+    -> Stream m a
+    -> m (b, Stream m a)
+parse_ (PRD.Parser pstep initial extract) (Stream step state) = do
     res <- initial
     case res of
         PRD.IPartial s -> go SPEC state (List []) s
-        PRD.IDone b -> return b
+        PRD.IDone b -> return (b, Stream (\_ _ -> return Stop) ())
         PRD.IError err -> throwM $ ParseError err
 
     where
@@ -165,10 +181,12 @@ parse (PRD.Parser pstep initial extract) (Stream step state) = do
                         let (src0, buf1) = splitAt n (x:getList buf)
                             src  = Prelude.reverse src0
                         gobuf SPEC s (List buf1) (List src) pst1
-                    PR.Done _ b -> return b
+                    PR.Done _ b -> return (b, Stream step_rest (Left (s, buf)))
                     PR.Error err -> throwM $ ParseError err
             Skip s -> go SPEC s buf pst
-            Stop   -> extract pst
+            Stop   -> do
+                b <- extract pst
+                return (b, let List buffer = buf in fromList buffer)
 
     gobuf !_ s buf (List []) !pst = go SPEC s buf pst
     gobuf !_ s buf (List (x:xs)) !pst = do
@@ -188,8 +206,19 @@ parse (PRD.Parser pstep initial extract) (Stream step state) = do
                 let (src0, buf1) = splitAt n (x:getList buf)
                     src  = Prelude.reverse src0 ++ xs
                 gobuf SPEC s (List buf1) (List src) pst1
-            PR.Done _ b -> return b
+            PR.Done _ b -> return (b, Stream step_rest (Left (s, buf)))
             PR.Error err -> throwM $ ParseError err
+
+    {-# INLINE_LATE step_rest #-}
+    step_rest _ (Left (st, List [])) = return $ Skip (Right st)
+    step_rest _ (Left (st, List (x:[]))) = return $ Yield x (Right st)
+    step_rest _ (Left (st, List (x:xs))) = return $ Yield x (Left (st, List xs))
+    step_rest gst (Right st) = do
+        r <- step gst st
+        return $ case r of
+            Yield x s -> Yield x (Right s)
+            Skip s -> Skip (Right s)
+            Stop -> Stop
 
 ------------------------------------------------------------------------------
 -- Specialized Folds

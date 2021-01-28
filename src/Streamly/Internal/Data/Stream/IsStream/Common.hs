@@ -62,7 +62,6 @@ import Streamly.Internal.Data.SVar (MonadAsync)
 import Streamly.Internal.Data.Time.Units (AbsTime, RelTime64, addToAbsTime64)
 
 import qualified Streamly.Internal.Data.Stream.Parallel as Par
-import qualified Streamly.Internal.Data.Stream.Prelude as P
 import qualified Streamly.Internal.Data.Stream.Serial as Serial
 import qualified Streamly.Internal.Data.Stream.StreamK as K (repeatM)
 import qualified Streamly.Internal.Data.Stream.StreamK.Type as K

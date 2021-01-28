@@ -27,6 +27,8 @@ module Streamly.Internal.Data.Stream.IsStream.Eliminate
     , parse
     , parseK
     , parseD
+    , parse_
+    , parseD_
 
     -- * Stream Deconstruction
     -- | foldr and foldl do not provide the remaining stream.  'uncons' is more
@@ -367,6 +369,20 @@ parseK = parse
 {-# INLINE [3] parse #-}
 parse :: MonadThrow m => Parser m a b -> SerialT m a -> m b
 parse = parseD . PRK.fromParserK
+
+{-# INLINE_NORMAL parseD_ #-}
+parseD_ :: MonadThrow m => PRD.Parser m a b -> SerialT m a -> m (b, SerialT m a)
+parseD_ parser strm = do
+    (b, strmD) <- D.parse_ parser (toStreamD strm)
+    return $! (b, fromStreamD strmD)
+
+-- | Parse a stream using the supplied 'Parser'.
+--
+-- /Internal/
+--
+{-# INLINE [3] parse_ #-}
+parse_ :: MonadThrow m => Parser m a b -> SerialT m a -> m (b, SerialT m a)
+parse_ = parseD_ . PRK.fromParserK
 
 ------------------------------------------------------------------------------
 -- Specific Fold Functions
