@@ -1,7 +1,7 @@
 module Main (main) where
 
 import Data.Semigroup (Sum(..), getSum)
-import Streamly.Test.Common (checkListEqual)
+import Streamly.Test.Common (checkListEqual, listEquals)
 import Test.QuickCheck
     ( Gen
     , Property
@@ -18,7 +18,8 @@ import Test.QuickCheck.Monadic (monadicIO, assert, run)
 
 import qualified Prelude
 import qualified Streamly.Internal.Data.Fold as F
-import qualified Streamly.Internal.Data.Stream.IsStream as S
+import qualified Streamly.Prelude as S
+import qualified Streamly.Internal.Data.Stream.IsStream as Stream
 import qualified Streamly.Data.Fold as FL
 
 import Prelude hiding
@@ -60,10 +61,9 @@ rollingHashFirstN =
 head :: [Int] -> Expectation
 head ls = S.fold FL.head (S.fromList ls) `shouldReturn` headl ls
 
-    where
-
-    headl [] = Nothing
-    headl (x:_) = Just x
+headl :: [a] -> Maybe a
+headl [] = Nothing
+headl (x:_) = Just x
 
 length :: [Int] -> Expectation
 length ls = S.fold FL.length (S.fromList ls) `shouldReturn` Prelude.length ls
@@ -424,7 +424,7 @@ many =
         monadicIO $ do
             let strm = S.fromList lst
             r1 <- S.fold (F.many (split i) F.toList) strm
-            r2 <- S.toList $ S.foldMany (split i) strm
+            r2 <- S.toList $ Stream.foldMany (split i) strm
             assert $ r1 == r2
 
     where
@@ -445,7 +445,7 @@ headAndRest ls = monadicIO $ do
     taill (_:xs) = xs
 
 main :: IO ()
-main = hspec $
+main = hspec $ do
     describe "Fold" $ do
         -- Folds
         -- Accumulators
