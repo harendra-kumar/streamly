@@ -14,6 +14,7 @@ module Main
   ) where
 
 import Control.DeepSeq (NFData(..))
+import Control.Monad (void)
 import Control.Monad.Catch (MonadCatch, MonadThrow)
 import Data.Foldable (asum)
 import Data.Functor (($>))
@@ -27,6 +28,7 @@ import qualified Streamly.Prelude  as S
 import qualified Streamly.Internal.Data.Fold as FL
 import qualified Streamly.Internal.Data.Parser.ParserD as PR
 import qualified Streamly.Internal.Data.Stream.IsStream as IP
+import qualified Streamly.Internal.Data.Array.Foreign as Array
 
 import Gauge
 import Streamly.Prelude (SerialT, MonadAsync, IsStream)
@@ -54,6 +56,13 @@ benchIOSink
     => Int -> String -> (t IO Int -> IO b) -> Benchmark
 benchIOSink value name f =
     bench name $ nfIO $ randomRIO (1,1) >>= f . sourceUnfoldrM value
+
+{-# INLINE benchIO #-}
+benchIO
+    :: NFData b
+    => String -> (Int -> t IO a) -> (t IO a -> IO b) -> Benchmark
+benchIO name src sink =
+    bench name $ nfIO $ randomRIO (1,1) >>= sink . src
 
 -------------------------------------------------------------------------------
 -- Parsers
@@ -166,6 +175,14 @@ longestAllAny value =
         )
 
 -------------------------------------------------------------------------------
+-- Array parsers
+-------------------------------------------------------------------------------
+
+{-# INLINE parseArray #-}
+parseArray :: Int -> SerialT IO (Array.Array Int) -> IO ()
+parseArray value s = void $ IP.parseArrayD (drainWhile (< value)) s
+
+-------------------------------------------------------------------------------
 -- Parsers in which -fspec-constr-recursive=16 is problematic
 -------------------------------------------------------------------------------
 
@@ -231,6 +248,19 @@ o_1_space_serial value =
     , benchIOSink value "longest (all,any)" $ longestAllAny value
     ]
 
+o_1_space_serial_array :: Int -> [Benchmark]
+o_1_space_serial_array bound =
+    [ benchIO "parseArray (100)" (arrayStream 100) $ parseArray bound
+    , benchIO "parseArray (bound)" (arrayStream bound) $ parseArray bound
+    ]
+
+    where
+
+    {-# INLINE arrayStream #-}
+    arrayStream chunkSize start =
+        IP.chunksOf chunkSize (Array.writeN chunkSize)
+            $ sourceUnfoldrM bound start
+
 o_n_heap_serial :: Int -> [Benchmark]
 o_n_heap_serial value =
     [
@@ -265,6 +295,7 @@ main = do
 
     allBenchmarks value =
         [ bgroup (o_1_space_prefix moduleName) (o_1_space_serial value)
+        , bgroup (o_1_space_prefix moduleName) (o_1_space_serial_array value)
         , bgroup (o_n_heap_prefix moduleName) (o_n_heap_serial value)
         , bgroup (o_n_space_prefix moduleName) (o_n_space_serial value)
         ]
