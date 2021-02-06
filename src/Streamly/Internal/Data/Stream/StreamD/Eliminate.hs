@@ -17,6 +17,7 @@ module Streamly.Internal.Data.Stream.StreamD.Eliminate
 
     -- -- * Running a 'Parser'
  -- , parse
+    , parseArray
 
     -- * Stream Deconstruction
     , uncons
@@ -78,11 +79,21 @@ where
 
 import Control.Exception (assert)
 import Control.Monad.Catch (MonadThrow, throwM)
+import Control.Monad.IO.Class (MonadIO(..))
+import Foreign.Storable (Storable(..))
 import GHC.Exts (SpecConstrAnnotation(..))
 import GHC.Types (SPEC(..))
 import Streamly.Internal.Data.Parser (ParseError(..))
 
-import qualified Streamly.Internal.Data.Parser as PR
+-- XXX We should evolve the array module so this isn't required
+import Foreign.ForeignPtr (plusForeignPtr)
+
+import qualified Streamly.Internal.Data.Array.Foreign.Types as Array
+import qualified Streamly.Internal.Data.Parser.ParserD as PR
+
+-- XXX Are these dependencies OK?
+import qualified Streamly.Internal.Data.Stream.StreamD.Generate as Generate
+import qualified Streamly.Internal.Data.Stream.StreamD.Nesting as Nesting
 
 import Prelude hiding
        ( all, any, elem, foldr, foldr1, head, last, lookup, mapM, mapM_
@@ -192,6 +203,125 @@ parselMx' pstep initial extract (Stream step state) = do
                 gobuf SPEC s (List buf1) (List src) pst1
             PR.Done _ b -> return b
             PR.Error err -> throwM $ ParseError err
+
+-- We use a doubly linked list for parseArray. Below is the type (DLL) a few
+-- helper functions (*DLL)
+
+-- Representation of a doubly linked list
+{-# ANN type DLL NoSpecConstr #-}
+newtype DLL a = DLL ([a], a, [a])
+
+{-# INLINE singleDLL #-}
+singleDLL :: a -> DLL a
+singleDLL a = DLL ([], a, [])
+
+{-# INLINE bufferRDLL #-}
+bufferRDLL :: DLL a -> [a]
+bufferRDLL (DLL (_, _, br)) = br
+
+{-# INLINE dropLDLL #-}
+dropLDLL :: DLL a -> DLL a
+dropLDLL (DLL (_, a, x)) = (DLL ([], a, x))
+
+{-# INLINE nextDLL #-}
+nextDLL :: DLL a -> DLL a
+nextDLL (DLL (y, a, x:xs)) = (DLL (a:y, x, xs))
+nextDLL _ = error "nextDLL: Empty right buffer"
+
+{-# INLINE previousDLL #-}
+previousDLL :: DLL a -> DLL a
+previousDLL (DLL (y:ys, a, x)) = (DLL (ys, y, a:x))
+previousDLL _ = error "previousDLL: Empty left buffer"
+
+{-# INLINE currentDLL #-}
+currentDLL :: DLL a -> a
+currentDLL (DLL (_, x, _)) = x
+
+-- Inefficient stuff but probably Ok for our use case.
+{-# INLINE insertDLL #-}
+insertDLL :: a -> DLL a -> DLL a
+insertDLL a (DLL (y, a1, x)) = (DLL (y, a1, x ++ [a]))
+
+-- This should be as efficient as parse
+{-# INLINE_NORMAL parseArray #-}
+parseArray ::
+       forall m a b. (MonadIO m, Storable a)
+    => PR.Parser m a b
+    -> Stream m (Array.Array a)
+    -> m (b, Stream m (Array.Array a))
+parseArray (PR.Parser pstep pinitial pextract) (UnStream step state) = do
+    ps <- pinitial
+    goInit SPEC ps state
+
+    where
+
+    goInit !_ ps s = do
+        res <- step defState s
+        case res of
+            Yield arr s1 ->
+                go SPEC ps s1 (singleDLL arr) 0 (Array.length arr)
+            Skip s1 -> goInit SPEC ps s1
+            Stop -> do
+                b <- pextract ps
+                return (b, Generate.nil)
+
+    goBreak !_ ps s dl i imax
+        | i < 0 =
+            let dl1 = previousDLL dl
+                arr = currentDLL dl1
+                len = Array.length arr
+             in goBreak SPEC ps s dl1 (len + i) len
+        | otherwise = go SPEC ps s (dropLDLL dl) i imax
+
+    go !_ ps s dl i imax
+        | i == imax = do
+            res <- step defState s
+            case res of
+                Yield arr s1 -> do
+                    let dl1 = nextDLL (insertDLL arr dl)
+                        crr = currentDLL dl1
+                    go SPEC ps s1 dl1 0 (Array.length crr)
+                Skip s1 -> go SPEC ps s1 dl i imax
+                Stop -> do
+                    b <- pextract ps
+                    return (b, Generate.nil)
+        | i < 0 =
+            let dl1 = previousDLL dl
+                arr = currentDLL dl1
+                len = Array.length arr
+             in go SPEC ps s dl1 (len + i) len
+        | otherwise = do
+            let arr = currentDLL dl
+                i1 = i + 1
+            a <- liftIO $ Array.unsafeIndexIO arr i
+            pRes <- pstep ps a
+            case pRes of
+                PR.Partial 0 ps1 -> go SPEC ps1 s (dropLDLL dl) i1 imax
+                PR.Partial n ps1 -> goBreak SPEC ps1 s dl (i1 - n) imax
+                PR.Continue 0 ps1 -> go SPEC ps1 s dl i1 imax
+                PR.Continue n ps1 -> go SPEC ps1 s dl (i1 - n) imax
+                PR.Done n b -> goFinal SPEC b s dl (i1 - n) imax
+                PR.Error err -> error err
+
+    goFinal !_ b s dl i imax
+        | i == imax =
+            let br = bufferRDLL dl
+                streamL = Generate.fromList br
+                streamR = Stream step s
+             in return (b, Nesting.append streamL streamR)
+        | i < 0 =
+            let dl1 = previousDLL dl
+                arr = currentDLL dl1
+                len = Array.length arr
+             in goFinal SPEC b s dl1 (len + i) len
+        | otherwise = do
+            let (Array.Array fp end) = currentDLL dl
+                br = bufferRDLL dl
+                elemSize = sizeOf (undefined :: a)
+                newArr = Array.Array (fp `plusForeignPtr` (i * elemSize)) end
+                streamL = Generate.fromList (newArr : br)
+                streamR = Stream step s
+             in return (b, Nesting.append streamL streamR)
 
 ------------------------------------------------------------------------------
 -- Specialized Folds

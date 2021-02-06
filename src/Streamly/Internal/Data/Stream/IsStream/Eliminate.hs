@@ -26,6 +26,7 @@ module Streamly.Internal.Data.Stream.IsStream.Eliminate
     , parse
     , parseK
     , parseD
+    , parseArrayD
 
     -- * Stream Deconstruction
     -- | foldr and foldl do not provide the remaining stream.  'uncons' is more
@@ -338,6 +339,18 @@ runSink = fold . toFold
 {-# INLINE_NORMAL parseD #-}
 parseD :: MonadThrow m => PRD.Parser m a b -> SerialT m a -> m b
 parseD (PRD.Parser step initial extract) = P.parselMx' step initial extract
+
+-- | Parse an array stream using the supplied 'Parser'.
+--
+-- /Internal/
+--
+{-# INLINE_NORMAL parseArrayD #-}
+parseArrayD ::
+       (MonadIO m, Storable a)
+    => PRD.Parser m a b
+    -> SerialT m (A.Array a)
+    -> m (b, SerialT m (A.Array a))
+parseArrayD p s = fmap fromStreamD <$> D.parseArray p (toStreamD s)
 
 {-# INLINE parseK #-}
 parseK :: MonadThrow m => PRK.Parser m a b -> SerialT m a -> m b
