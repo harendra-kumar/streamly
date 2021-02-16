@@ -814,6 +814,8 @@ data TakeByTime st s
     | TakeByTimeCheck st s
     | TakeByTimeYield st s
 
+-- This is INCORRECT. A requirement of this combinator is to end the stream
+-- after the given duration. This combinator should ideally act as a supervisor.
 {-# INLINE_NORMAL takeByTime #-}
 takeByTime :: (MonadIO m, TimeUnit64 t) => t -> Stream m a -> Stream m a
 takeByTime duration (Stream step1 state1) = Stream step (TakeByTimeInit state1)
