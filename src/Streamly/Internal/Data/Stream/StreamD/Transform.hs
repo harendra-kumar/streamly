@@ -144,6 +144,8 @@ import qualified Streamly.Internal.Data.Fold.Types as FL
 import qualified Streamly.Internal.Data.IORef.Prim as Prim
 import qualified Streamly.Internal.Data.Pipe.Types as Pipe
 import qualified Streamly.Internal.Data.Stream.StreamK as K
+import qualified Streamly.Internal.Data.Stream.StreamD.Generate as Generate
+import qualified Streamly.Internal.Data.Stream.StreamD.Nesting as Nesting
 
 import Prelude hiding
        ( drop, dropWhile, filter, map, mapM, reverse
@@ -837,40 +839,17 @@ takeByTime duration (Stream step1 state1) = Stream step (TakeByTimeInit state1)
              Skip s -> Skip (TakeByTimeCheck s t0)
              Stop -> Stop
 
-data DropByTime st s x
-    = DropByTimeInit st
-    | DropByTimeGen st s
-    | DropByTimeCheck st s x
-    | DropByTimeYield st
-
 {-# INLINE_NORMAL dropByTime #-}
-dropByTime :: (MonadIO m, TimeUnit64 t) => t -> Stream m a -> Stream m a
-dropByTime duration (Stream step1 state1) = Stream step (DropByTimeInit state1)
+dropByTime :: (MonadAsync m, TimeUnit64 t) => t -> Stream m a -> Stream m a
+dropByTime duration =
+    map snd
+        . dropWhile (\(t, _) -> t <= duration64)
+        . Nesting.zipWith (,) relTimes
+
     where
 
-    lim = toRelTime64 duration
-
-    {-# INLINE_LATE step #-}
-    step _ (DropByTimeInit st) = do
-        t0 <- liftIO $ getTime Monotonic
-        return $ Skip (DropByTimeGen st t0)
-    step gst (DropByTimeGen st t0) = do
-        r <- step1 gst st
-        return $ case r of
-             Yield x s -> Skip (DropByTimeCheck s t0 x)
-             Skip s -> Skip (DropByTimeGen s t0)
-             Stop -> Stop
-    step _ (DropByTimeCheck st t0 x) = do
-        t <- liftIO $ getTime Monotonic
-        if diffAbsTime64 t t0 <= lim
-        then return $ Skip $ DropByTimeGen st t0
-        else return $ Yield x $ DropByTimeYield st
-    step gst (DropByTimeYield st) = do
-        r <- step1 gst st
-        return $ case r of
-             Yield x s -> Yield x (DropByTimeYield s)
-             Skip s -> Skip (DropByTimeYield s)
-             Stop -> Stop
+    relTimes = map snd (Generate.times 0.01)
+    duration64 = toRelTime64 duration
 
 -- Adapted from the vector package
 {-# INLINE_NORMAL drop #-}
