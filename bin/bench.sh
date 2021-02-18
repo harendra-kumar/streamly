@@ -70,7 +70,19 @@ cabal_which_report() {
   local path=$(cabal_which streamly-benchmarks x $1)
   if test -z "$path"
   then
-    cabal_which_builddir dist-newstyle streamly-benchmarks x $1
+    echo "Cannot find $1 executable, trying in dist-newstyle" 1>&2
+    local path1=$(cabal_which_builddir dist-newstyle streamly-benchmarks x $1)
+    if test -z "$path1"
+    then
+      local path2="./bin/$1"
+      echo "Cannot find $1 executable, trying $path2" 1>&2
+      if test -e "$path2"
+      then
+        echo $path2
+      fi
+    else
+        echo $path1
+    fi
   else
     echo $path
   fi

@@ -3,6 +3,13 @@
 # To build the chart executable for running bench.sh use:
 # nix-shell --argstr c2nix "--flag dev" --run "cabal build chart --flag dev"
 #
+# You can permanently copy the "chart" executable to "./bin" to pick
+# it up irrespective of the compiler/build. Its path is printed by the
+# above build command. You can also print its path using the following
+# command and then use "cp <path> ./bin" to copy it to "./bin", the bench.sh
+# script will pick it up from there:
+# nix-shell --argstr c2nix "--flag dev" --run "cabal exec --flag dev -- which chart"
+#
 # To use ghc-8.6.5
 # nix-shell --argstr compiler "ghc865"
 
