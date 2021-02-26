@@ -241,9 +241,11 @@ import Streamly.Internal.Data.Stream.Serial (SerialT)
 import Streamly.Internal.Data.Stream.StreamD (fromStreamD, toStreamD)
 import Streamly.Internal.Data.Stream.StreamK (IsStream)
 import Streamly.Internal.Data.SVar (MonadAsync, Rate(..))
-import Streamly.Internal.Data.Time.Units (TimeUnit64, AbsTime, RelTime64)
+import Streamly.Internal.Data.Time.Units
+    (TimeUnit64, AbsTime, RelTime64, toRelTime64)
 
 import qualified Streamly.Internal.Data.Fold as FL
+import qualified Streamly.Internal.Data.Stream.IsStream.Generate as Generate
 import qualified Streamly.Internal.Data.Stream.Parallel as Par
 import qualified Streamly.Internal.Data.Stream.Prelude as P
 import qualified Streamly.Internal.Data.Stream.Serial as Serial
@@ -991,8 +993,16 @@ takeWhileAround = undefined -- fromStreamD $ D.takeWhileAround n $ toStreamD m
 -- /Internal/
 --
 {-# INLINE takeByTime #-}
-takeByTime ::(MonadIO m, IsStream t, TimeUnit64 d) => d -> t m a -> t m a
-takeByTime d = fromStreamD . D.takeByTime d . toStreamD
+takeByTime ::
+       (MonadAsync m, IsStream t, TimeUnit64 d, Functor (t m))
+    => d -> t m a -> t m a
+takeByTime duration = catMaybes . Par.parallelMin timeStream . fmap Just
+
+    where
+
+    duration64 = toRelTime64 duration
+    timeStream =
+        fmap (const Nothing) $ takeWhile (< duration64) Generate.relTimes
 
 -- | Drop elements in the stream as long as the predicate succeeds and then
 -- take the rest of the stream.
