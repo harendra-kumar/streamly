@@ -190,7 +190,7 @@ demux kv = Sink step
 -- @
 -- @
 -- > let pr x = Sink.drainM (putStrLn . ((x ++ " ") ++) . show)
---   in Sink.sink (Sink.unzip return (pr \"L") (pr \"R")) (S.yield (1,2))
+--   in Sink.sink (Sink.unzip return (pr \"L") (pr \"R")) (S.value (1,2))
 -- L 1
 -- R 2
 -- @

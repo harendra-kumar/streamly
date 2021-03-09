@@ -61,7 +61,7 @@ module Streamly.Internal.Data.Stream.StreamK
     , iterateM
 
     -- ** Conversions
-    , yield
+    , value
     , yieldM
     , fromFoldable
     , fromList
@@ -272,7 +272,7 @@ once = yieldM
 -- |
 -- @
 -- repeatM = fix . cons
--- repeatM = cycle1 . yield
+-- repeatM = cycle1 . value
 -- @
 --
 -- Generate an infinite stream by repeating a monadic value.
@@ -929,7 +929,7 @@ intersperseM a m = prependingStart m
         let yieldk i x = foldStreamShared st yld sng stp $ return i |: go x
          in foldStream st yieldk sng stp m1
     go m2 = mkStream $ \st yld sng stp ->
-        let single i = foldStreamShared st yld sng stp $ a |: yield i
+        let single i = foldStreamShared st yld sng stp $ a |: value i
             yieldk i x = foldStreamShared st yld sng stp $ a |: return i |: go x
          in foldStream st yieldk single stp m2
 
@@ -943,8 +943,8 @@ insertBy cmp x m = go m
   where
     go m1 = mkStream $ \st yld _ _ ->
         let single a = case cmp x a of
-                GT -> yld a (yield x)
-                _  -> yld x (yield a)
+                GT -> yld a (value x)
+                _  -> yld x (value a)
             stop = yld x nil
             yieldk a r = case cmp x a of
                 GT -> yld a (go r)

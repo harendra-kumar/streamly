@@ -1845,7 +1845,7 @@ classifySessionsBy tick timeout reset (Fold step initial extract) str =
                 let (r, mp') = Map.updateLookupWithKey (\_ _ -> Nothing) key mp
                 Tuple' _ acc <- accumulate r
                 res <- extract acc
-                return $ Tuple4' evTime hp mp' (S.yield (key, res))
+                return $ Tuple4' evTime hp mp' (S.value (key, res))
            else do
                     let r = Map.lookup key mp
                     acc <- accumulate r

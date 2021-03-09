@@ -55,7 +55,7 @@ module Streamly.Internal.Data.Stream.StreamK.Type
     , consMStream
     , consMBy
     , yieldM
-    , yield
+    , value
 
     , nil
     , nilM
@@ -345,9 +345,9 @@ nil = mkStream $ \_ _ _ stp -> stp
 nilM :: (IsStream t, Monad m) => m b -> t m a
 nilM m = mkStream $ \_ _ _ stp -> m >> stp
 
-{-# INLINE_NORMAL yield #-}
-yield :: IsStream t => a -> t m a
-yield a = mkStream $ \_ _ single _ -> single a
+{-# INLINE_NORMAL value #-}
+value :: IsStream t => a -> t m a
+value a = mkStream $ \_ _ single _ -> single a
 
 {-# INLINE_NORMAL yieldM #-}
 yieldM :: (Monad m, IsStream t) => m a -> t m a
@@ -487,7 +487,7 @@ foldrSShared = foldrSWith foldStreamShared
 {-# RULES "foldrSShared/nil"
     forall k z. foldrSShared k z nil = z #-}
 {-# RULES "foldrSShared/single"
-    forall k z x. foldrSShared k z (yield x) = k x z #-}
+    forall k z x. foldrSShared k z (value x) = k x z #-}
 -- {-# RULES "foldrSShared/app" [1]
 --     forall ys. foldrSShared consM ys = \xs -> xs `conjoin` ys #-}
 
@@ -501,7 +501,7 @@ foldrS = foldrSWith foldStream
 -- See notes in GHC.Base about this rule
 -- {-# RULES "foldr/cons"
 --  forall k z x xs. foldrS k z (x `cons` xs) = k x (foldrS k z xs) #-}
-{-# RULES "foldrS/single" forall k z x. foldrS k z (yield x) = k x z #-}
+{-# RULES "foldrS/single" forall k z x. foldrS k z (value x) = k x z #-}
 -- {-# RULES "foldrS/app" [1]
 --  forall ys. foldrS cons ys = \xs -> xs `conjoin` ys #-}
 
@@ -1166,7 +1166,7 @@ concatPairsWith combine f = go Nothing
 
 instance Monad m => Applicative (Stream m) where
     {-# INLINE pure #-}
-    pure = yield
+    pure = value
     {-# INLINE (<*>) #-}
     (<*>) = ap
 

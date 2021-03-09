@@ -14,7 +14,7 @@
 module Streamly.Internal.Data.Stream.IsStream.Common
     (
     -- * Generation
-      yield
+      value
     , yieldM
     , repeatM
     , timesWith
@@ -91,7 +91,7 @@ import Prelude hiding (take, takeWhile, drop, reverse)
 --
 -- |
 -- @
--- yield a = a \`cons` nil
+-- value a = a \`cons` nil
 -- @
 --
 -- Create a singleton stream from a pure value.
@@ -99,19 +99,19 @@ import Prelude hiding (take, takeWhile, drop, reverse)
 -- The following holds in monadic streams, but not in Zip streams:
 --
 -- @
--- yield = pure
--- yield = yieldM . pure
+-- value = pure
+-- value = yieldM . pure
 -- @
 --
--- In Zip applicative streams 'yield' is not the same as 'pure' because in that
--- case 'pure' is equivalent to 'repeat' instead. 'yield' and 'pure' are
--- equally efficient, in other cases 'yield' may be slightly more efficient
+-- In Zip applicative streams 'value' is not the same as 'pure' because in that
+-- case 'pure' is equivalent to 'repeat' instead. 'value' and 'pure' are
+-- equally efficient, in other cases 'value' may be slightly more efficient
 -- than the other equivalent definitions.
 --
--- @since 0.4.0
-{-# INLINE yield #-}
-yield :: IsStream t => a -> t m a
-yield = K.yield
+-- @since 0.8.0
+{-# INLINE value #-}
+value :: IsStream t => a -> t m a
+value = K.value
 
 -- |
 -- @
@@ -459,7 +459,7 @@ concatMapM f m = fromStreamD $ D.concatMapM (fmap toStreamD . f) (toStreamD m)
 --
 {-# INLINE concatM #-}
 concatM :: (IsStream t, Monad m) => m (t m a) -> t m a
-concatM generator = concatMapM (\() -> generator) (yield ())
+concatM generator = concatMapM (\() -> generator) (value ())
 
 ------------------------------------------------------------------------------
 -- Split stream and fold

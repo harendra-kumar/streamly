@@ -28,8 +28,8 @@ instance Functor (Step s) where
     fmap _ Stop = Stop
 
 {-
-yield :: Monad m => a -> s -> m (Step s a)
-yield a = return . Yield a
+value :: Monad m => a -> s -> m (Step s a)
+value a = return . Yield a
 
 skip :: Monad m => s -> m (Step s a)
 skip = return . Skip

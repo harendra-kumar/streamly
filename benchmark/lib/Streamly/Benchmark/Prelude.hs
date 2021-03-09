@@ -294,13 +294,13 @@ transformZipMapM t n =
 {-# INLINE sourceFoldMapWith #-}
 sourceFoldMapWith :: (S.IsStream t, Semigroup (t m Int))
     => Int -> Int -> t m Int
-sourceFoldMapWith value n = S.concatMapFoldableWith (<>) S.yield [n..n+value]
+sourceFoldMapWith value n = S.concatMapFoldableWith (<>) S.value [n..n+value]
 
 {-# INLINE concatForFoldableWith #-}
 concatForFoldableWith :: (S.IsStream t, Semigroup (t m Int))
     => Int -> Int -> t m Int
 concatForFoldableWith value n =
-    S.concatForFoldableWith (<>) [n..n+value] S.yield
+    S.concatForFoldableWith (<>) [n..n+value] S.value
 
 {-# INLINE concatFoldableWith #-}
 concatFoldableWith :: (S.IsStream t, Semigroup (t m Int))
@@ -308,7 +308,7 @@ concatFoldableWith :: (S.IsStream t, Semigroup (t m Int))
 concatFoldableWith value n =
     let step x =
             if x <= n + value
-            then Just (S.yield x, x + 1)
+            then Just (S.value x, x + 1)
             else Nothing
         list = List.unfoldr step n
      in S.concatFoldableWith (<>) list
@@ -316,7 +316,7 @@ concatFoldableWith value n =
 {-# INLINE sourceFoldMapWithStream #-}
 sourceFoldMapWithStream :: (S.IsStream t, Semigroup (t m Int))
     => Int -> Int -> t m Int
-sourceFoldMapWithStream value n = S.concatMapFoldableWith (<>) S.yield
+sourceFoldMapWithStream value n = S.concatMapFoldableWith (<>) S.value
     $ (S.enumerateFromTo n (n + value) :: S.SerialT Identity Int)
 
 {-# INLINE sourceFoldMapWithM #-}

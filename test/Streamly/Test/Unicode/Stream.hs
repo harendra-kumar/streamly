@@ -121,7 +121,7 @@ testLinesArray =
             xs <- S.toList
                     $ S.map A.toList
                     $ AS.splitOnSuffix 10
-                    $ S.yield (A.fromList list)
+                    $ S.value (A.fromList list)
             assert (xs == map (map (fromIntegral . ord))
                               (lines (map (chr .  fromIntegral) list)))
 

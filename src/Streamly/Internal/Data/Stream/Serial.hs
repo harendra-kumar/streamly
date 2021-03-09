@@ -193,7 +193,7 @@ instance Monad m => Monad (SerialT m) where
     (>>)  = (*>)
 
     -- StreamD based implementation
-    -- return = SerialT . D.fromStreamD . D.yield
+    -- return = SerialT . D.fromStreamD . D.value
     -- m >>= f = D.fromStreamD $ D.concatMap (\a -> D.toStreamD (f a)) (D.toStreamD m)
 
 ------------------------------------------------------------------------------
@@ -240,7 +240,7 @@ apDiscardSnd (SerialT m1) (SerialT m2) =
 -- INLINE them.
 instance Monad m => Applicative (SerialT m) where
     {-# INLINE pure #-}
-    pure = SerialT . K.yield
+    pure = SerialT . K.value
 
     {-# INLINE (<*>) #-}
     (<*>) = apSerial
@@ -458,7 +458,7 @@ apWSerial (WSerialT m1) (WSerialT m2) =
 
 instance Monad m => Applicative (WSerialT m) where
     {-# INLINE pure #-}
-    pure = WSerialT . K.yield
+    pure = WSerialT . K.value
     {-# INLINE (<*>) #-}
     (<*>) = apWSerial
 

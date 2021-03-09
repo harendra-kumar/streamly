@@ -1012,7 +1012,7 @@ splitAt n fld = serialWith (,) (take n fld)
 -- @
 --
 -- Repeated applications of @Fold.takeEndBy_ (== x)@ on the input stream gives us
--- an inverse of @Stream.intercalate (Stream.yield x)@
+-- an inverse of @Stream.intercalate (Stream.value x)@
 --
 -- > Stream.splitOn pred f = Stream.foldMany (Fold.takeEndBy_ pred f)
 --

@@ -24,7 +24,7 @@
 -- used to fine tune the concurrency control.
 --
 -- Streaming and concurrency together enable expressing reactive applications
--- conveniently. See the @CirclingSquare@ example in 
+-- conveniently. See the @CirclingSquare@ example in
 -- <https://github.com/composewell/streamly-examples Streamly Examples> for
 -- a simple SDL based FRP example. To summarize, streamly provides a unified
 -- computing framework for streaming, non-determinism and functional reactive
@@ -363,7 +363,7 @@ import Control.Monad.Trans.Class   (MonadTrans (lift))
 -- ["hello","world"]
 -- @
 --
--- To create a singleton stream from a pure value use 'yield' or 'pure' and to
+-- To create a singleton stream from a pure value use 'value' or 'pure' and to
 -- create a singleton stream from a monadic action use 'yieldM'. Note that in
 -- case of Zip applicative streams "pure" repeats the value to generate an
 -- infinite stream.
@@ -371,7 +371,7 @@ import Control.Monad.Trans.Class   (MonadTrans (lift))
 -- @
 -- > S.'toList' $ 'pure' 1
 -- [1]
--- > S.'toList' $ S.'yield' 1
+-- > S.'toList' $ S.'value' 1
 -- [1]
 -- > S.'toList' $ S.'yieldM' 'getLine'
 -- hello
@@ -1513,7 +1513,7 @@ import Control.Monad.Trans.Class   (MonadTrans (lift))
 --     void $ runStateT runGame 60
 -- @
 --
--- You can also find the source of this example in the streamly-examples repo 
+-- You can also find the source of this example in the streamly-examples repo
 -- as <https://github.com/composewell/streamly-examples/tree/master/AcidRain.hs AcidRain.hs>.
 -- It has been adapted from Gabriel's
 -- <https://hackage.haskell.org/package/pipes-concurrency-2.0.8/docs/Pipes-Concurrent-Tutorial.html pipes-concurrency>

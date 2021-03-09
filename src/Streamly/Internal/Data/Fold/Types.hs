@@ -553,7 +553,7 @@ instance Functor m => Functor (Fold m a) where
         step s b = fmap2 f (step1 s b)
         fmap2 g = fmap (fmap g)
 
--- This is the dual of stream "yield".
+-- This is the dual of stream "value".
 --
 -- | A fold that always yields a pure value without consuming any input.
 --

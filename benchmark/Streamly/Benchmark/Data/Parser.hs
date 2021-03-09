@@ -89,7 +89,7 @@ drainWhile value = IP.parse (PR.drainWhile (<= value))
 {-# INLINE sliceBeginWith #-}
 sliceBeginWith :: MonadCatch m => Int -> SerialT m Int -> m ()
 sliceBeginWith value stream = do
-    stream1 <- return . fromMaybe (S.yield (value + 1)) =<< S.tail stream
+    stream1 <- return . fromMaybe (S.value (value + 1)) =<< S.tail stream
     let stream2 = value `S.cons` stream1
     IP.parse (PR.sliceBeginWith (== value) FL.drain) stream2
 

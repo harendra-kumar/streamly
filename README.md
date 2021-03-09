@@ -327,7 +327,7 @@ listDirRecursive = getCurrentDir >>= readdir >>= liftIO . mapM_ putStrLn
   where
     readdir dir = do
       (dirs, files) <- listDir dir
-      S.yield (map show dirs ++ map show files) <> foldMap readdir dirs
+      S.value (map show dirs ++ map show files) <> foldMap readdir dirs
 
 main :: IO ()
 main = S.drain $ adapt $ listDirRecursive

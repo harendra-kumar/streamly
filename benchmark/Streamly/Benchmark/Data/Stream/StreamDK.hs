@@ -104,7 +104,7 @@ sourceFromFoldableM n = S.fromFoldableM (Prelude.fmap return [n..n+value])
 {-
 {-# INLINE sourceFoldMapWith #-}
 sourceFoldMapWith :: Int -> Stream m Int
-sourceFoldMapWith n = SP.foldMapWith S.serial S.yield [n..n+value]
+sourceFoldMapWith n = SP.foldMapWith S.serial S.value [n..n+value]
 
 {-# INLINE sourceFoldMapWithM #-}
 sourceFoldMapWithM :: Monad m => Int -> Stream m Int

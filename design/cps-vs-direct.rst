@@ -21,8 +21,8 @@ Generating
   nil = Stream (const (return Stop)) ()
 
   -- | A single value
-  yield :: Applicative m => a -> Stream m a
-  yield x = Stream step True
+  value :: Applicative m => a -> Stream m a
+  value x = Stream step True
 
       where
 
@@ -204,8 +204,8 @@ Generating
   nil :: Stream m a
   nil = Stream $ \_ stp -> stp
 
-  yield :: a -> Stream m a
-  yield a = Stream $ \yield _ -> yield a nil
+  value :: a -> Stream m a
+  value a = Stream $ \val _ -> val a nil
 
   cons :: a -> Stream m a -> Stream m a
   cons a r = Stream $ \yld _ -> yld a r

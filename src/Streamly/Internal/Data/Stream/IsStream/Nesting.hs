@@ -269,7 +269,7 @@ import Streamly.Internal.Data.Stream.IsStream.Common
     , scanlMAfter'
     , smapM
     , splitOnSeq
-    , yield
+    , value
     , yieldM)
 import Streamly.Internal.Data.Stream.Parallel (parallel)
 import Streamly.Internal.Data.Stream.Prelude
@@ -663,7 +663,7 @@ concatMapEitherWith = undefined
 --
 -- For example, you can sort a stream using merge sort like this:
 --
--- >>> Stream.toList $ Stream.concatPairsWith (Stream.mergeBy compare) Stream.yield $ Stream.fromList [5,1,7,9,2]
+-- >>> Stream.toList $ Stream.concatPairsWith (Stream.mergeBy compare) Stream.value $ Stream.fromList [5,1,7,9,2]
 -- [1,2,5,7,9]
 --
 -- /Caution: the stream of streams must be finite/
@@ -842,7 +842,7 @@ intercalateSuffix seed unf str = fromStreamD $ D.concatUnfold unf
 -- @
 -- Stream.iterateMapWith Stream.serial
 --     (either Dir.toEither (const nil))
---     (yield (Left "tmp"))
+--     (value (Left "tmp"))
 -- @
 --
 -- /Pre-release/
@@ -856,7 +856,7 @@ iterateMapWith
     -> t m a
 iterateMapWith combine f = concatMapWith combine go
     where
-    go x = yield x `combine` concatMapWith combine go (f x)
+    go x = value x `combine` concatMapWith combine go (f x)
 
 {-
 {-# INLINE iterateUnfold #-}
@@ -897,7 +897,7 @@ iterateSmapMWith combine f initial stream =
 
     where
 
-    go b a = yield a `combine` feedback b a
+    go b a = value a `combine` feedback b a
 
     feedback b a =
         concatMap
@@ -918,7 +918,7 @@ iterateSmapMWith combine f initial stream =
 -- To traverse a directory tree:
 --
 -- @
--- iterateMapLeftsWith serial Dir.toEither (yield (Left "tmp"))
+-- iterateMapLeftsWith serial Dir.toEither (value (Left "tmp"))
 -- @
 --
 -- /Pre-release/
@@ -1306,11 +1306,11 @@ groups = groupsBy (==)
 --
 -- splitOn is an inverse of intercalating single element:
 --
--- @Stream.intercalate (Stream.yield '.') Unfold.fromList . Stream.splitOn (== '.') Fold.toList === id@
+-- @Stream.intercalate (Stream.value '.') Unfold.fromList . Stream.splitOn (== '.') Fold.toList === id@
 --
 -- Assuming the input stream does not contain the separator:
 --
--- @Stream.splitOn (== '.') Fold.toList . Stream.intercalate (Stream.yield '.') Unfold.fromList === id@
+-- @Stream.splitOn (== '.') Fold.toList . Stream.intercalate (Stream.value '.') Unfold.fromList === id@
 --
 -- @since 0.7.0
 
@@ -1372,11 +1372,11 @@ splitOn predicate f =
 --
 -- 'splitOnSuffix' is an inverse of 'intercalateSuffix' with a single element:
 --
--- @Stream.intercalateSuffix (Stream.yield '.') Unfold.fromList . Stream.splitOnSuffix (== '.') Fold.toList === id@
+-- @Stream.intercalateSuffix (Stream.value '.') Unfold.fromList . Stream.splitOnSuffix (== '.') Fold.toList === id@
 --
 -- Assuming the input stream does not contain the separator:
 --
--- @Stream.splitOnSuffix (== '.') Fold.toList . Stream.intercalateSuffix (Stream.yield '.') Unfold.fromList === id@
+-- @Stream.splitOnSuffix (== '.') Fold.toList . Stream.intercalateSuffix (Stream.value '.') Unfold.fromList === id@
 --
 -- @since 0.7.0
 
@@ -1428,11 +1428,11 @@ splitOnSuffix predicate f = foldMany (FL.takeEndBy_ predicate f)
 --
 -- 'splitOnPrefix' is an inverse of 'intercalatePrefix' with a single element:
 --
--- @Stream.intercalatePrefix (Stream.yield '.') Unfold.fromList . Stream.splitOnPrefix (== '.') Fold.toList === id@
+-- @Stream.intercalatePrefix (Stream.value '.') Unfold.fromList . Stream.splitOnPrefix (== '.') Fold.toList === id@
 --
 -- Assuming the input stream does not contain the separator:
 --
--- @Stream.splitOnPrefix (== '.') Fold.toList . Stream.intercalatePrefix (Stream.yield '.') Unfold.fromList === id@
+-- @Stream.splitOnPrefix (== '.') Fold.toList . Stream.intercalatePrefix (Stream.value '.') Unfold.fromList === id@
 --
 -- /Unimplemented/
 
@@ -1970,7 +1970,7 @@ classifySessionsBy tick reset ejectPred tmout
     -- We use the first strategy as of now.
 
     -- Got a new stream input element
-    sstep session@SessionState{..} (Just (timestamp, (key, value))) = do
+    sstep session@SessionState{..} (Just (timestamp, (key, val))) = do
         -- XXX we should use a heap in pinned memory to scale it to a large
         -- size
         --
@@ -2001,7 +2001,7 @@ classifySessionsBy tick reset ejectPred tmout
                     , sessionEventTime = curTime
                     , sessionCount = cnt
                     , sessionKeyValueMap = mp
-                    , sessionOutputStream = yield (key, fb)
+                    , sessionOutputStream = value (key, fb)
                     }
             partial fs1 = do
                 let acc = Tuple' timestamp fs1
@@ -2041,7 +2041,7 @@ classifySessionsBy tick reset ejectPred tmout
         case res0 of
             FL.Done fb -> done fb
             FL.Partial fs -> do
-                res <- step fs value
+                res <- step fs val
                 case res of
                     FL.Done fb -> done fb
                     FL.Partial fs1 -> partial fs1

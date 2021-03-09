@@ -614,7 +614,7 @@ apParallel (ParallelT m1) (ParallelT m2) =
 
 instance (Monad m, MonadAsync m) => Applicative (ParallelT m) where
     {-# INLINE pure #-}
-    pure = ParallelT . K.yield
+    pure = ParallelT . K.value
     {-# INLINE (<*>) #-}
     (<*>) = apParallel
 

@@ -778,7 +778,7 @@ apAsync (AsyncT m1) (AsyncT m2) =
 
 instance (Monad m, MonadAsync m) => Applicative (AsyncT m) where
     {-# INLINE pure #-}
-    pure = AsyncT . K.yield
+    pure = AsyncT . K.value
     {-# INLINE (<*>) #-}
     (<*>) = apAsync
 
@@ -985,7 +985,7 @@ apWAsync (WAsyncT m1) (WAsyncT m2) =
 -- GHC: if we specify arguments in the definition of (<*>) we see a significant
 -- performance degradation (~2x).
 instance (Monad m, MonadAsync m) => Applicative (WAsyncT m) where
-    pure = WAsyncT . K.yield
+    pure = WAsyncT . K.value
     (<*>) = apWAsync
 
 ------------------------------------------------------------------------------

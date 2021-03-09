@@ -1076,7 +1076,7 @@ dropWhileAround = undefined -- fromStreamD $ D.dropWhileAround n $ toStreamD m
 -- @stream@ that is less than @elem@ when compared using @cmp@.
 --
 -- @
--- insertBy cmp x = 'mergeBy' cmp ('yield' x)
+-- insertBy cmp x = 'mergeBy' cmp ('value' x)
 -- @
 --
 -- @

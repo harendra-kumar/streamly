@@ -19,12 +19,12 @@ import System.Random (randomRIO)
 -- Also, the worker dispatch depends on the worker dispatch latency which is
 -- set to fixed 200 us. We need to keep that in mind when designing tests.
 
-value :: Int
-value = 1000
+times :: Int
+times = 1000
 
 {-# INLINE source #-}
 source :: IsStream t => (Int, Int) -> t IO Int
-source range = S.replicateM value $ do
+source range = S.replicateM times $ do
     r <- randomRIO range
     when (r /= 0) $ liftIO $ threadDelay r
     return r

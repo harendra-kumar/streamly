@@ -732,7 +732,7 @@ apAhead (AheadT m1) (AheadT m2) =
 
 instance (Monad m, MonadAsync m) => Applicative (AheadT m) where
     {-# INLINE pure #-}
-    pure = AheadT . K.yield
+    pure = AheadT . K.value
     {-# INLINE (<*>) #-}
     (<*>) = apAhead
 

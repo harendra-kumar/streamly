@@ -275,7 +275,7 @@ instance Functor m => Functor (Parser m a) where
 -- Sequential applicative
 -------------------------------------------------------------------------------
 
--- This is the dual of stream "yield".
+-- This is the dual of stream "value".
 --
 -- | A parser that always yields a pure value without consuming any input.
 --
