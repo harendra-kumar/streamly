@@ -129,10 +129,10 @@ concurrentUnfoldrM eq op n =
                 -- results may not be yielded in order, in case of
                 -- Async/WAsync/Parallel. So we use an increasing count
                 -- instead.
-                i <- S.yieldM $ readIORef cnt
-                S.yieldM $ modifyIORef cnt (+1)
+                i <- S.valueM $ readIORef cnt
+                S.valueM $ modifyIORef cnt (+1)
                 let msg = show i <> "/" <> show n
-                S.yieldM $
+                S.valueM $
                     when (even i) $ do
                         dbgMVar ("first take concurrentUnfoldrM " <> msg)
                                 (takeMVar mv)
@@ -481,12 +481,12 @@ main = hspec
 
     it "asyncly crosses thread limit (2000 threads)" $
         S.drain (asyncly $ fold $
-                   replicate 2000 $ S.yieldM $ threadDelay 1000000)
+                   replicate 2000 $ S.valueM $ threadDelay 1000000)
         `shouldReturn` ()
 
     it "aheadly crosses thread limit (4000 threads)" $
         S.drain (aheadly $ fold $
-                   replicate 4000 $ S.yieldM $ threadDelay 1000000)
+                   replicate 4000 $ S.valueM $ threadDelay 1000000)
         `shouldReturn` ()
 
 #ifdef DEVBUILD

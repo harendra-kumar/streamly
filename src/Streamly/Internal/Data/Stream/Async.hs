@@ -663,7 +663,7 @@ async = joinStreamVarAsync AsyncVar
 {-# INLINE consMAsync #-}
 {-# SPECIALIZE consMAsync :: IO a -> AsyncT IO a -> AsyncT IO a #-}
 consMAsync :: MonadAsync m => m a -> AsyncT m a -> AsyncT m a
-consMAsync m r = fromStream $ K.yieldM m `async` (toStream r)
+consMAsync m r = fromStream $ K.valueM m `async` (toStream r)
 
 ------------------------------------------------------------------------------
 -- AsyncT
@@ -705,7 +705,7 @@ consMAsync m r = fromStream $ K.yieldM m `async` (toStream r)
 -- @
 -- main = S.'drain' . S.'asyncly' $ do
 --     n <- return 3 \<\> return 2 \<\> return 1
---     S.yieldM $ do
+--     S.valueM $ do
 --          threadDelay (n * 1000000)
 --          myThreadId >>= \\tid -> putStrLn (show tid ++ ": Delay " ++ show n)
 -- @
@@ -814,7 +814,7 @@ MONAD_COMMON_INSTANCES(AsyncT, MONADPARALLEL)
 {-# INLINE consMWAsync #-}
 {-# SPECIALIZE consMWAsync :: IO a -> WAsyncT IO a -> WAsyncT IO a #-}
 consMWAsync :: MonadAsync m => m a -> WAsyncT m a -> WAsyncT m a
-consMWAsync m r = fromStream $ K.yieldM m `wAsync` (toStream r)
+consMWAsync m r = fromStream $ K.valueM m `wAsync` (toStream r)
 
 infixr 6 `wAsync`
 
@@ -913,7 +913,7 @@ wAsync = joinStreamVarAsync WAsyncVar
 -- @
 -- main = S.'drain' . S.'wAsyncly' $ do
 --     n <- return 3 \<\> return 2 \<\> return 1
---     S.yieldM $ do
+--     S.valueM $ do
 --          threadDelay (n * 1000000)
 --          myThreadId >>= \\tid -> putStrLn (show tid ++ ": Delay " ++ show n)
 -- @

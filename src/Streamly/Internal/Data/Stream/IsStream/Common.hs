@@ -15,7 +15,7 @@ module Streamly.Internal.Data.Stream.IsStream.Common
     (
     -- * Generation
       value
-    , yieldM
+    , valueM
     , repeatM
     , timesWith
     , absTimesWith
@@ -87,7 +87,7 @@ import Prelude hiding (take, takeWhile, drop, reverse)
 -- Generation
 ------------------------------------------------------------------------------
 
--- Faster than yieldM because there is no bind.
+-- Faster than valueM because there is no bind.
 --
 -- |
 -- @
@@ -100,7 +100,7 @@ import Prelude hiding (take, takeWhile, drop, reverse)
 --
 -- @
 -- value = pure
--- value = yieldM . pure
+-- value = valueM . pure
 -- @
 --
 -- In Zip applicative streams 'value' is not the same as 'pure' because in that
@@ -115,26 +115,26 @@ value = K.value
 
 -- |
 -- @
--- yieldM m = m \`consM` nil
+-- valueM m = m \`consM` nil
 -- @
 --
 -- Create a singleton stream from a monadic action.
 --
 -- @
--- > Stream.toList $ Stream.yieldM getLine
+-- > Stream.toList $ Stream.valueM getLine
 -- hello
 -- ["hello"]
 -- @
 --
--- @since 0.4.0
-{-# INLINE yieldM #-}
-yieldM :: (Monad m, IsStream t) => m a -> t m a
-yieldM = K.yieldM
+-- @since 0.8.0
+{-# INLINE valueM #-}
+valueM :: (Monad m, IsStream t) => m a -> t m a
+valueM = K.valueM
 
 -- |
 -- @
 -- repeatM = fix . consM
--- repeatM = cycle1 . yieldM
+-- repeatM = cycle1 . valueM
 -- @
 --
 -- Generate a stream by repeatedly executing a monadic action forever.
@@ -448,7 +448,7 @@ concatMapM f m = fromStreamD $ D.concatMapM (fmap toStreamD . f) (toStreamD m)
 -- monad with the stream monad.
 --
 -- @
--- concatM = concat . yieldM
+-- concatM = concat . valueM
 -- concatM = concat . lift    -- requires @(MonadTrans t)@
 -- concatM = join . lift      -- requires @(MonadTrans t@, @Monad (t m))@
 -- @

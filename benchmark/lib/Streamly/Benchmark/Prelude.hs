@@ -323,12 +323,12 @@ sourceFoldMapWithStream value n = S.concatMapFoldableWith (<>) S.value
 sourceFoldMapWithM :: (S.IsStream t, Monad m, Semigroup (t m Int))
     => Int -> Int -> t m Int
 sourceFoldMapWithM value n =
-    S.concatMapFoldableWith (<>) (S.yieldM . return) [n..n+value]
+    S.concatMapFoldableWith (<>) (S.valueM . return) [n..n+value]
 
 {-# INLINE sourceFoldMapM #-}
 sourceFoldMapM :: (S.IsStream t, Monad m, Monoid (t m Int))
     => Int -> Int -> t m Int
-sourceFoldMapM value n = F.foldMap (S.yieldM . return) [n..n+value]
+sourceFoldMapM value n = F.foldMap (S.valueM . return) [n..n+value]
 
 -------------------------------------------------------------------------------
 -- Concat
@@ -338,7 +338,7 @@ sourceFoldMapM value n = F.foldMap (S.yieldM . return) [n..n+value]
 sourceConcatMapId :: (S.IsStream t, Monad m)
     => Int -> Int -> t m (t m Int)
 sourceConcatMapId value n =
-    S.fromFoldable $ fmap (S.yieldM . return) [n..n+value]
+    S.fromFoldable $ fmap (S.valueM . return) [n..n+value]
 
 -- concatMapWith
 

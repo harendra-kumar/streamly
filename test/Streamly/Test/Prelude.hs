@@ -77,21 +77,21 @@ mixedOps =
 
     composeMixed :: SerialT IO Int
     composeMixed = do
-        S.yieldM $ return ()
-        S.yieldM $ putStr ""
+        S.valueM $ return ()
+        S.valueM $ putStr ""
         let x = 1
         let y = 2
         z <- do
                 x1 <- S.wAsyncly $ return 1 <> return 2
-                S.yieldM $ return ()
-                S.yieldM $ putStr ""
+                S.valueM $ return ()
+                S.valueM $ putStr ""
                 y1 <- S.asyncly $ return 1 <> return 2
                 z1 <- do
                     x11 <- return 1 <> return 2
                     y11 <- S.asyncly $ return 1 <> return 2
                     z11 <- S.wSerially $ return 1 <> return 2
-                    S.yieldM $ return ()
-                    S.yieldM $ putStr ""
+                    S.valueM $ return ()
+                    S.valueM $ putStr ""
                     return (x11 + y11 + z11)
                 return (x1 + y1 + z1)
         return (x + y + z)
@@ -107,21 +107,21 @@ mixedOpsAheadly =
 
     composeMixed :: SerialT IO Int
     composeMixed = do
-        S.yieldM $ return ()
-        S.yieldM $ putStr ""
+        S.valueM $ return ()
+        S.valueM $ putStr ""
         let x = 1
         let y = 2
         z <- do
                 x1 <- S.wAsyncly $ return 1 <> return 2
-                S.yieldM $ return ()
-                S.yieldM $ putStr ""
+                S.valueM $ return ()
+                S.valueM $ putStr ""
                 y1 <- S.aheadly $ return 1 <> return 2
                 z1 <- do
                     x11 <- return 1 <> return 2
                     y11 <- S.aheadly $ return 1 <> return 2
                     z11 <- S.parallely $ return 1 <> return 2
-                    S.yieldM $ return ()
-                    S.yieldM $ putStr ""
+                    S.valueM $ return ()
+                    S.valueM $ putStr ""
                     return (x11 + y11 + z11)
                 return (x1 + y1 + z1)
         return (x + y + z)
@@ -129,20 +129,20 @@ mixedOpsAheadly =
 -- XXX Merge both the loops.
 nestedLoops :: IO ()
 nestedLoops = S.drain $ do
-    S.yieldM $ hSetBuffering stdout LineBuffering
+    S.valueM $ hSetBuffering stdout LineBuffering
     x <- loop "A " 2
     y <- loop "B " 2
-    S.yieldM $ myThreadId >>= putStr . show
+    S.valueM $ myThreadId >>= putStr . show
              >> putStr " "
              >> print (x, y)
 
     where
 
     -- we can just use
-    -- parallely $ mconcat $ replicate n $ yieldM (...)
+    -- parallely $ mconcat $ replicate n $ valueM (...)
     loop :: String -> Int -> SerialT IO String
     loop name n = do
-        rnd <- S.yieldM (randomIO :: IO Int)
+        rnd <- S.valueM (randomIO :: IO Int)
         let result = name <> show rnd
             repeatIt = if n > 1 then loop name (n - 1) else S.nil
          in return result `S.wAsync` repeatIt
@@ -152,19 +152,19 @@ parallelLoops = do
     hSetBuffering stdout LineBuffering
     S.drain $ do
         x <- S.take 10 $ loop "A" `S.parallel` loop "B"
-        S.yieldM $ myThreadId >>= putStr . show
+        S.valueM $ myThreadId >>= putStr . show
                >> putStr " got "
                >> print x
 
     where
 
     -- we can just use
-    -- parallely $ cycle1 $ yieldM (...)
+    -- parallely $ cycle1 $ valueM (...)
     loop :: String -> SerialT IO (String, Int)
     loop name = do
-        S.yieldM $ threadDelay 1000000
-        rnd <- S.yieldM (randomIO :: IO Int)
-        S.yieldM $ myThreadId >>= putStr . show
+        S.valueM $ threadDelay 1000000
+        rnd <- S.valueM (randomIO :: IO Int)
+        S.valueM $ myThreadId >>= putStr . show
                >> putStr " yielding "
                >> print rnd
         return (name, rnd) `S.parallel` loop name

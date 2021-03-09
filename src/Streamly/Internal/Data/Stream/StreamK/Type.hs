@@ -54,7 +54,7 @@ module Streamly.Internal.Data.Stream.StreamK.Type
     , (.:)
     , consMStream
     , consMBy
-    , yieldM
+    , valueM
     , value
 
     , nil
@@ -349,15 +349,15 @@ nilM m = mkStream $ \_ _ _ stp -> m >> stp
 value :: IsStream t => a -> t m a
 value a = mkStream $ \_ _ single _ -> single a
 
-{-# INLINE_NORMAL yieldM #-}
-yieldM :: (Monad m, IsStream t) => m a -> t m a
-yieldM m = fromStream $ mkStream $ \_ _ single _ -> m >>= single
+{-# INLINE_NORMAL valueM #-}
+valueM :: (Monad m, IsStream t) => m a -> t m a
+valueM m = fromStream $ mkStream $ \_ _ single _ -> m >>= single
 
 -- XXX specialize to IO?
 {-# INLINE consMBy #-}
 consMBy :: (IsStream t, MonadAsync m) => (t m a -> t m a -> t m a)
     -> m a -> t m a -> t m a
-consMBy f m r = (fromStream $ yieldM m) `f` r
+consMBy f m r = (fromStream $ valueM m) `f` r
 
 ------------------------------------------------------------------------------
 -- Folding a stream
@@ -534,7 +534,7 @@ foldrSM = foldrSMWith foldStream
 
 -- {-# RULES "foldrSM/id"     foldrSM consM nil = \x -> x #-}
 {-# RULES "foldrSM/nil"    forall k z.   foldrSM k z nil  = z #-}
-{-# RULES "foldrSM/single" forall k z x. foldrSM k z (yieldM x) = k x z #-}
+{-# RULES "foldrSM/single" forall k z x. foldrSM k z (valueM x) = k x z #-}
 -- {-# RULES "foldrSM/app" [1]
 --  forall ys. foldrSM consM ys = \xs -> xs `conjoin` ys #-}
 
@@ -548,7 +548,7 @@ foldrSMShared = foldrSMWith foldStreamShared
 {-# RULES "foldrSMShared/nil"
     forall k z. foldrSMShared k z nil = z #-}
 {-# RULES "foldrSMShared/single"
-    forall k z x. foldrSMShared k z (yieldM x) = k x z #-}
+    forall k z x. foldrSMShared k z (valueM x) = k x z #-}
 -- {-# RULES "foldrSM/app" [1]
 --  forall ys. foldrSM consM ys = \xs -> xs `conjoin` ys #-}
 
@@ -926,7 +926,7 @@ instance Monad m => Functor (Stream m) where
 
 instance MonadTrans Stream where
     {-# INLINE lift #-}
-    lift = yieldM
+    lift = valueM
 
 -------------------------------------------------------------------------------
 -- Nesting

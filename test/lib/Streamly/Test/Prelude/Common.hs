@@ -30,7 +30,7 @@ module Streamly.Test.Prelude.Common
     , constructWithCons
     , constructWithConsM
     , constructWithValue
-    , constructWithYieldM
+    , constructWithValueM
     , simpleOps
     -- * Applicative operations
     , applicativeOps
@@ -416,7 +416,7 @@ constructWithValue listT op len =
         let list = replicate (fromIntegral len) 0
         listEquals (==) (listT strm) list
 
-constructWithYieldM ::
+constructWithValueM ::
        (IsStream t
 #if __GLASGOW_HASKELL__ < 806
        , Monoid (t IO Int)
@@ -426,13 +426,13 @@ constructWithYieldM ::
     -> (t IO Int -> SerialT IO Int)
     -> Word8
     -> Property
-constructWithYieldM listT op len =
+constructWithValueM listT op len =
     withMaxSuccess maxTestCount $
     monadicIO $ do
         strm <-
             run
                 $ S.toList . op . S.take (fromIntegral len)
-                $ foldMap S.yieldM (repeat (return 0))
+                $ foldMap S.valueM (repeat (return 0))
         let list = replicate (fromIntegral len) 0
         listEquals (==) (listT strm) list
 
@@ -448,7 +448,7 @@ simpleProps constr op a = monadicIO $ do
 simpleOps :: IsStream t => (t IO Int -> SerialT IO Int) -> Spec
 simpleOps op = do
   prop "value a = a" $ simpleProps S.value op
-  prop "yieldM a = a" $ simpleProps (S.yieldM . return) op
+  prop "valueM a = a" $ simpleProps (S.valueM . return) op
 
 -------------------------------------------------------------------------------
 -- Applicative operations
@@ -787,12 +787,12 @@ loops t tsrt hsrt = do
     where
         loopHead x = do
             -- this print line is important for the test (causes a bind)
-            S.yieldM $ putStrLn "LoopHead..."
+            S.valueM $ putStrLn "LoopHead..."
             t $ (if x < 3 then loopHead (x + 1) else nil) <> return x
 
         loopTail x = do
             -- this print line is important for the test (causes a bind)
-            S.yieldM $ putStrLn "LoopTail..."
+            S.valueM $ putStrLn "LoopTail..."
             t $ return x <> (if x < 3 then loopTail (x + 1) else nil)
 
 ---------------------------------------------------------------------------
@@ -1386,7 +1386,7 @@ parallelCheck t f = do
         (S.toList . t) (event 4 `f` (event 3 `f` (event 2 `f` event 1)))
             `shouldReturn` [1..4]
 
-    where event n = S.yieldM (threadDelay (n * 200000)) >> return n
+    where event n = S.valueM (threadDelay (n * 200000)) >> return n
 
 -------------------------------------------------------------------------------
 -- Exception ops

@@ -130,7 +130,7 @@ sourceFoldMapWith n = concatMapFoldableWith S.serial S.value [n..n+value]
 {-# INLINE sourceFoldMapWithM #-}
 sourceFoldMapWithM :: Monad m => Int -> Stream m Int
 sourceFoldMapWithM n =
-    concatMapFoldableWith S.serial (S.yieldM . return) [n..n+value]
+    concatMapFoldableWith S.serial (S.valueM . return) [n..n+value]
 
 -------------------------------------------------------------------------------
 -- Elimination
@@ -362,7 +362,7 @@ inspect $ hasNoTypeClasses 'concatMapRepl
 sourceConcatMapId :: Monad m
     => Int -> Int -> Stream m (Stream m Int)
 sourceConcatMapId val n =
-    S.fromFoldable $ fmap (S.yieldM . return) [n..n+val]
+    S.fromFoldable $ fmap (S.valueM . return) [n..n+val]
 
 {-# INLINE concatStreamsWith #-}
 concatStreamsWith :: Int -> Int -> Int -> IO ()

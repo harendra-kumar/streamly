@@ -154,9 +154,9 @@ checkEvents rootPath m matchList = do
 checker :: S.IsStream t =>
                 FilePath -> MVar () -> [String] -> t IO String
 checker rootPath synch matchList =
-    S.yieldM (checkEvents rootPath synch matchList)
+    S.valueM (checkEvents rootPath synch matchList)
     `S.parallelFst`
-    S.yieldM timeout
+    S.valueM timeout
 
 -------------------------------------------------------------------------------
 -- Test Drivers
@@ -178,7 +178,7 @@ driver (desc, pre, ops, events) = it desc $ runTest `shouldReturn` "PASS"
         withSystemTempDirectory fseventDir $ \fp -> do
             pre fp
             let eventStream = checker fp sync events
-                fsOps = S.yieldM $ runFSOps fp sync
+                fsOps = S.valueM $ runFSOps fp sync
             fmap fromJust $ S.head $ eventStream `S.parallelFst` fsOps
 
     runFSOps fp sync = do

@@ -270,7 +270,7 @@ import Streamly.Internal.Data.Stream.IsStream.Common
     , smapM
     , splitOnSeq
     , value
-    , yieldM)
+    , valueM)
 import Streamly.Internal.Data.Stream.Parallel (parallel)
 import Streamly.Internal.Data.Stream.Prelude
        ( fromStreamS, toStreamS, concatFoldableWith, concatMapFoldableWith
@@ -833,7 +833,7 @@ intercalateSuffix seed unf str = fromStreamD $ D.concatUnfold unf
 -- Note that 'iterateM' is a special case of 'iterateMapWith':
 --
 -- @
--- iterateM f = iterateMapWith serial (yieldM . f) . yieldM
+-- iterateM f = iterateMapWith serial (valueM . f) . valueM
 -- @
 --
 -- It can be used to traverse a tree structure.  For example, to list a
@@ -893,7 +893,7 @@ iterateSmapMWith
     -> t m a
     -> t m a
 iterateSmapMWith combine f initial stream =
-    concatMap (\b -> concatMapWith combine (go b) stream) (yieldM initial)
+    concatMap (\b -> concatMapWith combine (go b) stream) (valueM initial)
 
     where
 
@@ -902,7 +902,7 @@ iterateSmapMWith combine f initial stream =
     feedback b a =
         concatMap
             (\(b1, s) -> concatMapWith combine (go b1) s)
-            (yieldM $ f b a)
+            (valueM $ f b a)
 
 ------------------------------------------------------------------------------
 -- iterateMap - Either streams

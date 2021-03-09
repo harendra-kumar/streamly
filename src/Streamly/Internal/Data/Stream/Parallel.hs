@@ -218,7 +218,7 @@ joinStreamVarPar style ss m1 m2 = mkStream $ \st yld sng stp ->
 {-# INLINE consMParallel #-}
 {-# SPECIALIZE consMParallel :: IO a -> ParallelT IO a -> ParallelT IO a #-}
 consMParallel :: MonadAsync m => m a -> ParallelT m a -> ParallelT m a
-consMParallel m r = fromStream $ K.yieldM m `parallel` (toStream r)
+consMParallel m r = fromStream $ K.valueM m `parallel` (toStream r)
 
 infixr 6 `parallel`
 
@@ -235,14 +235,14 @@ infixr 6 `parallel`
 -- singleton streams.  The following trivial example is semantically equivalent
 -- to running the action @putStrLn "hello"@ in the current thread:
 --
--- >>> Stream.toList $ Stream.yieldM (putStrLn "hello") `Stream.parallel` Stream.nil
+-- >>> Stream.toList $ Stream.valueM (putStrLn "hello") `Stream.parallel` Stream.nil
 -- hello
 -- [()]
 --
 -- Run two actions concurrently:
 --
 -- >>> import Control.Concurrent (threadDelay)
--- >>> Stream.toList $ Stream.yieldM (putStrLn "hello") `Stream.parallel` Stream.yieldM (threadDelay 100000 >> putStrLn "world")
+-- >>> Stream.toList $ Stream.valueM (putStrLn "hello") `Stream.parallel` Stream.valueM (threadDelay 100000 >> putStrLn "world")
 -- hello
 -- world
 -- [(),()]
@@ -256,7 +256,7 @@ infixr 6 `parallel`
 --
 -- Run an effectful action, and a pure effect without any output, concurrently:
 --
--- >>> Stream.toList $ Stream.yieldM (return 1) `Stream.parallel` Stream.nilM (putStrLn "world")
+-- >>> Stream.toList $ Stream.valueM (return 1) `Stream.parallel` Stream.nilM (putStrLn "world")
 -- world
 -- [1]
 --
@@ -532,7 +532,7 @@ distributeAsync_ = flip (foldr tapAsync)
 --
 -- main = S.'drain' . S.'parallely' $ do
 --     n <- return 3 \<\> return 2 \<\> return 1
---     S.yieldM $ do
+--     S.valueM $ do
 --          threadDelay (n * 1000000)
 --          myThreadId >>= \\tid -> putStrLn (show tid ++ ": Delay " ++ show n)
 -- @

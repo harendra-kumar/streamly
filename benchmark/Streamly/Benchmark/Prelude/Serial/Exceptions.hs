@@ -51,7 +51,7 @@ readWriteOnExceptionStream inh devNull =
 -- | Send the file contents to /dev/null with exception handling
 readWriteHandleExceptionStream :: Handle -> Handle -> IO ()
 readWriteHandleExceptionStream inh devNull =
-    let handler (_e :: SomeException) = S.yieldM (hClose inh >> return 10)
+    let handler (_e :: SomeException) = S.valueM (hClose inh >> return 10)
         readEx = S.handle handler (S.unfold FH.read inh)
     in S.fold (FH.write devNull) $ readEx
 

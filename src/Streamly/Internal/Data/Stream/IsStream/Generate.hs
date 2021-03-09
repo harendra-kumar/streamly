@@ -36,7 +36,7 @@ module Streamly.Internal.Data.Stream.IsStream.Generate
 
     -- * From Values
     , value
-    , yieldM
+    , valueM
     , repeat
     , repeatM
     , replicate
@@ -80,6 +80,7 @@ module Streamly.Internal.Data.Stream.IsStream.Generate
     -- * Deprecated
     , K.once
     , yield
+    , yieldM
     , each
     , fromHandle
     , currentTime
@@ -95,7 +96,7 @@ import Streamly.Internal.Data.SVar (MonadAsync, Rate (..))
 import Streamly.Internal.Data.Stream.IsStream.Enumeration
     (Enumerable(..), enumerate, enumerateTo)
 import Streamly.Internal.Data.Stream.IsStream.Common
-    (absTimesWith, concatM, relTimesWith, timesWith, value, yieldM, repeatM)
+    (absTimesWith, concatM, relTimesWith, timesWith, value, valueM, repeatM)
 import Streamly.Internal.Data.Stream.Prelude (fromStreamS)
 import Streamly.Internal.Data.Stream.StreamD (fromStreamD)
 import Streamly.Internal.Data.Stream.StreamK (IsStream((|:), consM))
@@ -580,3 +581,11 @@ fromCallback setCallback = concatM $ do
 {-# INLINE yield #-}
 yield :: IsStream t => a -> t m a
 yield = value
+
+-- | Same as valueM
+--
+-- @since 0.4.0
+{-# DEPRECATED yieldM "Please use valueM instead." #-}
+{-# INLINE yieldM #-}
+yieldM :: (Monad m, IsStream t) => m a -> t m a
+yieldM = valueM

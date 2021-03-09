@@ -563,7 +563,7 @@ instance Functor m => Functor (Fold m a) where
 yield :: Applicative m => b -> Fold m a b
 yield b = Fold undefined (pure $ Done b) pure
 
--- This is the dual of stream "yieldM".
+-- This is the dual of stream "valueM".
 --
 -- | A fold that always yields the result of an effectful action without
 -- consuming any input.

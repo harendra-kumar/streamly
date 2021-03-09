@@ -192,7 +192,7 @@ import Control.Monad.Trans.Class   (MonadTrans (lift))
 -- represents a single IO action whereas the 'Serial' monad represents a series
 -- of IO actions.  The only change you need to make to go from 'IO' to 'Serial'
 -- is to use 'drain' to run the monad and to prefix the IO actions with
--- either 'yieldM' or 'liftIO'.  If you use liftIO you can switch from 'Serial'
+-- either 'valueM' or 'liftIO'.  If you use liftIO you can switch from 'Serial'
 -- to IO monad by simply removing the 'drain' function; no other changes
 -- are needed unless you have used some stream specific composition or
 -- combinators.
@@ -364,7 +364,7 @@ import Control.Monad.Trans.Class   (MonadTrans (lift))
 -- @
 --
 -- To create a singleton stream from a pure value use 'value' or 'pure' and to
--- create a singleton stream from a monadic action use 'yieldM'. Note that in
+-- create a singleton stream from a monadic action use 'valueM'. Note that in
 -- case of Zip applicative streams "pure" repeats the value to generate an
 -- infinite stream.
 --
@@ -373,7 +373,7 @@ import Control.Monad.Trans.Class   (MonadTrans (lift))
 -- [1]
 -- > S.'toList' $ S.'value' 1
 -- [1]
--- > S.'toList' $ S.'yieldM' 'getLine'
+-- > S.'toList' $ S.'valueM' 'getLine'
 -- hello
 -- ["hello"]
 -- @
@@ -529,7 +529,7 @@ import Control.Monad.Trans.Class   (MonadTrans (lift))
 -- seconds. After the delay it prints the number of seconds it slept.
 --
 -- @
--- delay n = S.'yieldM' $ do
+-- delay n = S.'valueM' $ do
 --  threadDelay (n * 1000000)
 --  tid \<- myThreadId
 --  putStrLn (show tid ++ ": Delay " ++ show n)
@@ -760,7 +760,7 @@ import Control.Monad.Trans.Class   (MonadTrans (lift))
 --
 -- @
 -- main = S.'drain' . S.'asyncly' $ traced (sqrt 9) '<>' traced (sqrt 16) '<>' traced (sqrt 25)
---  where traced m = S.'yieldM' (myThreadId >>= print) >> return m
+--  where traced m = S.'valueM' (myThreadId >>= print) >> return m
 -- @
 -- @
 -- ThreadId 40
@@ -882,7 +882,7 @@ import Control.Monad.Trans.Class   (MonadTrans (lift))
 --         google     = get "https://www.google.com/search?q=haskell"
 --         bing       = get "https://www.bing.com/search?q=haskell"
 --         duckduckgo = get "https://www.duckduckgo.com/?q=haskell"
---         get s = S.'yieldM' (httpNoBody (parseRequest_ s) >> putStrLn (show s))
+--         get s = S.'valueM' (httpNoBody (parseRequest_ s) >> putStrLn (show s))
 -- @
 --
 -- The polymorphic version of the binary operation '<>' of the 'Parallel' type
@@ -941,7 +941,7 @@ import Control.Monad.Trans.Class   (MonadTrans (lift))
 --  S.'drain' $ S.'concatFoldableWith' S.'async' (map delay [1..10])
 --  S.'drain' $ S.'concatMapFoldableWith' S.'async' delay [1..10]
 --  S.'drain' $ S.'concatForFoldableWith' S.'async' [1..10] delay
---  where delay n = S.'yieldM' $ threadDelay (n * 1000000) >> print n
+--  where delay n = S.'valueM' $ threadDelay (n * 1000000) >> print n
 -- @
 
 -- $nesting
@@ -1011,7 +1011,7 @@ import Control.Monad.Trans.Class   (MonadTrans (lift))
 --
 -- import Control.Monad (forever)
 --
--- main = S.'drain' $ forever $ S.'yieldM' getLine >>= S.'yieldM' . putStrLn
+-- main = S.'drain' $ forever $ S.'valueM' getLine >>= S.'valueM' . putStrLn
 -- @
 --
 -- When multiple streams are composed using this style they nest in a DFS
@@ -1025,7 +1025,7 @@ import Control.Monad.Trans.Class   (MonadTrans (lift))
 -- main = S.'drain' $ do
 --     x <- S.'fromFoldable' [1,2]
 --     y <- S.'fromFoldable' [3,4]
---     S.'yieldM' $ putStrLn $ show (x, y)
+--     S.'valueM' $ putStrLn $ show (x, y)
 -- @
 -- @
 -- (1,3)
@@ -1119,7 +1119,7 @@ import Control.Monad.Trans.Class   (MonadTrans (lift))
 -- main = S.'drain' . S.'asyncly' $ do
 --     x <- S.'fromFoldable' [1,2]
 --     y <- S.'fromFoldable' [3,4]
---     S.'yieldM' $ putStrLn $ show (x, y)
+--     S.'valueM' $ putStrLn $ show (x, y)
 -- @
 -- @
 -- (1,3)
@@ -1143,7 +1143,7 @@ import Control.Monad.Trans.Class   (MonadTrans (lift))
 -- main = S.'drain' . S.'wSerially' $ do
 --     x <- S.'fromFoldable' [1,2]
 --     y <- S.'fromFoldable' [3,4]
---     S.yieldM $ putStrLn $ show (x, y)
+--     S.valueM $ putStrLn $ show (x, y)
 -- @
 -- @
 -- (1,3)
@@ -1170,7 +1170,7 @@ import Control.Monad.Trans.Class   (MonadTrans (lift))
 -- main = S.'drain' . S.'wAsyncly' $ do
 --     x <- S.'fromFoldable' [1,2]
 --     y <- S.'fromFoldable' [3,4]
---     S.'yieldM' $ putStrLn $ show (x, y)
+--     S.'valueM' $ putStrLn $ show (x, y)
 -- @
 -- @
 -- (1,3)
@@ -1217,7 +1217,7 @@ import Control.Monad.Trans.Class   (MonadTrans (lift))
 --     sz <- sizes
 --     cl <- colors
 --     sh <- shapes
---     S.'yieldM' $ putStrLn $ show (sz, cl, sh)
+--     S.'valueM' $ putStrLn $ show (sz, cl, sh)
 --
 --     where
 --

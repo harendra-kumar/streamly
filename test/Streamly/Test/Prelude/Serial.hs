@@ -473,7 +473,7 @@ testFromCallback = do
     setCallback ref cb = do
         writeIORef ref (Just cb)
 
-    runCallback ref = S.yieldM $ do
+    runCallback ref = S.valueM $ do
         cb <-
               S.repeatM (readIORef ref)
                 & IS.delayPost 0.1
@@ -523,7 +523,7 @@ main = hspec
         it "simple serially" $
             (S.drain . serially) (return (0 :: Int)) `shouldReturn` ()
         it "simple serially with IO" $
-            (S.drain . serially) (S.yieldM $ putStrLn "hello") `shouldReturn` ()
+            (S.drain . serially) (S.valueM $ putStrLn "hello") `shouldReturn` ()
 
     describe "Empty" $
         it "Monoid - mempty" $
@@ -556,7 +556,7 @@ main = hspec
         serialOps $ prop "serially fromListM" . constructWithFromListM id
         serialOps $ prop "serially unfoldr" . constructWithUnfoldr id
         serialOps $ prop "serially value" . constructWithValue id
-        serialOps $ prop "serially yieldM" . constructWithYieldM id
+        serialOps $ prop "serially yieldM" . constructWithValueM id
         serialOps $ prop "serially cons" . constructWithCons S.cons
         serialOps $ prop "serially consM" . constructWithConsM S.consM id
         serialOps $ prop "serially (.:)" . constructWithCons (S..:)

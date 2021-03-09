@@ -108,7 +108,7 @@ module Streamly.Prelude
     -- ** From Values
     -- | Generate a monadic stream from a seed value or values.
     , value
-    , yieldM
+    , valueM
     , repeat
     , repeatM
     , replicate
@@ -634,6 +634,7 @@ module Streamly.Prelude
     -- * Deprecated
     , once
     , yield
+    , yieldM
     , each
     , scanx
     , foldx

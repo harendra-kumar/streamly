@@ -619,7 +619,7 @@ ahead m1 m2 = mkStream $ \st yld sng stp ->
 {-# INLINE consMAhead #-}
 {-# SPECIALIZE consMAhead :: IO a -> AheadT IO a -> AheadT IO a #-}
 consMAhead :: MonadAsync m => m a -> AheadT m a -> AheadT m a
-consMAhead m r = fromStream $ K.yieldM m `ahead` (toStream r)
+consMAhead m r = fromStream $ K.valueM m `ahead` (toStream r)
 
 ------------------------------------------------------------------------------
 -- AheadT
@@ -656,7 +656,7 @@ consMAhead m r = fromStream $ K.yieldM m `ahead` (toStream r)
 -- @
 -- main = S.drain . S.'aheadly' $ do
 --     n <- return 3 \<\> return 2 \<\> return 1
---     S.yieldM $ do
+--     S.valueM $ do
 --          threadDelay (n * 1000000)
 --          myThreadId >>= \\tid -> putStrLn (show tid ++ ": Delay " ++ show n)
 -- @

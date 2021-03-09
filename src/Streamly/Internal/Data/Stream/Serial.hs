@@ -106,7 +106,7 @@ import Prelude hiding (map, mapM, errorWithoutStackTrace)
 -- @
 -- main = S.drain . 'serially' $ do
 --     x <- return 1 \<\> return 2
---     S.yieldM $ print x
+--     S.valueM $ print x
 -- @
 -- @
 -- 1
@@ -119,7 +119,7 @@ import Prelude hiding (map, mapM, errorWithoutStackTrace)
 -- main = S.drain . 'serially' $ do
 --     x <- return 1 \<\> return 2
 --     y <- return 3 \<\> return 4
---     S.yieldM $ print (x, y)
+--     S.valueM $ print (x, y)
 -- @
 -- @
 -- (1,3)
@@ -309,7 +309,7 @@ TRAVERSABLE_INSTANCE(SerialT)
 -- main = S.drain . 'wSerially' $ do
 --     x <- return 1 \<\> return 2
 --     y <- return 3 \<\> return 4
---     S.yieldM $ print (x, y)
+--     S.valueM $ print (x, y)
 -- @
 -- @
 -- (1,3)
